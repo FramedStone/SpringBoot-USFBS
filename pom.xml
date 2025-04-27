@@ -45,7 +45,7 @@
 		<dependency>
 			<groupId>org.web3j</groupId>
 			<artifactId>core</artifactId>
-			<version>5.0.0</version>
+			<version>4.14.0</version>
 		</dependency>
 
 		<dependency>
@@ -53,6 +53,13 @@
 			<artifactId>quorum</artifactId>
 			<version>4.10.0</version>
 		</dependency>
+
+		<dependency>
+			<groupId>org.web3j</groupId>
+			<artifactId>geth</artifactId>
+			<version>4.14.0</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>
@@ -62,15 +69,31 @@
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
 
-			<!-- web3j -->
+			<!-- smart contract wrapper -->
 			<plugin>
-				<groupId>org.web3j</groupId>
-				<artifactId>web3j-maven-plugin</artifactId>
-				<version>4.8.1</version>
-				<configuration>
-					<soliditySourceFiles/>
-				</configuration>
-			</plugin>
+                <groupId>org.web3j</groupId>
+                <artifactId>web3j-maven-plugin</artifactId>
+                <version>4.14.0</version>
+                <executions>
+                    <execution>
+                        <configuration>
+                            <packageName>com.usfbs.springboot.contracts</packageName>
+                            <sourceDestination>src/main/java</sourceDestination>
+                            <nativeJavaType>true</nativeJavaType>
+                            <soliditySourceFiles>
+                                <directory>src/main/resources/solidity/contracts</directory>
+                                <includes>
+                                    <include>*.sol</include>
+                                </includes>
+                            </soliditySourceFiles>
+                        </configuration>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>generate-sources</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
 		</plugins>
 	</build>
 
