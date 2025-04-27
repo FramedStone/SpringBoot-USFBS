@@ -1,0 +1,7 @@
+quorum:
+    url: ${QUORUM_URL:http://localhost:22000} 
+    privateKey: ${QUORUM_PRIVATE_KEY} 
+    contractAddress: 
+        booking: ${BOOKING_ADDRESS}
+        sportFacility: ${SPORT_FACILITY_ADDRESS}
+        management: ${MANAGEMENT_ADDRESS}
