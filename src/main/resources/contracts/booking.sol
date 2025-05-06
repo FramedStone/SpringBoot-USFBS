@@ -14,8 +14,8 @@ contract Booking {
         uint256 startTime;
         uint256 endTime;
         bookingStatus status;
-        string note[];
-    };
+        string[] note;
+    } 
     bookingTransaction[] public bookings; 
 
     modifier isAdmin {
@@ -89,7 +89,8 @@ contract Booking {
         uint256 endTime
     ) internal view returns(bool) {
         for(uint256 i=0; i<bookings.length; i++) {
-            if(bookings[i].sportFacility == sportFacility && bookings[i].court == court)
+            // compare strings in Solidity
+            if(keccak256(abi.encodePacked(bookings[i].sportFacility)) == keccak256(abi.encodePacked(sportFacility)) && keccak256(abi.encodePacked(bookings[i].court)) == keccak256(abi.encodePacked(court)))
                 if(bookings[i].startTime < endTime && bookings[i].endTime > startTime)
                    return false;
         }
@@ -142,7 +143,7 @@ contract Booking {
         emit bookingDeleted(bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.COMPLETED), "Deleted on-chain (system)", block.timestamp);
     }
 
-    function deleteBooking(bytes32 ipfsHash, uint256 bookingId) external isAdmin {
+    function deleteBooking(bytes32 ipfsHash, uint256 bookingId) public isAdmin {
         require(bookingId < bookings.length, "Index out of bound (bookings)");
         require(bookings[bookingId].ipfsHash == ipfsHash, "ipfsHash doesn't match (bookings)");
         require(bookings[bookingId].bookingId == bookingId, "bookingId doesn't match (bookings)");
@@ -168,7 +169,7 @@ contract Booking {
         emit bookingStatusUpdated(bookingId, ipfsHash, bookings[bookingId].sportFacility, bookings[bookingId].court, bookings[bookingId].startTime, bookings[bookingId].endTime, bookingStatusToString(bookingStatus.CANCELLED), "Cancelled by user manually", block.timestamp);
 
         deleteBooking(ipfsHash, bookingId);
-        emit bookingDeleted(bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.COMPLETED), "Deleted on-chain (system)", block.timestamp);
+        emit bookingDeleted(bookingId, ipfsHash, bookings[bookingId].sportFacility, bookings[bookingId].court, bookings[bookingId].startTime, bookings[bookingId].endTime, bookingStatusToString(bookingStatus.COMPLETED), "Deleted on-chain (system)", block.timestamp);
     }
 
     // reject booking 
