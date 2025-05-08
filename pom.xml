@@ -81,7 +81,7 @@
                             <sourceDestination>src/main/java</sourceDestination>
                             <nativeJavaType>true</nativeJavaType>
                             <soliditySourceFiles>
-                                <directory>src/main/resources/solidity/contracts</directory>
+                                <directory>src/main/resources/contracts</directory>
                                 <includes>
                                     <include>*.sol</include>
                                 </includes>
