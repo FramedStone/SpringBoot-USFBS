@@ -1,4 +1,5 @@
-pragma solidity ^0.8.19;
+// SPDX-License-Identifier: MIT 
+pragma solidity 0.8.19;
 
 contract Booking {
     // Variable & Modifier Initialization
@@ -46,7 +47,6 @@ contract Booking {
         string status,
         string note,
         uint256 time
-
     );
     event bookingDeleted(
         uint256 bookingId,
