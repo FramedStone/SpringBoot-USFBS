@@ -17,11 +17,18 @@ public class QuorumConfig {
     private String quorumUrl;
     @Value("${quorum.privateKey}")
     private String privateKey;
+    // @Value("${quorum.chainId}")
+    // private long chainId;
 
     @Bean
     public Quorum quorum() {
         return Quorum.build(new HttpService(quorumUrl));
     }
+
+    // @Bean
+    // public long chainId() {
+    //     return chainId;
+    // }
 
     @Bean
     public Credentials credentials() {
