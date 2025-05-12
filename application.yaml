@@ -1,0 +1,8 @@
+quorum:
+    url: ${QUORUM_URL:http://localhost:22000} 
+    privateKey: ${QUORUM_PRIVATE_KEY:0x499ab35265f08d1181453cc32c3a087c00d81c0d517cd4a041ff39b7e425ea49} 
+    chainId: ${QUORUM_CHAIN_ID:1337}
+    contractAddress: 
+        booking: ${BOOKING_ADDRESS}
+        sportFacility: ${SPORT_FACILITY_ADDRESS}
+        management: ${MANAGEMENT_ADDRESS}
