@@ -111,6 +111,11 @@ contract Booking {
         uint256 endTime
     ) external returns(uint256) {
         uint256 bookingId = bookings.length;
+        // check for available element slot
+        for(uint256 i=0; i<bookings.length; i++) {
+            if(bookings[i] == 0)
+                bookingId = i;
+        }
         bookingTransaction memory booking = bookingTransaction(msg.sender, bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatus.PENDING, new string[](0));
         emit bookingCreated(msg.sender, bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.PENDING), "", block.timestamp);
 
@@ -143,22 +148,6 @@ contract Booking {
         emit bookingDeleted(bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.COMPLETED), "Deleted on-chain (system)", block.timestamp);
     }
 
-    function deleteBooking(bytes32 ipfsHash, uint256 bookingId) public isAdmin {
-        require(bookingId < bookings.length, "Index out of bound (bookings)");
-        require(bookings[bookingId].ipfsHash == ipfsHash, "ipfsHash doesn't match (bookings)");
-        require(bookings[bookingId].bookingId == bookingId, "bookingId doesn't match (bookings)");
-        require(block.timestamp >= bookings[bookingId].endTime, "booking not yet expired (bookings)"); 
-
-        // cache values before delete
-        string memory sportFacility = bookings[bookingId].sportFacility;
-        string memory court = bookings[bookingId].court;
-        uint256 startTime = bookings[bookingId].startTime;
-        uint256 endTime = bookings[bookingId].endTime;
-        delete bookings[bookingId];
-
-        emit bookingDeleted(bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.COMPLETED), "Deleted on-chain (system)", block.timestamp);
-    }
-
     // cancel booking
     function cancelBooking(bytes32 ipfsHash, uint256 bookingId) external {
         require(bookings[bookingId].ipfsHash == ipfsHash, "ipfsHash doesn't match (bookings)");
@@ -167,9 +156,6 @@ contract Booking {
 
         bookings[bookingId].status = bookingStatus.CANCELLED;
         emit bookingStatusUpdated(bookingId, ipfsHash, bookings[bookingId].sportFacility, bookings[bookingId].court, bookings[bookingId].startTime, bookings[bookingId].endTime, bookingStatusToString(bookingStatus.CANCELLED), "Cancelled by user manually", block.timestamp);
-
-        deleteBooking(ipfsHash, bookingId);
-        emit bookingDeleted(bookingId, ipfsHash, bookings[bookingId].sportFacility, bookings[bookingId].court, bookings[bookingId].startTime, bookings[bookingId].endTime, bookingStatusToString(bookingStatus.COMPLETED), "Deleted on-chain (system)", block.timestamp);
     }
 
     // reject booking 
