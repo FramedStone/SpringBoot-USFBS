@@ -91,7 +91,7 @@ contract Booking {
         for(uint256 i=0; i<bookings.length; i++) {
             // compare strings in Solidity
             if(keccak256(abi.encodePacked(bookings[i].sportFacility)) == keccak256(abi.encodePacked(sportFacility)) && keccak256(abi.encodePacked(bookings[i].court)) == keccak256(abi.encodePacked(court)))
-                if(bookings[i].startTime < endTime && bookings[i].endTime > startTime)
+                if(bookings[i].startTime < endTime && bookings[i].endTime > startTime && bookings[i].status != bookingStatus.COMPLETED)
                    return false;
         }
         return true;
@@ -113,7 +113,7 @@ contract Booking {
         uint256 bookingId = bookings.length;
         // check for available element slot
         for(uint256 i=0; i<bookings.length; i++) {
-            if(bookings[i] == 0)
+            if(bookings[i].bookingId == 0)
                 bookingId = i;
         }
         bookingTransaction memory booking = bookingTransaction(msg.sender, bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatus.PENDING, new string[](0));
@@ -126,7 +126,11 @@ contract Booking {
             booking.status = bookingStatus.REJECTED;
             emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.REJECTED), "Rejected due to conflict (system)", block.timestamp);
         }
-        bookings.push(booking);
+        if(bookingId == bookings.length) 
+            bookings.push(booking);
+        else {
+            bookings[bookingId] = booking;
+        }
 
         return bookingId;
     }
