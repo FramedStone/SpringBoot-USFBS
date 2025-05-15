@@ -1,13 +1,11 @@
 package com.usfbs.springboot.initializer;
 
-import java.math.BigInteger;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.web3j.crypto.Credentials;
-import org.web3j.protocol.core.DefaultBlockParameterName;            
+import org.web3j.protocol.core.DefaultBlockParameterName;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.quorum.Quorum;
 import org.web3j.tx.RawTransactionManager;
@@ -33,67 +31,48 @@ public class ContractInitializer implements CommandLineRunner {
     @Autowired
     private ContractGasProvider contractGasProvider;
 
+    @Value("${quorum.contractAddress.booking:}") // empty string if not defined
+    private String bookingContractAddress;
+
     @Override
     public void run(String... args) throws Exception {
-        // Deployment 
         RawTransactionManager transactionManager = new RawTransactionManager(quorum, credentials, chainId);
-        String admin = credentials.getAddress();
+        Booking bookingContract;
 
-        Booking bookingContract = Booking.deploy(
-            quorum, transactionManager, contractGasProvider, admin
-        ).send();
-        System.out.println("Booking deployed at " + bookingContract.getContractAddress());
+        if (bookingContractAddress != null && !bookingContractAddress.isEmpty()) {
+            // Load existing contract
+            bookingContract = Booking.load(bookingContractAddress, quorum, transactionManager, contractGasProvider);
+            System.out.println("Booking contract loaded from " + bookingContractAddress);
+        } else {
+            // Deploy new contract
+            String admin = credentials.getAddress();
+            bookingContract = Booking.deploy(quorum, transactionManager, contractGasProvider, admin).send();
+            System.out.println("Booking deployed at " + bookingContract.getContractAddress() + " remember to update env");
 
-        TransactionReceipt deploymentReceipt = bookingContract.getTransactionReceipt()
-            .orElseThrow(() -> new RuntimeException("Deployment receipt not found"));
-        System.out.println("Deployment TX hash = " + deploymentReceipt.getTransactionHash());
-
-        // Example createBooking function call 
-        byte[] ipfsHashBytes = Numeric.hexStringToByteArray(
-            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-        );
-        if (ipfsHashBytes.length != 32) {
-            throw new IllegalArgumentException("IPFS hash must be 32 bytes");
+            TransactionReceipt deploymentReceipt = bookingContract.getTransactionReceipt()
+                .orElseThrow(() -> new RuntimeException("Deployment receipt not found"));
+            System.out.println("Deployment TX hash = " + deploymentReceipt.getTransactionHash());
         }
-        TransactionReceipt createReceipt = bookingContract.createBooking(
-            ipfsHashBytes,
-            "Tennis Court A",
-            "Court 1",
-            BigInteger.valueOf(1698765600L),
-            BigInteger.valueOf(1698772800L)
-        ).send();
-        System.out.println("createBooking TX hash = " + createReceipt.getTransactionHash());
 
-        // Events Listener/subscriber
+        // subscribe to Booking.sol events
         bookingContract.bookingCreatedEventFlowable(
             DefaultBlockParameterName.EARLIEST,
             DefaultBlockParameterName.LATEST
         ).subscribe(event -> {
-            // event bookingCreated(
-            //     address indexed from,
-            //     uint256 bookingId,
-            //     bytes32 ipfsHash,
-            //     string sportFacility,
-            //     string court,
-            //     uint256 startTime,
-            //     uint256 endTime,
-            //     string status,
-            //     string note,
-            //     uint256 time
-            // );
-            System.out.println(">>> bookingCreated event:");
+            System.out.println(">>> [bookingCreated] event received:");
             System.out.println("    from           = " + event.from);
             System.out.println("    bookingId      = " + event.bookingId);
-            System.out.println("    ipfsHash       = " + event.ipfsHash);
+            System.out.println("    ipfsHash       = " + Numeric.toHexString(event.ipfsHash));
             System.out.println("    sportFacility  = " + event.sportFacility);
             System.out.println("    court          = " + event.court);
-            System.out.println("    start          = " + event.startTime);
-            System.out.println("    end            = " + event.endTime);
+            System.out.println("    startTime      = " + event.startTime);
+            System.out.println("    endTime        = " + event.endTime);
             System.out.println("    status         = " + event.status);
             System.out.println("    note           = " + event.note);
             System.out.println("    timestamp      = " + event.time);
+            System.out.println("\n"); 
         }, error -> {
-            System.err.println("Error in event subscription: " + error.getMessage());
+            System.err.println("Error in bookingCreated subscription: " + error.getMessage());
             error.printStackTrace();
         });
 
@@ -101,29 +80,19 @@ public class ContractInitializer implements CommandLineRunner {
             DefaultBlockParameterName.EARLIEST,
             DefaultBlockParameterName.LATEST
         ).subscribe(event -> {
-            // event bookingStatusUpdated(
-            //     uint256 bookingId,
-            //     bytes32 ipfsHash,
-            //     string sportFacility,
-            //     string court,
-            //     uint256 startTime,
-            //     uint256 endTime,
-            //     string status,
-            //     string note,
-            //     uint256 time
-            // );
-            System.out.println(">>> bookingCreated event:");
+            System.out.println(">>> [bookingStatusUpdated] event received:");
             System.out.println("    bookingId      = " + event.bookingId);
-            System.out.println("    ipfsHash       = " + event.ipfsHash);
+            System.out.println("    ipfsHash       = " + Numeric.toHexString(event.ipfsHash));
             System.out.println("    sportFacility  = " + event.sportFacility);
             System.out.println("    court          = " + event.court);
-            System.out.println("    start          = " + event.startTime);
-            System.out.println("    end            = " + event.endTime);
+            System.out.println("    startTime      = " + event.startTime);
+            System.out.println("    endTime        = " + event.endTime);
             System.out.println("    status         = " + event.status);
             System.out.println("    note           = " + event.note);
             System.out.println("    timestamp      = " + event.time);
+            System.out.println("\n"); 
         }, error -> {
-            System.err.println("Error in event subscription: " + error.getMessage());
+            System.err.println("Error in bookingStatusUpdated subscription: " + error.getMessage());
             error.printStackTrace();
         });
     }
