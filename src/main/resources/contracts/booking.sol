@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT 
 pragma solidity 0.8.19;
 
+import "./SportFacility.sol";
+
 contract Booking {
     // Variable & Modifier Initialization
     address private admin_;
+    SportFacility sportFacilityContract;
     enum bookingStatus { APPROVED, PENDING, REJECTED, COMPLETED, CANCELLED }
 
     struct bookingTransaction {
@@ -17,7 +20,7 @@ contract Booking {
         bookingStatus status;
         string[] note;
     } 
-    bookingTransaction[] public bookings; 
+    bookingTransaction[] private bookings; 
 
     modifier isAdmin {
         require(msg.sender == admin_, "Access denied");
@@ -88,18 +91,29 @@ contract Booking {
         uint256 startTime,
         uint256 endTime
     ) internal view returns(bool) {
-        for(uint256 i=0; i<bookings.length; i++) {
-            // compare strings in Solidity
-            if(keccak256(abi.encodePacked(bookings[i].sportFacility)) == keccak256(abi.encodePacked(sportFacility)) && keccak256(abi.encodePacked(bookings[i].court)) == keccak256(abi.encodePacked(court)))
-                if(bookings[i].startTime < endTime && bookings[i].endTime > startTime && bookings[i].status != bookingStatus.COMPLETED)
-                   return false;
+        (uint256 earliestTime, uint256 latestTime) = sportFacilityContract.getAvailableTimeSlots(sportFacility, court);
+        if(startTime >= earliestTime && endTime <= latestTime) {
+            for(uint256 i=0; i<bookings.length; i++) {
+                // compare strings in Solidity
+                if(
+                    keccak256(abi.encodePacked(bookings[i].sportFacility)) == keccak256(abi.encodePacked(sportFacility)) &&
+                    keccak256(abi.encodePacked(bookings[i].court)) == keccak256(abi.encodePacked(court))
+                    ) {
+                        if(bookings[i].startTime < endTime && bookings[i].endTime > startTime && bookings[i].status != bookingStatus.COMPLETED) {
+                            return false;
+                        }
+                    }
+            }
+        } else {
+            return false;
         }
         return true;
     }
 
     // Main Functions
-    constructor(address admin) {
+    constructor(address admin, address sportFacilityAddress) {
        admin_ = admin; 
+       sportFacilityContract = SportFacility(sportFacilityAddress);
     }
 
     // create booking
