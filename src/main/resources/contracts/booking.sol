@@ -5,8 +5,8 @@ import "./SportFacility.sol";
 
 contract Booking {
     // Variable & Modifier Initialization
-    address private admin_;
-    SportFacility sportFacilityContract;
+    address private immutable admin_;
+    SportFacility immutable sportFacilityContract;
     enum bookingStatus { APPROVED, PENDING, REJECTED, COMPLETED, CANCELLED }
 
     struct bookingTransaction {
