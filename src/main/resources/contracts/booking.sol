@@ -278,6 +278,22 @@ contract Booking {
     }
 
     // universal
-    // get all timeslots
-    // function getAllTimeSlots
+    struct timeSlot {
+        uint256 startTime;
+        uint256 endTime;
+    }
+    function getTimeSlots(string memory facilityName, string memory courtName) external view returns(timeSlot[] memory) {
+        timeSlot[] memory timeSlots;
+
+        if(bookings.length > 0) {
+            for(uint256 i=0; i<bookings.length; i++) {
+                if(keccak256(bytes(bookings[i].sportFacility)) == keccak256(bytes(facilityName)) && keccak256(bytes(bookings[i].court)) == keccak256(bytes(courtName))) {
+                    timeSlots[i].startTime = bookings[i].startTime;
+                    timeSlots[i].endTime = bookings[i].endTime;
+                }
+            }
+        }
+
+        return timeSlots; 
+    }
 }
