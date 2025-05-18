@@ -22,6 +22,11 @@ contract Booking {
     } 
     bookingTransaction[] private bookings; 
 
+    struct timeSlot {
+        uint256 startTime;
+        uint256 endTime;
+    }
+
     modifier isAdmin {
         require(msg.sender == admin_, "Access denied");
         _;
@@ -71,6 +76,21 @@ contract Booking {
         uint256 endTime,
         string status,
         string note,
+        uint256 time
+    );
+    event bookingStatusRequested(
+        address indexed from,
+        uint256 bookingId,
+        string sportFacility,
+        string court,
+        string requestNote,
+        uint256 time
+    );
+    event timeSlotsRequested(
+        address indexed from,
+        string sportFacility,
+        string court,
+        timeSlot[] timeSlots,
         uint256 time
     );
 
@@ -230,12 +250,14 @@ contract Booking {
 
     // get booking status (all and selected)
     // admin
-    function getBookingStatus_(uint256 bookingId) external view isAdmin returns(string memory) {
+    function getBookingStatus_(uint256 bookingId) external isAdmin returns(string memory) {
         require(bookings[bookingId].bookingId == bookingId, "bookingId doesn't match (bookings)");
+
+        emit bookingStatusRequested(msg.sender, bookingId, bookings[bookingId].sportFacility, bookings[bookingId].court, "Requested by admin", block.timestamp);
         return bookingStatusToString(bookings[bookingId].status);
     }
 
-    function getAllBookingStatus_() external view isAdmin returns(uint256[] memory, string[] memory) {
+    function getAllBookingStatus_() external isAdmin returns(uint256[] memory, string[] memory) {
         // solidity doesn't support returning an array of structs with dynamic types (e.g. note[])
         require(bookings.length > 0, "empty array (bookings)");
 
@@ -244,18 +266,22 @@ contract Booking {
         for(uint256 i=0; i<bookings.length; i++) {
             bookingIds[i] = bookings[i].bookingId;
             statuses[i] = bookingStatusToString(bookings[i].status);
+
+            emit bookingStatusRequested(msg.sender, bookings[i].bookingId, bookings[i].sportFacility, bookings[i].court, "Requested by admin", block.timestamp);
         }
         return(bookingIds, statuses);
     }
 
     // user
-    function getBookingStatus(uint256 bookingId) external view returns(string memory) {
+    function getBookingStatus(uint256 bookingId) external returns(string memory) {
         require(bookings[bookingId].bookingId == bookingId, "bookingId doesn't match (bookings)");
         require(bookings[bookingId].user == msg.sender, "Invalid access (bookings)");
+
+        emit bookingStatusRequested(msg.sender, bookingId, bookings[bookingId].sportFacility, bookings[bookingId].court, "Requested by user",  block.timestamp);
         return bookingStatusToString(bookings[bookingId].status);
     }
 
-    function getAllBookingStatus() external view returns(uint256[] memory, string[] memory){
+    function getAllBookingStatus() external returns(uint256[] memory, string[] memory){
         require(bookings.length > 0, "empty array (bookings)");
 
         uint256 count = 0;
@@ -272,17 +298,15 @@ contract Booking {
                 bookingIds[index] = bookings[i].bookingId;
                 statuses[index] = bookingStatusToString(bookings[i].status);
                 index++;
+
+                emit bookingStatusRequested(msg.sender, bookings[i].bookingId, bookings[i].sportFacility, bookings[i].court, "Requested by user",  block.timestamp);
             }
         }
         return(bookingIds, statuses);
     }
 
     // universal
-    struct timeSlot {
-        uint256 startTime;
-        uint256 endTime;
-    }
-    function getTimeSlots(string memory facilityName, string memory courtName) external view returns(timeSlot[] memory) {
+    function getTimeSlots(string memory facilityName, string memory courtName) external returns(timeSlot[] memory) {
         timeSlot[] memory timeSlots;
 
         if(bookings.length > 0) {
@@ -293,6 +317,7 @@ contract Booking {
                 }
             }
         }
+        emit timeSlotsRequested(msg.sender, facilityName, courtName, timeSlots, block.timestamp);
 
         return timeSlots; 
     }
