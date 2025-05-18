@@ -91,13 +91,12 @@ contract Booking {
         uint256 startTime,
         uint256 endTime
     ) internal view returns(bool) {
-        (uint256 earliestTime, uint256 latestTime) = sportFacilityContract.getAvailableTimeSlots(sportFacility, court);
+        (uint256 earliestTime, uint256 latestTime) = sportFacilityContract.getAvailableTimeRange(sportFacility, court);
         if(startTime >= earliestTime && endTime <= latestTime) {
             for(uint256 i=0; i<bookings.length; i++) {
-                // compare strings in Solidity
                 if(
-                    keccak256(abi.encodePacked(bookings[i].sportFacility)) == keccak256(abi.encodePacked(sportFacility)) &&
-                    keccak256(abi.encodePacked(bookings[i].court)) == keccak256(abi.encodePacked(court))
+                    keccak256(bytes(bookings[i].sportFacility)) == keccak256(bytes(sportFacility)) &&
+                    keccak256(bytes(bookings[i].court)) == keccak256(bytes(court))
                     ) {
                         if(bookings[i].startTime < endTime && bookings[i].endTime > startTime && bookings[i].status != bookingStatus.COMPLETED) {
                             return false;
@@ -117,6 +116,39 @@ contract Booking {
     }
 
     // create booking
+    // admin (to book more than 2 hours)
+    function createBooking_(
+        bytes32 ipfsHash,
+        string memory sportFacility,
+        string memory court,
+        uint256 startTime,
+        uint256 endTime
+    ) external isAdmin returns(uint256) {
+        uint256 bookingId = bookings.length;
+        // check for available element slot
+        for(uint256 i=0; i<bookings.length; i++) {
+            if(bookings[i].bookingId == 0)
+                bookingId = i;
+        }
+        bookingTransaction memory booking = bookingTransaction(msg.sender, bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatus.PENDING, new string[](0));
+        emit bookingCreated(msg.sender, bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.PENDING), "", block.timestamp);
+
+        if(isAvailable(sportFacility, court, startTime, endTime)) {
+            booking.status = bookingStatus.APPROVED;
+            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.APPROVED), "Approved (system)", block.timestamp);
+        } else {
+            booking.status = bookingStatus.REJECTED;
+            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.REJECTED), "Rejected due to conflict (system)", block.timestamp);
+        }
+        if(bookingId == bookings.length) 
+            bookings.push(booking);
+        else {
+            bookings[bookingId] = booking;
+        }
+
+        return bookingId;
+    }
+    // user (max 2 hours, min 1 hour)
     function createBooking(
         bytes32 ipfsHash,
         string memory sportFacility,
@@ -124,6 +156,8 @@ contract Booking {
         uint256 startTime,
         uint256 endTime
     ) external returns(uint256) {
+        require(endTime - startTime == 3600 || endTime - startTime == 7200, "Booking time minimum 1hour, maximum 2hours (system)");
+
         uint256 bookingId = bookings.length;
         // check for available element slot
         for(uint256 i=0; i<bookings.length; i++) {
@@ -242,4 +276,8 @@ contract Booking {
         }
         return(bookingIds, statuses);
     }
+
+    // universal
+    // get all timeslots
+    // function getAllTimeSlots
 }
