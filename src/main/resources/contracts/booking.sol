@@ -107,6 +107,30 @@ contract Booking is Management {
     }
 
     // check for sport facility availability 
+    function isAvailable_(
+        string memory sportFacility,
+        string memory court,
+        uint256 startTime,
+        uint256 endTime
+    ) internal view returns(bool) {
+        (uint256 earliestTime, uint256 latestTime) = sportFacilityContract.getAvailableTimeRange_(sportFacility, court);
+        if(startTime >= earliestTime && endTime <= latestTime) {
+            for(uint256 i=0; i<bookings.length; i++) {
+                if(
+                    keccak256(bytes(bookings[i].sportFacility)) == keccak256(bytes(sportFacility)) &&
+                    keccak256(bytes(bookings[i].court)) == keccak256(bytes(court))
+                    ) {
+                        if(bookings[i].startTime < endTime && bookings[i].endTime > startTime && bookings[i].status != bookingStatus.COMPLETED) {
+                            return false;
+                        }
+                    }
+            }
+        } else {
+            return false;
+        }
+        return true;
+    }
+
     function isAvailable(
         string memory sportFacility,
         string memory court,
@@ -134,7 +158,6 @@ contract Booking is Management {
     // Main Functions
     constructor(address admin, address sportFacilityAddress) Management(admin) {
        admin_ = admin; 
-       addUser(admin);
        sportFacilityContract = SportFacility(sportFacilityAddress);
     }
 
@@ -156,13 +179,13 @@ contract Booking is Management {
         bookingTransaction memory booking = bookingTransaction(msg.sender, bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatus.PENDING, new string[](0));
         emit bookingCreated(msg.sender, bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(bookingStatus.PENDING), "", block.timestamp);
 
-        if(isAvailable(sportFacility, court, startTime, endTime)) {
-            bookingStatus memory oldStatus = booking.status;
-            bookingStatus memory newStatus = booking.status = bookingStatus.APPROVED;
+        if(isAvailable_(sportFacility, court, startTime, endTime)) {
+            bookingStatus oldStatus = booking.status;
+            bookingStatus newStatus = booking.status = bookingStatus.APPROVED;
             emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(oldStatus) ,statusToString(newStatus), "Approved (system)", block.timestamp);
         } else {
-            bookingStatus memory oldStatus = booking.status;
-            bookingStatus memory newStatus = bookingStatus.REJECTED;
+            bookingStatus oldStatus = booking.status;
+            bookingStatus newStatus = bookingStatus.REJECTED;
             emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(oldStatus) ,statusToString(newStatus), "Approved (system)", block.timestamp);
         }
         if(bookingId == bookings.length) 
@@ -231,8 +254,8 @@ contract Booking is Management {
         require(bookings[bookingId].bookingId == bookingId, "bookingId doesn't match (bookings)");
         require(bookings[bookingId].user == msg.sender, "Access denied (bookings)");
 
-        bookingStatus memory oldStatus = bookings[bookingId].status;
-        bookingStatus memory newStatus = bookingStatus.CANCELLED;
+        bookingStatus oldStatus = bookings[bookingId].status;
+        bookingStatus newStatus = bookingStatus.CANCELLED;
         bookings[bookingId].status = newStatus;
         emit bookingStatusUpdated(bookingId, ipfsHash, bookings[bookingId].sportFacility, bookings[bookingId].court, bookings[bookingId].startTime, bookings[bookingId].endTime, statusToString(oldStatus), statusToString(newStatus),"Cancelled by user manually", block.timestamp);
     }
