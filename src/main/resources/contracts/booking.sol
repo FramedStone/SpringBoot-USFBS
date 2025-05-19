@@ -2,8 +2,9 @@
 pragma solidity 0.8.19;
 
 import "./SportFacility.sol";
+import "./Management.sol"; 
 
-contract Booking {
+contract Booking is Management {
     // Variable & Modifier Initialization
     address private immutable admin_;
     SportFacility immutable sportFacilityContract;
@@ -27,10 +28,10 @@ contract Booking {
         uint256 endTime;
     }
 
-    modifier isAdmin {
-        require(msg.sender == admin_, "Access denied");
-        _;
-    } 
+    // modifier isAdmin {
+    //     require(msg.sender == admin_, "Access denied");
+    //     _;
+    // } 
 
     // Events
     event bookingCreated(
@@ -52,7 +53,8 @@ contract Booking {
         string court,
         uint256 startTime,
         uint256 endTime,
-        string status,
+        string oldStatus,
+        string newStatus,
         string note,
         uint256 time
     );
@@ -95,7 +97,7 @@ contract Booking {
     );
 
     // Helper Functions
-    function bookingStatusToString(bookingStatus status) internal pure returns(string memory) {
+    function statusToString(bookingStatus status) internal pure returns(string memory) {
         if(status == bookingStatus.APPROVED) return "approved";
         if(status == bookingStatus.PENDING) return "pending";
         if(status == bookingStatus.REJECTED) return "rejected";
@@ -130,8 +132,9 @@ contract Booking {
     }
 
     // Main Functions
-    constructor(address admin, address sportFacilityAddress) {
+    constructor(address admin, address sportFacilityAddress) Management(admin) {
        admin_ = admin; 
+       addUser(admin);
        sportFacilityContract = SportFacility(sportFacilityAddress);
     }
 
@@ -151,14 +154,16 @@ contract Booking {
                 bookingId = i;
         }
         bookingTransaction memory booking = bookingTransaction(msg.sender, bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatus.PENDING, new string[](0));
-        emit bookingCreated(msg.sender, bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.PENDING), "", block.timestamp);
+        emit bookingCreated(msg.sender, bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(bookingStatus.PENDING), "", block.timestamp);
 
         if(isAvailable(sportFacility, court, startTime, endTime)) {
-            booking.status = bookingStatus.APPROVED;
-            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.APPROVED), "Approved (system)", block.timestamp);
+            bookingStatus memory oldStatus = booking.status;
+            bookingStatus memory newStatus = booking.status = bookingStatus.APPROVED;
+            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(oldStatus) ,statusToString(newStatus), "Approved (system)", block.timestamp);
         } else {
-            booking.status = bookingStatus.REJECTED;
-            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.REJECTED), "Rejected due to conflict (system)", block.timestamp);
+            bookingStatus memory oldStatus = booking.status;
+            bookingStatus memory newStatus = bookingStatus.REJECTED;
+            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(oldStatus) ,statusToString(newStatus), "Approved (system)", block.timestamp);
         }
         if(bookingId == bookings.length) 
             bookings.push(booking);
@@ -175,8 +180,8 @@ contract Booking {
         string memory court,
         uint256 startTime,
         uint256 endTime
-    ) external returns(uint256) {
-        require(endTime - startTime == 3600 || endTime - startTime == 7200, "Booking time minimum 1hour, maximum 2hours (system)");
+    ) external isUser returns(uint256) {
+        require(endTime - startTime == 3600 || endTime - startTime == 7200, "Booking time minimum 1hour, maximum 2hours");
 
         uint256 bookingId = bookings.length;
         // check for available element slot
@@ -185,14 +190,14 @@ contract Booking {
                 bookingId = i;
         }
         bookingTransaction memory booking = bookingTransaction(msg.sender, bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatus.PENDING, new string[](0));
-        emit bookingCreated(msg.sender, bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.PENDING), "", block.timestamp);
+        emit bookingCreated(msg.sender, bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(bookingStatus.PENDING), "", block.timestamp);
 
         if(isAvailable(sportFacility, court, startTime, endTime)) {
             booking.status = bookingStatus.APPROVED;
-            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.APPROVED), "Approved (system)", block.timestamp);
+            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(bookingStatus.APPROVED), "Approved (system)", block.timestamp);
         } else {
             booking.status = bookingStatus.REJECTED;
-            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.REJECTED), "Rejected due to conflict (system)", block.timestamp);
+            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(bookingStatus.REJECTED), "Rejected due to conflict (system)", block.timestamp);
         }
         if(bookingId == bookings.length) 
             bookings.push(booking);
@@ -217,17 +222,19 @@ contract Booking {
         uint256 endTime = bookings[bookingId].endTime;
         delete bookings[bookingId];
 
-        emit bookingDeleted(bookingId, ipfsHash, sportFacility, court, startTime, endTime, bookingStatusToString(bookingStatus.COMPLETED), "Deleted on-chain (system)", block.timestamp);
+        emit bookingDeleted(bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(bookingStatus.COMPLETED), "Deleted on-chain (system)", block.timestamp);
     }
 
     // cancel booking
-    function cancelBooking(bytes32 ipfsHash, uint256 bookingId) external {
+    function cancelBooking(bytes32 ipfsHash, uint256 bookingId) isUser external {
         require(bookings[bookingId].ipfsHash == ipfsHash, "ipfsHash doesn't match (bookings)");
         require(bookings[bookingId].bookingId == bookingId, "bookingId doesn't match (bookings)");
         require(bookings[bookingId].user == msg.sender, "Access denied (bookings)");
 
-        bookings[bookingId].status = bookingStatus.CANCELLED;
-        emit bookingStatusUpdated(bookingId, ipfsHash, bookings[bookingId].sportFacility, bookings[bookingId].court, bookings[bookingId].startTime, bookings[bookingId].endTime, bookingStatusToString(bookingStatus.CANCELLED), "Cancelled by user manually", block.timestamp);
+        bookingStatus memory oldStatus = bookings[bookingId].status;
+        bookingStatus memory newStatus = bookingStatus.CANCELLED;
+        bookings[bookingId].status = newStatus;
+        emit bookingStatusUpdated(bookingId, ipfsHash, bookings[bookingId].sportFacility, bookings[bookingId].court, bookings[bookingId].startTime, bookings[bookingId].endTime, statusToString(oldStatus), statusToString(newStatus),"Cancelled by user manually", block.timestamp);
     }
 
     // reject booking 
@@ -236,7 +243,7 @@ contract Booking {
         require(bookings[bookingId].bookingId == bookingId, "bookingId doesn't match (bookings)");
 
         bookings[bookingId].status = bookingStatus.REJECTED;
-        emit bookingStatusUpdated(bookingId, ipfsHash, bookings[bookingId].sportFacility, bookings[bookingId].court, bookings[bookingId].startTime, bookings[bookingId].endTime, bookingStatusToString(bookingStatus.REJECTED), "Rejected by admin manually", block.timestamp);
+        emit bookingStatusUpdated(bookingId, ipfsHash, bookings[bookingId].sportFacility, bookings[bookingId].court, bookings[bookingId].startTime, bookings[bookingId].endTime, statusToString(bookingStatus.REJECTED), "Rejected by admin manually", block.timestamp);
     }
 
     // append booking note
@@ -245,7 +252,7 @@ contract Booking {
         require(bookings[bookingId].bookingId == bookingId, "bookingId doesn't match (bookings)");
 
         bookings[bookingId].note.push(note);
-        emit bookingNoteAppended(bookingId, ipfsHash, bookings[bookingId].sportFacility, bookings[bookingId].court, bookings[bookingId].startTime, bookings[bookingId].endTime, bookingStatusToString(bookings[bookingId].status), note, block.timestamp);
+        emit bookingNoteAppended(bookingId, ipfsHash, bookings[bookingId].sportFacility, bookings[bookingId].court, bookings[bookingId].startTime, bookings[bookingId].endTime, statusToString(bookings[bookingId].status), note, block.timestamp);
     }
 
     // get booking status (all and selected)
@@ -254,7 +261,7 @@ contract Booking {
         require(bookings[bookingId].bookingId == bookingId, "bookingId doesn't match (bookings)");
 
         emit bookingStatusRequested(msg.sender, bookingId, bookings[bookingId].sportFacility, bookings[bookingId].court, "Requested by admin", block.timestamp);
-        return bookingStatusToString(bookings[bookingId].status);
+        return statusToString(bookings[bookingId].status);
     }
 
     function getAllBookingStatus_() external isAdmin returns(uint256[] memory, string[] memory) {
@@ -265,7 +272,7 @@ contract Booking {
         string[] memory statuses = new string[](bookings.length);
         for(uint256 i=0; i<bookings.length; i++) {
             bookingIds[i] = bookings[i].bookingId;
-            statuses[i] = bookingStatusToString(bookings[i].status);
+            statuses[i] = statusToString(bookings[i].status);
 
             emit bookingStatusRequested(msg.sender, bookings[i].bookingId, bookings[i].sportFacility, bookings[i].court, "Requested by admin", block.timestamp);
         }
@@ -273,15 +280,15 @@ contract Booking {
     }
 
     // user
-    function getBookingStatus(uint256 bookingId) external returns(string memory) {
+    function getBookingStatus(uint256 bookingId) external isUser returns(string memory) {
         require(bookings[bookingId].bookingId == bookingId, "bookingId doesn't match (bookings)");
         require(bookings[bookingId].user == msg.sender, "Invalid access (bookings)");
 
         emit bookingStatusRequested(msg.sender, bookingId, bookings[bookingId].sportFacility, bookings[bookingId].court, "Requested by user",  block.timestamp);
-        return bookingStatusToString(bookings[bookingId].status);
+        return statusToString(bookings[bookingId].status);
     }
 
-    function getAllBookingStatus() external returns(uint256[] memory, string[] memory){
+    function getAllBookingStatus() external isUser returns(uint256[] memory, string[] memory){
         require(bookings.length > 0, "empty array (bookings)");
 
         uint256 count = 0;
@@ -296,7 +303,7 @@ contract Booking {
         for (uint256 i = 0; i < bookings.length; i++) {
             if (bookings[i].user == msg.sender) {
                 bookingIds[index] = bookings[i].bookingId;
-                statuses[index] = bookingStatusToString(bookings[i].status);
+                statuses[index] = statusToString(bookings[i].status);
                 index++;
 
                 emit bookingStatusRequested(msg.sender, bookings[i].bookingId, bookings[i].sportFacility, bookings[i].court, "Requested by user",  block.timestamp);
