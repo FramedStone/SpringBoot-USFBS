@@ -19,11 +19,12 @@ public class ContractInitializer implements CommandLineRunner {
     @Autowired
     private Quorum quorum;
 
-    @Value("${quorum.privateKey}")
-    private String privateKey;
-
     @Autowired
-    private Credentials credentials;
+    private Credentials credentialModerator;
+    @Autowired
+    private Credentials credentialAdmin;
+    @Autowired
+    private Credentials credentialUser;
 
     @Value("${quorum.chainId}")
     private long chainId;
@@ -36,7 +37,7 @@ public class ContractInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        RawTransactionManager transactionManager = new RawTransactionManager(quorum, credentials, chainId);
+        RawTransactionManager transactionManager = new RawTransactionManager(quorum, credentialAdmin, chainId);
         Booking bookingContract;
 
         if (bookingContractAddress != null && !bookingContractAddress.isEmpty()) {
@@ -45,7 +46,7 @@ public class ContractInitializer implements CommandLineRunner {
             System.out.println("Booking contract loaded from " + bookingContractAddress);
         } else {
             // Deploy new contract
-            String admin = credentials.getAddress();
+            String admin = credentialAdmin.getAddress();
             bookingContract = Booking.deploy(quorum, transactionManager, contractGasProvider, admin).send();
             System.out.println("Booking deployed at " + bookingContract.getContractAddress() + " remember to update env");
 
