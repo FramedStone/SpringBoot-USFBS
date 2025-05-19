@@ -2,7 +2,6 @@ quorum:
     url: ${RPC_URL:http://localhost:22000}
     moderator: ${PRIVATE_KEY}
     admin: ${PRIVATE_KEY}
-    user: ${PRIVATE_KEY}
     chainId: ${NETWORK_CHAIN_ID} 
     contractAddress: 
         booking: ${CONTRACT_ADDRESS}
