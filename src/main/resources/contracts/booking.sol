@@ -112,7 +112,7 @@ contract Booking is Management {
         string memory court,
         uint256 startTime,
         uint256 endTime
-    ) internal view returns(bool) {
+    ) internal returns(bool) {
         (uint256 earliestTime, uint256 latestTime) = sportFacilityContract.getAvailableTimeRange_(sportFacility, court);
         if(startTime >= earliestTime && endTime <= latestTime) {
             for(uint256 i=0; i<bookings.length; i++) {
@@ -136,7 +136,7 @@ contract Booking is Management {
         string memory court,
         uint256 startTime,
         uint256 endTime
-    ) internal view returns(bool) {
+    ) internal returns(bool) {
         (uint256 earliestTime, uint256 latestTime) = sportFacilityContract.getAvailableTimeRange(sportFacility, court);
         if(startTime >= earliestTime && endTime <= latestTime) {
             for(uint256 i=0; i<bookings.length; i++) {
@@ -217,10 +217,10 @@ contract Booking is Management {
 
         if(isAvailable(sportFacility, court, startTime, endTime)) {
             booking.status = bookingStatus.APPROVED;
-            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(bookingStatus.APPROVED), "Approved (system)", block.timestamp);
+            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(bookingStatus.PENDING), statusToString(bookingStatus.APPROVED), "Approved (system)", block.timestamp);
         } else {
             booking.status = bookingStatus.REJECTED;
-            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(bookingStatus.REJECTED), "Rejected due to conflict (system)", block.timestamp);
+            emit bookingStatusUpdated(bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(bookingStatus.PENDING), statusToString(bookingStatus.REJECTED), "Rejected due to conflict (system)", block.timestamp);
         }
         if(bookingId == bookings.length) 
             bookings.push(booking);
@@ -266,7 +266,7 @@ contract Booking is Management {
         require(bookings[bookingId].bookingId == bookingId, "bookingId doesn't match (bookings)");
 
         bookings[bookingId].status = bookingStatus.REJECTED;
-        emit bookingStatusUpdated(bookingId, ipfsHash, bookings[bookingId].sportFacility, bookings[bookingId].court, bookings[bookingId].startTime, bookings[bookingId].endTime, statusToString(bookingStatus.REJECTED), "Rejected by admin manually", block.timestamp);
+        emit bookingStatusUpdated(bookingId, ipfsHash, bookings[bookingId].sportFacility, bookings[bookingId].court, bookings[bookingId].startTime, bookings[bookingId].endTime, statusToString(bookingStatus.PENDING), statusToString(bookingStatus.REJECTED), "Rejected by admin manually", block.timestamp);
     }
 
     // append booking note
