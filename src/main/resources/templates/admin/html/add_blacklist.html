@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Add Blacklist</title>
@@ -96,7 +96,7 @@
 
     <div class="buttons">
       <button class="btn-confirm">Confirm</button>
-      <a href="user_management.html" class="btn-cancel">Cancel</a>
+      <a th:href="@{/user-management}" class="btn-cancel">Cancel</a>
     </div>
   </div>
 </body>

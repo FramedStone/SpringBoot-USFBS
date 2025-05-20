@@ -1,28 +1,30 @@
 <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
 
 <head>
 
   <title>User Management</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <link rel="stylesheet" href="user_management.css">
+  <link rel="stylesheet" th:href="@{/admin/css/user_management.css}" />
 </head>
+
 <body>
 
   <div class="navbar">
-    <a class="nav-item" href="dashboard.html">
+    <a class="nav-item" th:href="@{/dashboard}">
       <i class="fa-solid fa-table-columns"></i>
       Dashboard
     </a>
-    <a class="nav-item active" href="user_management.html">
+    <a class="nav-item active" th:href="@{/user-management}">
       <i class="fa-solid fa-user-group"></i>
       User Management
     </a>
-    <a class="nav-item" href="court_slot_management.html">
+    <a class="nav-item" th:href="@{/court-slot-management}">
       <i class="fa-solid fa-layer-group"></i>
       Court & Slot Management
     </a>
-    <a class="nav-item" href="booking_management.html">
+    <a class="nav-item" th:href="@{/booking-management}">
       <i class="fa-solid fa-calendar-check"></i>
       Booking Management
     </a>
@@ -38,14 +40,38 @@
       </div>
       <table>
         <thead>
-          <tr><th>Name</th><th>Email</th><th>Actions</th></tr>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Actions</th>
+          </tr>
         </thead>
         <tbody>
-          <tr><td>Sarah Wilson</td><td>1231201000@mmu.com</td><td class="action">Delete</td></tr>
-          <tr><td>Michael Chen</td><td>1231201001@mmu.com</td><td class="action">Delete</td></tr>
-          <tr><td>Emma Thompson</td><td>1231201002@mmu.com</td><td class="action">Delete</td></tr>
-          <tr><td>James Rodriguez</td><td>1231201003@mmu.com</td><td class="action">Delete</td></tr>
-          <tr><td>Lisa Anderson</td><td>1231201004@mmu.com</td><td class="action">Delete</td></tr>
+          <tr>
+            <td>Sarah Wilson</td>
+            <td>1231201000@mmu.com</td>
+            <td class="action">Delete</td>
+          </tr>
+          <tr>
+            <td>Michael Chen</td>
+            <td>1231201001@mmu.com</td>
+            <td class="action">Delete</td>
+          </tr>
+          <tr>
+            <td>Emma Thompson</td>
+            <td>1231201002@mmu.com</td>
+            <td class="action">Delete</td>
+          </tr>
+          <tr>
+            <td>James Rodriguez</td>
+            <td>1231201003@mmu.com</td>
+            <td class="action">Delete</td>
+          </tr>
+          <tr>
+            <td>Lisa Anderson</td>
+            <td>1231201004@mmu.com</td>
+            <td class="action">Delete</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -57,16 +83,29 @@
       </div>
       <table>
         <thead>
-          <tr><th>Email</th><th>Reasons</th><th>Actions</th></tr>
+          <tr>
+            <th>Email</th>
+            <th>Reasons</th>
+            <th>Actions</th>
+          </tr>
         </thead>
         <tbody>
-          <tr><td>1231203333@student.mmu.edu.my</td><td>Violation of Facility Rules</td><td class="action">Unban</td></tr>
-          <tr><td>1231203335@student.mmu.edu.my</td><td>No-Shows Without Valid Reasons</td><td class="action">Unban</td></tr>
+          <tr>
+            <td>1231203333@student.mmu.edu.my</td>
+            <td>Violation of Facility Rules</td>
+            <td class="action">Unban</td>
+          </tr>
+          <tr>
+            <td>1231203335@student.mmu.edu.my</td>
+            <td>No-Shows Without Valid Reasons</td>
+            <td class="action">Unban</td>
+          </tr>
         </tbody>
       </table>
     </div>
   </div>
 </body>
+
 </html>
 
 

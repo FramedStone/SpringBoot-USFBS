@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -184,19 +184,19 @@
 <body>
 
   <div class="navbar">
-    <a class="nav-item" href="dashboard.html">
+    <a class="nav-item"              th:href="@{/dashboard}">
       <i class="fa-solid fa-table-columns"></i>
       Dashboard
     </a>
-    <a class="nav-item" href="user_management.html">
+    <a class="nav-item"              th:href="@{/user-management}">
       <i class="fa-solid fa-user-group"></i>
       User Management
     </a>
-    <a class="nav-item active" href="court_slot_management.html">
+    <a class="nav-item active"       th:href="@{/court-slot-management}">
       <i class="fa-solid fa-layer-group"></i>
       Court & Slot Management
     </a>
-    <a class="nav-item" href="booking_management.html">
+    <a class="nav-item"              th:href="@{/booking-management}">
       <i class="fa-solid fa-calendar-check"></i>
       Booking Management
     </a>
