@@ -14,25 +14,34 @@ import org.web3j.tx.gas.StaticGasProvider;
 @Configuration
 public class QuorumConfig {
     @Value("${quorum.url}")
-    private String quorumUrl;
-    @Value("${quorum.privateKey}")
-    private String privateKey;
-    // @Value("${quorum.chainId}")
-    // private long chainId;
+    private String rpcUrl;
+    @Value("${quorum.moderator}")
+    private String moderator;
+    @Value("${quorum.admin}")
+    private String admin;
+    @Value("${quorum.contractAddress.booking}")
+    private String bookingAddress;
+    @Value("${quorum.contractAddress.sportFacility}")
+    private String sportFacilityAddress;
 
     @Bean
     public Quorum quorum() {
-        return Quorum.build(new HttpService(quorumUrl));
+        return Quorum.build(new HttpService(rpcUrl));
     }
 
-    // @Bean
-    // public long chainId() {
-    //     return chainId;
-    // }
+    @Bean
+    public Credentials credentialModerator() {
+        return Credentials.create(moderator);
+    }
 
     @Bean
-    public Credentials credentials() {
-        return Credentials.create(privateKey);
+    public Credentials credentialAdmin() {
+        return Credentials.create(admin);
+    }
+
+    @Bean
+    public Credentials credentialUser(String userAddress) {
+        return Credentials.create(userAddress);
     }
 
     @Bean
@@ -40,12 +49,14 @@ public class QuorumConfig {
         return new StaticGasProvider(BigInteger.ZERO, BigInteger.valueOf(4700000));
     }
 
-    // @Bean
-    // TODO: Booking contract
+    @Bean
+    public String bookingAddress() {
+        return bookingAddress;
+    }
 
-    // @Bean
-    // TODO: Facility contract
+    @Bean
+    public String sportFacilityAddress() {
+        return sportFacilityAddress;
+    }
 
-    // @Bean
-    // TODO: Management contract
 }
