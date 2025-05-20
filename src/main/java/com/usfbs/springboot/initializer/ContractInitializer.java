@@ -8,7 +8,7 @@ import org.web3j.crypto.Credentials;
 import org.web3j.protocol.core.DefaultBlockParameterName;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.quorum.Quorum;
-import org.web3j.quorum.tx.QuorumTransactionManager;
+import org.web3j.tx.RawTransactionManager;
 import org.web3j.tx.gas.ContractGasProvider;
 import org.web3j.utils.Numeric;
 
@@ -43,7 +43,7 @@ public class ContractInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        QuorumTransactionManager transactionManager = new QuorumTransactionManager(quorum, null, credentialAdmin, null, null) ;
+        RawTransactionManager transactionManager = new RawTransactionManager(quorum, credentialAdmin, chainId);
         Booking bookingContract;
         SportFacility sportFacilityContract;
         Management managementContract;
@@ -72,7 +72,7 @@ public class ContractInitializer implements CommandLineRunner {
         } else {
             // Deploy new contract
             String admin = credentialAdmin.getAddress();
-            bookingContract = Booking.deploy(quorum, transactionManager, contractGasProvider, admin, sportFacilityContractAddress).send();
+            bookingContract = Booking.deploy(quorum, transactionManager, contractGasProvider, admin, sportFacilityContract.getContractAddress()).send();
             System.out.println("Booking contract deployed at " + bookingContract.getContractAddress() + " remember to update env");
 
             TransactionReceipt deploymentReceipt = bookingContract.getTransactionReceipt()
@@ -83,7 +83,7 @@ public class ContractInitializer implements CommandLineRunner {
         // Management.sol
         if (managementContractAddress != null && !managementContractAddress.isEmpty()) {
             // Load existing contract
-            managementContract = Management.load(bookingContractAddress, quorum, transactionManager, contractGasProvider);
+            managementContract = Management.load(managementContractAddress, quorum, transactionManager, contractGasProvider);
             System.out.println("Management contract loaded from " + managementContractAddress);
         } else {
             // Deploy new contract
