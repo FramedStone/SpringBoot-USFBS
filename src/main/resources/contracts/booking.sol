@@ -120,7 +120,7 @@ contract Booking is Management {
                     keccak256(bytes(bookings[i].sportFacility)) == keccak256(bytes(sportFacility)) &&
                     keccak256(bytes(bookings[i].court)) == keccak256(bytes(court))
                     ) {
-                        if(bookings[i].startTime < endTime && bookings[i].endTime > startTime && bookings[i].status != bookingStatus.COMPLETED) {
+                        if(bookings[i].startTime < endTime && bookings[i].endTime > startTime && (bookings[i].status != bookingStatus.COMPLETED || bookings[i].status != bookingStatus.CANCELLED || bookings[i].status != bookingStatus.REJECTED)) {
                             return false;
                         }
                     }
@@ -144,7 +144,7 @@ contract Booking is Management {
                     keccak256(bytes(bookings[i].sportFacility)) == keccak256(bytes(sportFacility)) &&
                     keccak256(bytes(bookings[i].court)) == keccak256(bytes(court))
                     ) {
-                        if(bookings[i].startTime < endTime && bookings[i].endTime > startTime && bookings[i].status != bookingStatus.COMPLETED) {
+                        if(bookings[i].startTime < endTime && bookings[i].endTime > startTime && (bookings[i].status != bookingStatus.COMPLETED || bookings[i].status != bookingStatus.CANCELLED || bookings[i].status != bookingStatus.REJECTED)) {
                             return false;
                         }
                     }
@@ -231,8 +231,8 @@ contract Booking is Management {
         return bookingId;
     }
 
-    // delete booking on-chain if completed
-    function deleteBooking_(bytes32 ipfsHash, uint256 bookingId) internal {
+    // delete booking on-chain if completed or cancelled
+    function deleteBooking(bytes32 ipfsHash, uint256 bookingId) internal {
         require(bookingId < bookings.length, "Index out of bound (bookings)");
         require(bookings[bookingId].ipfsHash == ipfsHash, "ipfsHash doesn't match (bookings)");
         require(bookings[bookingId].bookingId == bookingId, "bookingId doesn't match (bookings)");
@@ -243,9 +243,10 @@ contract Booking is Management {
         string memory court = bookings[bookingId].court;
         uint256 startTime = bookings[bookingId].startTime;
         uint256 endTime = bookings[bookingId].endTime;
+        string memory status = statusToString(bookings[bookingId].status);
         delete bookings[bookingId];
 
-        emit bookingDeleted(bookingId, ipfsHash, sportFacility, court, startTime, endTime, statusToString(bookingStatus.COMPLETED), "Deleted on-chain (system)", block.timestamp);
+        emit bookingDeleted(bookingId, ipfsHash, sportFacility, court, startTime, endTime, status, "Deleted on-chain (system)", block.timestamp);
     }
 
     // cancel booking
