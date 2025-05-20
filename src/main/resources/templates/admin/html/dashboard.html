@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+
+<head>
+
+  <title>Admin Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="dashboard.css">
+
+</head>
+<body>
+
+  <div class="navbar">
+    <a class="nav-item active" href="dashboard.html" title="Dashboard">
+      <i class="fa-solid fa-table-columns"></i>
+      Dashboard
+    </a>
+    <a class="nav-item" href="user_management.html">
+      <i class="fa-solid fa-user-group"></i>
+      User Management
+    </a>
+    <a class="nav-item" href="court_slot_management.html">
+      <i class="fa-solid fa-layer-group"></i>
+      Court & Slot Management
+    </a>
+    <a class="nav-item" href="booking_management.html">
+      <i class="fa-solid fa-calendar-check"></i>
+      Booking Management
+    </a>
+  </div>
+
+  <div class="container">
+    <div class="logs box">
+      <h3 class="section-header">
+        <i class="fas fa-history"></i> System Logs
+        <a href="system logs.html" class="external-link" title="Go to System Logs">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i>
+        </a>
+      </h3>
+      <div class="log-entry received">Form Received</div>
+      <div class="log-entry action">Admin Action</div>
+      <div class="log-entry approved">Booking Approved</div>
+      <div class="log-entry action">Admin Action</div>
+    </div>
+
+    <div class="main">
+      <div class="announcement box">
+        <div class="export-controls">
+          <h3 class="section-header">
+            <i class="fas fa-bullhorn"></i> Announcement
+          </h3>
+          <a href="add announcement.html" class="btn-primary">Add New</a>
+        </div>
+        <table class="announcement-table">
+          <thead>
+            <tr><th>Title</th><th>Time Left</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Court Maintenance</td><td>1 Days</td>
+              <td class="action-buttons">
+                <a>Edit</a><a class="delete">Delete</a>
+              </td></tr>
+            <tr><td>Basketball Tournament</td><td>7 Days</td>
+              <td class="action-buttons">
+                <a>Edit</a><a class="delete">Delete</a>
+              </td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bookings box">
+        <div class="export-controls">
+          <h3 class="section-header">
+            <i class="fas fa-clipboard-list"></i> Bookings
+            <i class="fa-solid fa-arrow-up-right-from-square external-link"></i>
+          </h3>
+          <button class="btn-primary">Export Report</button>
+        </div>
+        <table class="booking-table">
+          <thead>
+            <tr><th>ID</th><th>User</th><th>Court</th><th>Time</th><th>Sport</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>BK001</td><td>123120000</td><td>Court A</td><td>2025-03-24<br>10 AM - 12 PM</td><td>Badminton</td><td><button class="btn-reject">Reject</button></td></tr>
+            <tr><td>BK002</td><td>123120001</td><td>Court B</td><td>2025-03-25<br>8 AM - 10 AM</td><td>Volleyball</td><td><button class="btn-reject">Reject</button></td></tr>
+            <tr><td>BK003</td><td>123120002</td><td>Court C</td><td>2025-03-26<br>13 PM - 15 PM</td><td>Basketball</td><td><button class="btn-reject">Reject</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script src="dashboard_edit.js"></script>
+
+
+</body>
+</html>
+

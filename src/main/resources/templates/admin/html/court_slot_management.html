@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Court & Slot Management</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #D8D8D8;
+      margin: 0;
+    }
+
+    .navbar {
+      display: flex;
+      background-color: #fff;
+      border-bottom: 4px solid #ccc;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .nav-item {
+      flex: 1;
+      padding: 12px 0;
+      text-align: center;
+      cursor: pointer;
+      font-size: 14px;
+      color: #4F4F4F;
+      border-right: 1px solid #eee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+    }
+
+    .nav-item:last-child {
+      border-right: none;
+    }
+
+    .nav-item i {
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .nav-item.active {
+      background-color: #2f80ed;
+      color: white;
+    }
+
+    .nav-item.active i {
+      color: white;
+    }
+
+    .container {
+      max-width: 1440px;
+      margin: auto;
+      background-color: #fff;
+      padding: 32px;
+    }
+
+    h2, h3 {
+      margin-top: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+
+    th, td {
+      padding: 8px;
+      text-align: center;
+    }
+
+    .actions a {
+      margin: 0 5px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .actions a.edit {
+      color: #2f80ed;
+    }
+
+    .actions a.delete {
+      color: #e74c3c;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      background-color: #4b00c2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+      margin-right: 10px;
+    }
+
+    .btn.delete {
+      background-color: red;
+    }
+
+    .status-box {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 10px;
+    }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .available { color: #00b894; }
+    .booked { color: red; }
+    .maintenance { color: orange; font-weight: bold; }
+    .normal { color: green; }
+    .full { color: red; }
+    .maintenance-slot { color: grey; }
+
+    /* Court Availability Table Styling */
+    .court-availability-container {
+      width: 100%;
+      overflow-x: auto;
+      margin-top: 20px;
+      border: 1px solid #ddd;
+    }
+    
+    .court-status {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    
+    .court-status th, 
+    .court-status td {
+      border: 1px solid #ddd;
+      padding: 8px 4px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    
+    /* First column (Court names) */
+    .court-status th:first-child,
+    .court-status td:first-child {
+      width: 100px;
+      min-width: 100px;
+      max-width: 100px;
+    }
+    
+    /* Second column (Status) */
+    .court-status th:nth-child(2),
+    .court-status td:nth-child(2) {
+      width: 80px;
+      min-width: 80px;
+      max-width: 80px;
+    }
+    
+    /* Time slot columns */
+    .court-status th:not(:first-child):not(:nth-child(2)),
+    .court-status td:not(:first-child):not(:nth-child(2)) {
+      width: 50px;
+      min-width: 50px;
+      max-width: 50px;
+    }
+    
+    /* Icon styling */
+    .court-status .fas {
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="navbar">
+    <a class="nav-item" href="dashboard.html">
+      <i class="fa-solid fa-table-columns"></i>
+      Dashboard
+    </a>
+    <a class="nav-item" href="user_management.html">
+      <i class="fa-solid fa-user-group"></i>
+      User Management
+    </a>
+    <a class="nav-item active" href="court_slot_management.html">
+      <i class="fa-solid fa-layer-group"></i>
+      Court & Slot Management
+    </a>
+    <a class="nav-item" href="booking_management.html">
+      <i class="fa-solid fa-calendar-check"></i>
+      Booking Management
+    </a>
+  </div>
+
+  <div class="container">
+    <h2>Court & Slot Management</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Sports</th>
+          <th>Court</th>
+          <th>Location</th>
+          <th colspan="2">Time Range</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><input type="radio"> Badminton</td><td>A,B,C</td><td><a href="#">Google Map link</a></td><td><input type="text" placeholder="e.g. 8.00"></td><td><input type="text" placeholder="e.g. 23.00"></td><td class="actions"><a class="edit">Edit</a> <a class="delete">Delete</a></td></tr>
+        <tr><td><input type="radio"> Volleyball</td><td>A,B</td><td><a href="#">Google Map link</a></td><td><input type="text" placeholder="e.g. 8.00"></td><td><input type="text" placeholder="e.g. 23.00"></td><td class="actions"><a class="edit">Edit</a> <a class="delete">Delete</a></td></tr>
+        <tr><td><input type="radio"> Basketball</td><td>A</td><td><a href="#">Google Map link</a></td><td><input type="text" placeholder="e.g. 8.00"></td><td><input type="text" placeholder="e.g. 23.00"></td><td class="actions"><a class="edit">Edit</a> <a class="delete">Delete</a></td></tr>
+        <tr><td><input type="radio"> Football</td><td>Stadium Field</td><td><a href="#">Google Map link</a></td><td><input type="text" placeholder="e.g. 8.00"></td><td><input type="text" placeholder="e.g. 23.00"></td><td class="actions"><a class="edit">Edit</a> <a class="delete">Delete</a></td></tr>
+        <tr><td><input type="radio"> Swimming Pool</td><td>A</td><td><a href="#">Google Map link</a></td><td><input type="text" placeholder="e.g. 8.00"></td><td><input type="text" placeholder="e.g. 23.00"></td><td class="actions"><a class="edit">Edit</a> <a class="delete">Delete</a></td></tr>
+        <tr><td><input type="radio"> Archer</td><td>Archer Field</td><td><a href="#">Google Map link</a></td><td><input type="text" placeholder="e.g. 8.00"></td><td><input type="text" placeholder="e.g. 23.00"></td><td class="actions"><a class="edit">Edit</a> <a class="delete">Delete</a></td></tr>
+        <tr><td><input type="radio"> Rugby</td><td>Rugby Field</td><td><a href="#">Google Map link</a></td><td><input type="text" placeholder="e.g. 8.00"></td><td><input type="text" placeholder="e.g. 23.00"></td><td class="actions"><a class="edit">Edit</a> <a class="delete">Delete</a></td></tr>
+        <tr><td><input type="radio"> Squash</td><td>A,B</td><td><a href="#">Google Map link</a></td><td><input type="text" placeholder="e.g. 8.00"></td><td><input type="text" placeholder="e.g. 23.00"></td><td class="actions"><a class="edit">Edit</a> <a class="delete">Delete</a></td></tr>
+      </tbody>
+    </table>
+
+    <br>
+    <button class="btn">Add New Sport</button>
+    <button class="btn delete">Delete Court</button>
+    <button class="btn">Add New Court</button>
+
+    <h3>Court Availability</h3>
+    <div class="court-availability-container">
+      <table class="court-status">
+        <thead>
+          <tr>
+            <th>Courts</th><th>Status</th>
+            <th>8:00</th><th>9:00</th><th>10:00</th><th>11:00</th><th>12:00</th><th>13:00</th><th>14:00</th><th>15:00</th>
+            <th>16:00</th><th>17:00</th><th>18:00</th><th>19:00</th><th>20:00</th><th>21:00</th><th>22:00</th><th>23:00</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Court A</td><td class="normal">Normal</td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+          </tr>
+          <tr>
+            <td>Court B</td><td class="full">Full</td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+            <td class="booked"><i class="fas fa-times"></i></td>
+          </tr>
+          <tr>
+            <td>Court C</td><td class="maintenance">Maintenance</td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+            <td class="available"><i class="fas fa-check"></i></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <br>
+    <button class="btn">Update Availability</button>
+    <div class="status-box">
+      <div class="legend"><i class="fas fa-check" style="color: #00b894;"></i> Available</div>
+      <div class="legend"><i class="fas fa-times" style="color: red;"></i> Booked</div>
+    </div>
+  </div>
+
+</body>
+</html>
