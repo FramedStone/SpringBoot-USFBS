@@ -19,10 +19,10 @@ public class QuorumConfig {
     private String moderator;
     @Value("${quorum.admin}")
     private String admin;
-    @Value("${quorum.contractAddress.booking}")
-    private String bookingAddress;
-    @Value("${quorum.contractAddress.sportFacility}")
-    private String sportFacilityAddress;
+    // @Value("${quorum.contractAddress.booking:}")
+    // private String bookingAddress;
+    // @Value("${quorum.contractAddress.sportFacility:}")
+    // private String sportFacilityAddress;
 
     @Bean
     public Quorum quorum() {
@@ -49,14 +49,14 @@ public class QuorumConfig {
         return new StaticGasProvider(BigInteger.ZERO, BigInteger.valueOf(4700000));
     }
 
-    @Bean
-    public String bookingAddress() {
-        return bookingAddress;
-    }
+    // @Bean
+    // public String bookingAddress() {
+    //     return bookingAddress;
+    // }
 
-    @Bean
-    public String sportFacilityAddress() {
-        return sportFacilityAddress;
-    }
+    // @Bean
+    // public String sportFacilityAddress() {
+    //     return sportFacilityAddress;
+    // }
 
 }
