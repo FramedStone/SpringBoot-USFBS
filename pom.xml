@@ -35,6 +35,11 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-thymeleaf</artifactId>
+		</dependency>
+
 		<!-- <dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
@@ -64,6 +69,13 @@
 			<groupId>io.github.zinebfadili</groupId>
 			<artifactId>pinata-java-sdk</artifactId>
 			<version>2.1.0</version>
+		</dependency>
+
+		<!-- hot reload -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
 		</dependency>
 
 	</dependencies>
