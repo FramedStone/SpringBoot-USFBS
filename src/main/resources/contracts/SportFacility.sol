@@ -25,11 +25,6 @@ contract SportFacility is Management {
     sportFacility[] private sportFacilities; 
     mapping(string => uint256) private sfIndex; // for O(1) lookup
 
-    // modifier isAdmin {
-    //     require(msg.sender == admin_, "Access denied");
-    //     _;
-    // } 
-
     // Events
     event sportFacilityAdded(
         address indexed from,
@@ -37,19 +32,19 @@ contract SportFacility is Management {
         string Location,
         string status,
         court[] courts,
-        uint256 time
+        uint256 timestamp
     );
     event sportFacilityModified(
         address indexed from,
         string facilityName,
         string oldData,
         string newData,
-        uint256 time
+        uint256 timestamp
     );
     event sportFacilityDeleted(
         address indexed from,
         string facilityName,
-        uint256 time
+        uint256 timestamp
     );
     event courtAdded(
         address indexed from,
@@ -57,7 +52,7 @@ contract SportFacility is Management {
         uint256 earliestTime,
         uint256 latestTime,
         string status,
-        uint256 time
+        uint256 timestamp
     );
     event courtModified(
         address indexed from,
@@ -65,29 +60,29 @@ contract SportFacility is Management {
         string courtName,
         string oldData,
         string newData,
-        uint256 time
+        uint256 timestamp
     );
     event courtDeleted(
         address indexed from,
         string courtName,
-        uint256 time
+        uint256 timestamp
     );
     event facilityDetailsRequested(
         address indexed from,
         string facilityName,
         string note,
-        uint256 time
+        uint256 timestamp
     );
     event courtDetailsRequested(
         address indexed from,
         string facilityName,
         string courtName,
         string note,
-        uint256 time
+        uint256 timestamp
     );
 
     // Helper Functions
-    function statusToString(status status_) internal pure returns(string memory) {
+    function statusToString(status status_) internal pure returns(string memory sString) {
         if(status_ == status.OPEN) return "open";
         if(status_ == status.CLOSED) return "closed";
         if(status_ == status.MAINTENANCE) return "maintenance";
