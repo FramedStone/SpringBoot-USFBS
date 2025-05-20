@@ -72,15 +72,7 @@ public class ContractInitializer implements CommandLineRunner {
         } else {
             // Deploy new contract
             String admin = credentialAdmin.getAddress();
-            // use the actual deployed facility address, not the empty env var
-            String facilityAddress = sportFacilityContract.getContractAddress();
-            bookingContract = Booking.deploy(
-                quorum,
-                transactionManager,
-                contractGasProvider,
-                admin,
-                facilityAddress
-            ).send();
+            bookingContract = Booking.deploy(quorum, transactionManager, contractGasProvider, admin, sportFacilityContract.getContractAddress()).send();
             System.out.println("Booking contract deployed at " + bookingContract.getContractAddress() + " remember to update env");
 
             TransactionReceipt deploymentReceipt = bookingContract.getTransactionReceipt()
