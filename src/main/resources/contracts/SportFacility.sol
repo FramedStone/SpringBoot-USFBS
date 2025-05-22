@@ -102,8 +102,8 @@ contract SportFacility is Management {
         status fstatus, // default (if not provided) = 0 (OPEN)
         court[] memory fcourts 
     ) external isAdmin {
-        require(keccak256(bytes(fname)) != keccak256(bytes("")), "Sport Facility name not provided");
-        require(keccak256(bytes(flocation)) != keccak256(bytes("")), "Sport Facility location not provided");
+       require(bytes(fname).length      > 0, "Sport Facility name not provided");
+       require(bytes(flocation).length > 0, "Sport Facility location not provided");
 
         sportFacility storage sf = sportFacilities.push();
         sf.name = fname;
@@ -122,8 +122,8 @@ contract SportFacility is Management {
         string memory fname_,
         string memory fname
     ) external isAdmin {
-        require(keccak256(bytes(fname_)) != keccak256(bytes("")), "Sport Facility name not provided (old)");
-        require(keccak256(bytes(fname)) != keccak256(bytes("")), "Sport Facility name not provided (new)");
+       require(bytes(fname_).length > 0, "Sport Facility name not provided (old)");
+       require(bytes(fname).length  > 0, "Sport Facility name not provided (new)");
         require(sfIndex[fname_] != 0, "Sport Facility not found");
 
         uint256 index = sfIndex[fname_];
@@ -139,7 +139,7 @@ contract SportFacility is Management {
         string memory fname,
         string memory flocation
     ) external isAdmin {
-        require(keccak256(bytes(fname)) != keccak256(bytes("")), "Sport Facility name not provided");
+       require(bytes(fname).length > 0, "Sport Facility name not provided");
         require(sfIndex[fname] != 0, "Sport Facility not found");
 
         uint256 index = sfIndex[fname];
@@ -156,7 +156,7 @@ contract SportFacility is Management {
         status fstatus
     ) external isAdmin {
 
-        require(keccak256(bytes(fname)) != keccak256(bytes("")), "Sport Facility name not provided");
+       require(bytes(fname).length > 0, "Sport Facility name not provided");
         require(sfIndex[fname] != 0, "Sport Facility not found");
 
         uint256 index = sfIndex[fname];
@@ -169,8 +169,8 @@ contract SportFacility is Management {
     }
 
     function deleteSportFacility(string memory fname) external isAdmin {
-        require(keccak256(bytes(fname)) != keccak256(bytes("")), "fname not provided");
-        require(keccak256(bytes(sportFacilities[sfIndex[fname]].name)) != keccak256(bytes(fname)), "Sport Facility not found");
+       require(bytes(fname).length > 0, "Sport Facility name not provided");
+       require(sfIndex[fname] != 0, "Sport Facility not found");
         emit sportFacilityDeleted(msg.sender, fname, block.timestamp);
 
         delete sportFacilities[sfIndex[fname]];
@@ -222,10 +222,10 @@ contract SportFacility is Management {
         string memory fname,
         court memory newCourt
     ) external isAdmin {
-        require(keccak256(bytes(newCourt.name)) != keccak256(bytes("")), "cname not provided");
+       require(bytes(newCourt.name).length > 0, "Court name not provided");
         require(newCourt.earliestTime != 0, "earlistTime not provided");
-        require(newCourt.latestTime != 0, "latestTime not provided");
-        require(sfIndex[fname] != 0, "Sport Facility not found");
+        require(newCourt.latestTime   != 0, "latestTime not provided");
+        require(sfIndex[fname]        != 0, "Sport Facility not found");
 
         sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
         sf.courts.push(newCourt);
@@ -239,7 +239,7 @@ contract SportFacility is Management {
         string memory cname_,
         string memory cname
     ) external isAdmin {
-        require(keccak256(bytes(cname)) != keccak256(bytes("")), "cname not provided");
+       require(bytes(cname).length > 0, "Court name not provided");
         require(sfIndex[fname] != 0, "Sport Facility not found");
         require(sportFacilities[sfIndex[fname]].cIndex[cname_] != 0, "Court not found");
 

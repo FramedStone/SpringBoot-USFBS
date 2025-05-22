@@ -5,11 +5,11 @@ contract Management {
     // Variable & Modifier Initialization
     struct Announcement {
         // string message;
-        bytes32 ipfsHash;
+        string   ipfsHash;
         uint256 startTime;
         uint256 endTime;
     }
-    mapping(bytes32 => Announcement) announcements;
+   mapping(string => Announcement)  announcements;
 
     address private immutable admin_;
     mapping(address => bool) internal users;
@@ -27,46 +27,46 @@ contract Management {
     event userAdded(
         address indexed from,
         address indexed user,
-        uint256 time
+        uint256 timestamp
     );
     event userDeleted(
         address indexed from,
         address indexed user,
         string note,
-        uint256 time
+        uint256 timestamp
     );
 
     event announcementAdded(
         address indexed from,
-        bytes32 ipfsHash,
+        string ipfsHash,
         uint256 startTime,
         uint256 endTime,
-        uint256 time
+        uint256 timestamp
     );
     event announcementIpfsHashModified(
         address indexed from,
-        bytes32 ipfsHash_,
-        bytes32 ipfsHash,
-        uint256 time
+        string ipfsHash_,
+        string ipfsHash,
+        uint256 timestamp
     );
     event announcementTimeModified(
         address indexed from,
-        bytes32 ipfsHash,
+        string ipfsHash,
         uint256 startTime_,
         uint256 endTime_,
         uint256 startTime,
         uint256 endTime,
-        uint256 time
+        uint256 timestamp
     );
     event announcementDeleted(
         address indexed from,
-        bytes32 ipfsHash,
-        uint256 time
+        string ipfsHash,
+        uint256 timestamp
     );
     event announcementRequested(
         address indexed from,
-        bytes32 ipfsHash,
-        uint256 time
+        string ipfsHash,
+        uint256 timestamp
     );
 
     // Main functions
@@ -96,57 +96,65 @@ contract Management {
 
     // Announcement CRUD
     function addAnnouncement(
-        bytes32 ipfsHash,
+        string memory ipfsHash,
         uint256 startTime,
         uint256 endTime
     ) external isAdmin {
-        require(announcements[ipfsHash].ipfsHash == 0x00, "Duplicated ipfsHash"); 
+       require(bytes(announcements[ipfsHash].ipfsHash).length == 0, "Duplicated ipfsHash");
         require(startTime != 0, "startTime not provided");
-        require(endTime != 0, "endTime not provided");
+        require(endTime   != 0, "endTime not provided");
 
         announcements[ipfsHash] = Announcement(ipfsHash, startTime, endTime);
         emit announcementAdded(msg.sender, ipfsHash, startTime, endTime, block.timestamp);
     }
+
     function updateAnnouncementIpfsHash(
-        bytes32 ipfsHash_,
-        bytes32 ipfsHash
+        string memory ipfsHash_,
+        string memory ipfsHash
     ) external isAdmin {
-        require(announcements[ipfsHash_].ipfsHash != 0x00, "Announcement ipfsHash not found");
-        require(ipfsHash != 0x00, "ipfsHash not provided");
+       require(bytes(announcements[ipfsHash_].ipfsHash).length != 0, "Announcement not found");
+       require(bytes(ipfsHash).length != 0, "ipfsHash not provided");
 
         announcements[ipfsHash] = Announcement(ipfsHash, announcements[ipfsHash_].startTime, announcements[ipfsHash_].endTime);
         delete announcements[ipfsHash_];
+
         emit announcementIpfsHashModified(msg.sender, ipfsHash_, ipfsHash, block.timestamp);
     }
+
     function updateAnnouncementTime(
-        bytes32 ipfsHash,
+        string memory ipfsHash,
         uint256 startTime,
         uint256 endTime
     ) external isAdmin {
-        require(announcements[ipfsHash].ipfsHash != 0x00, "Announcement ipfsHash not found");
+       require(bytes(announcements[ipfsHash].ipfsHash).length != 0, "Announcement not found");
         require(startTime != 0, "startTime not provided");
-        require(endTime != 0, "endTime not provided");
+        require(endTime   != 0, "endTime not provided");
 
-        uint256 startTime_ = announcements[ipfsHash].startTime;
-        uint256 endTime_ = announcements[ipfsHash].endTime;
+        uint256 oldStart = announcements[ipfsHash].startTime;
+        uint256 oldEnd   = announcements[ipfsHash].endTime;
 
         announcements[ipfsHash].startTime = startTime;
-        announcements[ipfsHash].endTime = endTime;
-        emit announcementTimeModified(msg.sender, ipfsHash, startTime_, endTime_, startTime, endTime, block.timestamp);
+        announcements[ipfsHash].endTime   = endTime;
+
+        emit announcementTimeModified(msg.sender, ipfsHash, oldStart, oldEnd, startTime, endTime, block.timestamp);
     }
-    function deleteAnnouncement(bytes32 ipfsHash) external isAdmin {
-        require(announcements[ipfsHash].ipfsHash != 0x00, "Announcement ipfsHash not found");
+
+    function deleteAnnouncement(
+        string memory ipfsHash
+    ) external isAdmin {
+       require(bytes(announcements[ipfsHash].ipfsHash).length != 0, "Announcement not found");
 
         delete announcements[ipfsHash];
         emit announcementDeleted(msg.sender, ipfsHash, block.timestamp);
     }
 
-    // Announcement Getters
-    function getAnnouncement(bytes32 ipfsHash) external returns(Announcement memory announcement_) {
-        require(announcements[ipfsHash].ipfsHash != 0x00, "Announcement not found");
+    function getAnnouncement(
+        string memory ipfsHash
+    ) external returns(Announcement memory) {
+       require(bytes(announcements[ipfsHash].ipfsHash).length != 0, "Announcement not found");
 
         Announcement memory announcement = announcements[ipfsHash];
         emit announcementRequested(msg.sender, announcement.ipfsHash, block.timestamp);
-        return(announcement);
+        return announcement;
     }
 }
