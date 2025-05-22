@@ -31,7 +31,7 @@ contract SportFacility is Management {
         string facilityName,
         string Location,
         string status,
-        court[] courts,
+        string courts,
         uint256 timestamp
     );
     event sportFacilityModified(
@@ -109,13 +109,18 @@ contract SportFacility is Management {
         sf.name = fname;
         sf.location = flocation;
         sf.status = fstatus;
+
+        string memory courtsNames = "";
         for(uint256 i=0; i<fcourts.length; i++) {
             sf.courts.push(fcourts[i]);
             sf.cIndex[fcourts[i].name] = i;
+            courtsNames = i == 0
+                ? fcourts[i].name
+                : string(abi.encodePacked(courtsNames, ",", fcourts[i].name));
         }
         sfIndex[fname] = sportFacilities.length;
 
-        emit sportFacilityAdded(msg.sender, fname, flocation, statusToString(fstatus), fcourts, block.timestamp);
+        emit sportFacilityAdded(msg.sender, fname, flocation, statusToString(fstatus), courtsNames, block.timestamp);
     }
 
     function updateSportFacilityName(

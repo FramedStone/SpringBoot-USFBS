@@ -104,38 +104,34 @@ public class ContractInitializer implements CommandLineRunner {
             System.out.println(">>> [bookingCreated] event received:");
             System.out.println("    from           = " + event.from);
             System.out.println("    bookingId      = " + event.bookingId);
-            System.out.println("    ipfsHash       = " + Numeric.toHexString(event.ipfsHash));
-            System.out.println("    sportFacility  = " + event.sportFacility);
-            System.out.println("    court          = " + event.court);
+            System.out.println("    ipfsHash       = " + event.ipfsHash);
+            System.out.println("    facilityName   = " + event.facilityName);
+            System.out.println("    courtName      = " + event.courtName);
+            System.out.println("    note           = " + event.note);
             System.out.println("    startTime      = " + event.startTime);
             System.out.println("    endTime        = " + event.endTime);
             System.out.println("    status         = " + event.status);
-            System.out.println("    note           = " + event.note);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println("\n"); 
         }, error -> {
             System.err.println("Error in bookingCreated subscription: " + error.getMessage());
             error.printStackTrace();
         });
 
-        bookingContract.bookingStatusUpdatedEventFlowable(
+        bookingContract.bookingUpdatedEventFlowable(
             DefaultBlockParameterName.EARLIEST,
             DefaultBlockParameterName.LATEST
         ).subscribe(event -> {
-            System.out.println(">>> [bookingStatusUpdated] event received:");
+            System.out.println(">>> [bookingUpdated] event received:");
+            System.out.println("    from           = " + event.from);
             System.out.println("    bookingId      = " + event.bookingId);
-            System.out.println("    ipfsHash       = " + Numeric.toHexString(event.ipfsHash));
-            System.out.println("    sportFacility  = " + event.sportFacility);
-            System.out.println("    court          = " + event.court);
-            System.out.println("    startTime      = " + event.startTime);
-            System.out.println("    endTime        = " + event.endTime);
-            System.out.println("    oldStatus      = " + event.oldStatus);
-            System.out.println("    newStatus      = " + event.newStatus);
+            System.out.println("    oldData        = " + event.oldData);
+            System.out.println("    newData        = " + event.newData);
             System.out.println("    note           = " + event.note);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println("\n"); 
         }, error -> {
-            System.err.println("Error in bookingStatusUpdated subscription: " + error.getMessage());
+            System.err.println("Error in bookingUpdated subscription: " + error.getMessage());
             error.printStackTrace();
         });
 
@@ -144,71 +140,44 @@ public class ContractInitializer implements CommandLineRunner {
             DefaultBlockParameterName.LATEST
         ).subscribe(event -> {
             System.out.println(">>> [bookingDeleted] event received:");
+            System.out.println("    from           = " + event.from);
             System.out.println("    bookingId      = " + event.bookingId);
-            System.out.println("    ipfsHash       = " + Numeric.toHexString(event.ipfsHash));
-            System.out.println("    sportFacility  = " + event.sportFacility);
-            System.out.println("    court          = " + event.court);
-            System.out.println("    startTime      = " + event.startTime);
-            System.out.println("    endTime        = " + event.endTime);
+            System.out.println("    ipfsHash       = " + event.ipfsHash);
             System.out.println("    status         = " + event.status);
             System.out.println("    note           = " + event.note);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in bookingDeleted subscription: " + error.getMessage());
             error.printStackTrace();
         });
 
-        bookingContract.bookingNoteAppendedEventFlowable(
+        bookingContract.bookingRequestedEventFlowable(
             DefaultBlockParameterName.EARLIEST,
             DefaultBlockParameterName.LATEST
         ).subscribe(event -> {
-            System.out.println(">>> [bookingNoteAppended] event received:");
+            System.out.println(">>> [bookingRequested] event received:");
+            System.out.println("    from           = " + event.from);
             System.out.println("    bookingId      = " + event.bookingId);
-            System.out.println("    ipfsHash       = " + Numeric.toHexString(event.ipfsHash));
-            System.out.println("    sportFacility  = " + event.sportFacility);
-            System.out.println("    court          = " + event.court);
-            System.out.println("    startTime      = " + event.startTime);
-            System.out.println("    endTime        = " + event.endTime);
-            System.out.println("    status         = " + event.status);
-            System.out.println("    note           = " + event.note);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
-            System.err.println("Error in bookingNoteAppended subscription: " + error.getMessage());
+            System.err.println("Error in bookingRequested subscription: " + error.getMessage());
             error.printStackTrace();
         });
 
-        bookingContract.bookingStatusRequestedEventFlowable(
+        bookingContract.timeSlotRequestedEventFlowable(
             DefaultBlockParameterName.EARLIEST,
             DefaultBlockParameterName.LATEST
         ).subscribe(event -> {
-            System.out.println(">>> [bookingStatusRequested] event received:");
+            System.out.println(">>> [timeSlotRequested] event received:");
             System.out.println("    from           = " + event.from);
-            System.out.println("    bookingId      = " + event.bookingId);
-            System.out.println("    sportFacility  = " + event.sportFacility);
-            System.out.println("    court          = " + event.court);
-            System.out.println("    requestNote    = " + event.requestNote);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    facilityName   = " + event.facilityName);
+            System.out.println("    courtName      = " + event.courtName);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
-            System.err.println("Error in bookingStatusRequested subscription: " + error.getMessage());
-            error.printStackTrace();
-        });
-
-        bookingContract.timeSlotsRequestedEventFlowable(
-            DefaultBlockParameterName.EARLIEST,
-            DefaultBlockParameterName.LATEST
-        ).subscribe(event -> {
-            System.out.println(">>> [timeSlotsRequested] event received:");
-            System.out.println("    from           = " + event.from);
-            System.out.println("    sportFacility  = " + event.sportFacility);
-            System.out.println("    court          = " + event.court);
-            System.out.println("    timeSlots      = " + event.timeSlots);
-            System.out.println("    timestamp      = " + event.time);
-            System.out.println();
-        }, error -> {
-            System.err.println("Error in timeSlotsRequested subscription: " + error.getMessage());
+            System.err.println("Error in timeSlotRequested subscription: " + error.getMessage());
             error.printStackTrace();
         });
 
@@ -222,8 +191,8 @@ public class ContractInitializer implements CommandLineRunner {
             System.out.println("    facilityName   = " + event.facilityName);
             System.out.println("    Location       = " + event.Location);
             System.out.println("    status         = " + event.status);
-            System.out.println("    courts         = " + event.courts);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    courts         = " + event.courts); 
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in sportFacilityAdded subscription: " + error.getMessage());
@@ -239,7 +208,7 @@ public class ContractInitializer implements CommandLineRunner {
             System.out.println("    facilityName   = " + event.facilityName);
             System.out.println("    oldData        = " + event.oldData);
             System.out.println("    newData        = " + event.newData);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in sportFacilityModified subscription: " + error.getMessage());
@@ -253,7 +222,7 @@ public class ContractInitializer implements CommandLineRunner {
             System.out.println(">>> [sportFacilityDeleted] event received:");
             System.out.println("    from           = " + event.from);
             System.out.println("    facilityName   = " + event.facilityName);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in sportFacilityDeleted subscription: " + error.getMessage());
@@ -270,7 +239,7 @@ public class ContractInitializer implements CommandLineRunner {
             System.out.println("    earliestTime   = " + event.earliestTime);
             System.out.println("    latestTime     = " + event.latestTime);
             System.out.println("    status         = " + event.status);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in courtAdded subscription: " + error.getMessage());
@@ -287,7 +256,7 @@ public class ContractInitializer implements CommandLineRunner {
             System.out.println("    courtName      = " + event.courtName);
             System.out.println("    oldData        = " + event.oldData);
             System.out.println("    newData        = " + event.newData);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in courtModified subscription: " + error.getMessage());
@@ -301,7 +270,7 @@ public class ContractInitializer implements CommandLineRunner {
             System.out.println(">>> [courtDeleted] event received:");
             System.out.println("    from           = " + event.from);
             System.out.println("    courtName      = " + event.courtName);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in courtDeleted subscription: " + error.getMessage());
@@ -316,7 +285,7 @@ public class ContractInitializer implements CommandLineRunner {
             System.out.println("    from           = " + event.from);
             System.out.println("    facilityName   = " + event.facilityName);
             System.out.println("    note           = " + event.note);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in facilityDetailsRequested subscription: " + error.getMessage());
@@ -332,7 +301,7 @@ public class ContractInitializer implements CommandLineRunner {
             System.out.println("    facilityName   = " + event.facilityName);
             System.out.println("    courtName      = " + event.courtName);
             System.out.println("    note           = " + event.note);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in courtDetailsRequested subscription: " + error.getMessage());
@@ -347,7 +316,7 @@ public class ContractInitializer implements CommandLineRunner {
             System.out.println(">>> [userAdded] event received:");
             System.out.println("    from           = " + event.from);
             System.out.println("    user           = " + event.user);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in userAdded subscription: " + error.getMessage());
@@ -362,7 +331,7 @@ public class ContractInitializer implements CommandLineRunner {
             System.out.println("    from           = " + event.from);
             System.out.println("    user           = " + event.user);
             System.out.println("    note           = " + event.note);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in userDeleted subscription: " + error.getMessage());
@@ -375,10 +344,10 @@ public class ContractInitializer implements CommandLineRunner {
         ).subscribe(event -> {
             System.out.println(">>> [announcementAdded] event received:");
             System.out.println("    from           = " + event.from);
-            System.out.println("    ipfsHash       = " + Numeric.toHexString(event.ipfsHash));
+            System.out.println("    ipfsHash       = " + event.ipfsHash);
             System.out.println("    startTime      = " + event.startTime);
             System.out.println("    endTime        = " + event.endTime);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in announcementAdded subscription: " + error.getMessage());
@@ -391,9 +360,9 @@ public class ContractInitializer implements CommandLineRunner {
         ).subscribe(event -> {
             System.out.println(">>> [announcementIpfsHashModified] event received:");
             System.out.println("    from           = " + event.from);
-            System.out.println("    ipfsHash_      = " + Numeric.toHexString(event.ipfsHash_));
-            System.out.println("    ipfsHash       = " + Numeric.toHexString(event.ipfsHash));
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    ipfsHash_      = " + event.ipfsHash_);
+            System.out.println("    ipfsHash       = " + event.ipfsHash);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in announcementIpfsHashModified subscription: " + error.getMessage());
@@ -406,12 +375,12 @@ public class ContractInitializer implements CommandLineRunner {
         ).subscribe(event -> {
             System.out.println(">>> [announcementTimeModified] event received:");
             System.out.println("    from           = " + event.from);
-            System.out.println("    ipfsHash       = " + Numeric.toHexString(event.ipfsHash));
+            System.out.println("    ipfsHash       = " + event.ipfsHash);
             System.out.println("    startTime_     = " + event.startTime_);
             System.out.println("    endTime_       = " + event.endTime_);
             System.out.println("    startTime      = " + event.startTime);
             System.out.println("    endTime        = " + event.endTime);
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in announcementTimeModified subscription: " + error.getMessage());
@@ -424,8 +393,8 @@ public class ContractInitializer implements CommandLineRunner {
         ).subscribe(event -> {
             System.out.println(">>> [announcementDeleted] event received:");
             System.out.println("    from           = " + event.from);
-            System.out.println("    ipfsHash       = " + Numeric.toHexString(event.ipfsHash));
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    ipfsHash       = " + event.ipfsHash);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in announcementDeleted subscription: " + error.getMessage());
@@ -438,8 +407,8 @@ public class ContractInitializer implements CommandLineRunner {
         ).subscribe(event -> {
             System.out.println(">>> [announcementRequested] event received:");
             System.out.println("    from           = " + event.from);
-            System.out.println("    ipfsHash       = " + Numeric.toHexString(event.ipfsHash));
-            System.out.println("    timestamp      = " + event.time);
+            System.out.println("    ipfsHash       = " + event.ipfsHash);
+            System.out.println("    timestamp      = " + event.timestamp);
             System.out.println();
         }, error -> {
             System.err.println("Error in announcementRequested subscription: " + error.getMessage());
