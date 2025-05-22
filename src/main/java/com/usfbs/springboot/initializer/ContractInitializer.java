@@ -10,7 +10,6 @@ import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.quorum.Quorum;
 import org.web3j.tx.RawTransactionManager;
 import org.web3j.tx.gas.ContractGasProvider;
-import org.web3j.utils.Numeric;
 
 import com.usfbs.springboot.contracts.Booking;
 import com.usfbs.springboot.contracts.Management;
@@ -61,7 +60,7 @@ public class ContractInitializer implements CommandLineRunner {
 
             TransactionReceipt deploymentReceipt = sportFacilityContract.getTransactionReceipt()
                 .orElseThrow(() -> new RuntimeException("Deployment receipt not found"));
-            System.out.println("Deployment TX hash = " + deploymentReceipt.getTransactionHash());
+            System.out.println("Sport Facility Deployment TX hash = " + deploymentReceipt.getTransactionHash());
         }
 
         // Booking.sol
@@ -77,7 +76,7 @@ public class ContractInitializer implements CommandLineRunner {
 
             TransactionReceipt deploymentReceipt = bookingContract.getTransactionReceipt()
                 .orElseThrow(() -> new RuntimeException("Deployment receipt not found"));
-            System.out.println("Deployment TX hash = " + deploymentReceipt.getTransactionHash());
+            System.out.println("Booking Deployment TX hash = " + deploymentReceipt.getTransactionHash());
         }
 
         // Management.sol
@@ -93,7 +92,7 @@ public class ContractInitializer implements CommandLineRunner {
 
             TransactionReceipt deploymentReceipt = managementContract.getTransactionReceipt()
                 .orElseThrow(() -> new RuntimeException("Deployment receipt not found"));
-            System.out.println("Deployment TX hash = " + deploymentReceipt.getTransactionHash());
+            System.out.println("Management Deployment TX hash = " + deploymentReceipt.getTransactionHash());
         }
 
         // subscribe to Booking.sol events
