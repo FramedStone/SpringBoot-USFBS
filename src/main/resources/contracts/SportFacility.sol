@@ -6,7 +6,6 @@ import "./Strings.sol";
 
 contract SportFacility is Management {
     // Variable & Modifier Initialization
-    address private immutable admin_;
     enum status { OPEN, CLOSED, MAINTENANCE, BOOKED }
 
     struct court {
@@ -92,7 +91,7 @@ contract SportFacility is Management {
 
     // Main Functions
     constructor(address admin) Management(admin) {
-       admin_ = admin; 
+       admins[admin] = true; 
     }
 
     // Sport Facility CRUD

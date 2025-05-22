@@ -7,7 +7,6 @@ import "./Strings.sol";
 
 contract Booking is Management {
     // Variable & Modifier Initialization
-    address private immutable admin_;
     SportFacility immutable sfContract;
     enum status { APPROVED, PENDING, REJECTED, COMPLETED, CANCELLED }
 
@@ -178,8 +177,8 @@ contract Booking is Management {
 
     // Main Functions
     constructor(address admin, address sfAddress) Management(admin) {
-       admin_ = admin; 
-       sfContract = SportFacility(sfAddress);
+        admins[admin] = true;
+        sfContract = SportFacility(sfAddress);
     }
 
     // universal

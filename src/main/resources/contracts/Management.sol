@@ -11,11 +11,11 @@ contract Management {
     }
    mapping(string => Announcement)  announcements;
 
-    address private immutable admin_;
+    mapping(address => bool) admins;
     mapping(address => bool) internal users;
 
     modifier isAdmin {
-        require(msg.sender == admin_, "Access denied");
+        require(admins[msg.sender] == true, "Access denied");
         _;
     } 
     modifier isUser {
@@ -71,7 +71,7 @@ contract Management {
 
     // Main functions
     constructor(address admin) {
-       admin_ = admin; 
+       admins[admin] = true; 
     }
     function addUser(address user) public isAdmin {
         users[user] = true;
