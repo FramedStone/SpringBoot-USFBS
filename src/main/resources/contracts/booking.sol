@@ -283,14 +283,11 @@ contract Booking is Management {
 
     function attachBookingNote(
         uint256 bookingId,
-        string memory ipfsHash,
         string memory note
     ) external isAdmin freeUpStorage_ {
         require(bookingId != 0, "Booking not found");
-        require(bytes(ipfsHash).length != 0, "IPFSHash not provided");
         require(bytes(note).length != 0, "note not provided");
 
-        updateIPFSHash_(bookingId, ipfsHash);
         bookingTransaction storage b = bookings[bookingId];
         b.note = note;
         emit bookingUpdated(msg.sender, bookingId, "", note, "Note attached by admin", block.timestamp);
@@ -298,13 +295,10 @@ contract Booking is Management {
 
     function rejectBooking(
         uint256 bookingId,
-        string memory ipfsHash,
         string memory reason
     ) external isAdmin freeUpStorage_ returns(string memory reason_) {
         require(bookingId != 0, "Booking not found");
-        require(bytes(ipfsHash).length != 0, "IPFSHash not provided");
 
-        updateIPFSHash_(bookingId, ipfsHash);
         bookingTransaction storage b = bookings[bookingId];
         emit bookingUpdated(
             msg.sender,
@@ -410,17 +404,14 @@ contract Booking is Management {
     }
 
     function cancelBooking(
-        uint256 bookingId,
-        string memory ipfsHash
+        uint256 bookingId
     ) external isUser freeUpStorage_ {
         require(bookingId !=0, "BookingId not provided");
         require(bookings[bookingId].owner == msg.sender, "Not booking owner");
 
         bookingTransaction storage b = bookings[bookingId];
         string memory oldData = statusToString(b.status);
-        string memory newData = string.concat(
-            string.concat(ipfsHash, ": "), statusToString(status.CANCELLED)
-        );
+        string memory newData = statusToString(status.CANCELLED);
         emit bookingUpdated(msg.sender, bookingId, oldData, newData, "Booking cancelled by user", block.timestamp);
     }
 
