@@ -36,4 +36,4 @@ application.properties
 application.yaml
 
 ### Contract wrappers ###
-**/src/main/**/contracts/
+**/src/main/**/contracts/*.java
