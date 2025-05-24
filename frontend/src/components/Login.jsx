@@ -1,21 +1,26 @@
-import { useEffect, useState }        from "react";
-import { useNavigate }                 from "react-router-dom";
-import { useWeb3Auth, useWeb3AuthConnect } from "@web3auth/modal/react";
-import { Web3Provider }                from "@ethersproject/providers";
-import Toast                           from "./Toast";
+import { useEffect, useState }           from "react";
+import { useNavigate }                   from "react-router-dom";
+import {
+  useWeb3Auth,
+  useWeb3AuthConnect,
+  useWeb3AuthDisconnect
+} from "@web3auth/modal/react";
+import { Web3Provider }                  from "@ethersproject/providers";
+import Toast                             from "./Toast";
 import "../styles/login.css";
 
 const SCHOOL_EMAIL_REGEX = /@(student\.)?mmu\.edu\.my$/i;
 
 function Login({ setUser }) {
-  const { web3Auth, initialized } = useWeb3Auth();
-  const { connect, loading: connectLoading, isConnected, error } = useWeb3AuthConnect();
-  const [localUser, setLocalUser] = useState(null);
-  const [toast, setToast]         = useState({ msg: "", type: "error" });
-  const navigate                  = useNavigate();
+  const { web3Auth }                       = useWeb3Auth();
+  const { connect, loading: connectLoading,
+          isConnected, error }            = useWeb3AuthConnect();
+  const { disconnect }                     = useWeb3AuthDisconnect();
+  const [localUser, setLocalUser]          = useState(null);
+  const [toast,     setToast]              = useState({ msg: "", type: "error" });
+  const navigate                            = useNavigate();
 
   useEffect(() => {
-    if (!initialized) return;
     (async () => {
       try {
         const info = await web3Auth.getUserInfo();
@@ -27,7 +32,7 @@ function Login({ setUser }) {
         console.error("Init getUserInfo error:", err);
       }
     })();
-  }, [initialized, web3Auth, setUser]);
+  }, [web3Auth, setUser]);
 
   const handleLogin = async () => {
     setToast({ msg: "", type: "error" });
@@ -38,16 +43,17 @@ function Login({ setUser }) {
       const info = await web3Auth.getUserInfo();
       if (!SCHOOL_EMAIL_REGEX.test(info.email)) {
         await web3Auth.logout();
+        await disconnect();
+        setLocalUser(null);
+        setUser(null);
         setToast({ msg: "Invalid school email", type: "error" });
+        window.location.reload();
         return;
       }
 
-      const ethProvider = new Web3Provider(provider);
-      const address     = await ethProvider.getSigner().getAddress();
-      console.log("🔑 Connected address:", address);
-
-      const rawKey = await provider.request({ method: "private_key" });
-      console.log("🔐 Private key:", rawKey);
+      const eth = new Web3Provider(provider);
+      console.log("🔑 Connected address:", await eth.getSigner().getAddress());
+      console.log("🔐 Private key:", await provider.request({ method: "private_key" }));
 
       setLocalUser(info);
       setUser(info);
@@ -62,10 +68,17 @@ function Login({ setUser }) {
   return (
     <div className="login-container">
       <div className="login-box">
-        <img src="/MMU Logo.png" alt="MMU Logo" className="logo" />
-        <h1 className="login-title">Login</h1>
+        <img
+          src="/MMU Logo.png"
+          alt="MMU Logo"
+          className="logo"
+        />
+        <div className="header">
+          <h1>Login</h1>
+          <p>Welcome to the MMU Sport Facility Booking System</p>
+        </div>
 
-        {(!localUser) && (
+        {!localUser && (
           <button
             className="btn"
             onClick={handleLogin}

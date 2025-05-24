@@ -1,41 +1,30 @@
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useState } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Navbar from "./components/Navbar";
-import Home from "./pages/Home";
-import Login from "./components/Login";
+import Login  from "./components/Login";
+import Home   from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
-// import BookingHistory from "./pages/BookingHistory";
-// import AdminPanel from "./pages/AdminPanel";
-// import ModeratorPanel from "./pages/ModeratorPanel";
-// import NotFound from "./pages/NotFound";
 import "./App.css";
 
 function App() {
-  const [web3auth, setWeb3auth] = useState(null);
-  const [user,      setUser ]   = useState(null);
+  const [web3Auth, setWeb3Auth] = useState(null);
+  const [user, setUser] = useState(null);
 
   return (
     <Router>
-      <Navbar web3auth={web3auth} setUser={setUser} />
       <Routes>
         <Route
           path="/login"
           element={
             <Login
-              web3auth={web3auth}
-              setWeb3auth={setWeb3auth}
+              web3Auth={web3Auth}
+              setWeb3Auth={setWeb3Auth}
               setUser={setUser}
             />
           }
         />
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        {/*
-        <Route path="/history"   element={<BookingHistory />} />
-        <Route path="/admin"     element={<AdminPanel />}     />
-        <Route path="/moderator" element={<ModeratorPanel />} />
-        <Route path="*"          element={<NotFound />}       />
-        */}
+        <Route path="/home" element={<Home />} />
       </Routes>
     </Router>
   );
