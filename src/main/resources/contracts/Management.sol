@@ -11,8 +11,9 @@ contract Management {
     }
    mapping(string => Announcement)  announcements;
 
-    mapping(address => bool) admins;
+    mapping(address => bool) internal admins;
     mapping(address => bool) internal users;
+    mapping(address => bool) private bannedUsers;
 
     modifier isAdmin {
         require(admins[msg.sender] == true, "Access denied");
@@ -29,7 +30,13 @@ contract Management {
         address indexed user,
         uint256 timestamp
     );
-    event userDeleted(
+    event userBanned(
+        address indexed from,
+        address indexed user,
+        string note,
+        uint256 timestamp
+    );
+    event userUnbanned(
         address indexed from,
         address indexed user,
         string note,
@@ -74,6 +81,8 @@ contract Management {
        admins[admin] = true; 
     }
     function addUser(address user) public isAdmin {
+        require(user != address(0), "User address not provided");
+
         users[user] = true;
         emit userAdded(
             msg.sender,
@@ -81,15 +90,27 @@ contract Management {
             block.timestamp
         );
     }
-    function deleteUser(address user) external isAdmin {
+    function banUser(address user) external isAdmin {
+        require(user != address(0), "User address not provided");
         require(users[user] == true, "User not found (system)");
-        require(user != msg.sender, "Access denied (system)");
 
+        bannedUsers[user] = true;
         delete users[user];
-        emit userDeleted(
+        emit userBanned(
             msg.sender,
             user,
-            "User removed (admin)",
+            "User banned by admin",
+            block.timestamp
+        );
+    }
+    function unbanUser(address user) external isAdmin {
+        require(user != address(0), "User address not provided");
+
+        bannedUsers[user] = false;
+        emit userUnbanned(
+            msg.sender,
+            user,
+            "User unbanned by admin",
             block.timestamp
         );
     }
