@@ -18,7 +18,7 @@ body {
 
 .logo {
     display: block;
-    max-width: 150px;
+    max-width: 2200px;
     margin: 0 auto 20px;
 }
 
@@ -65,4 +65,41 @@ body {
 
 .btn:hover {
     background-color: #485EC4;
+}
+
+.login-box {
+    text-align: center;
+}
+
+.login-title {
+    font-size: 24px;
+    margin-bottom: 20px;
+    color: #2c3e50;
+}
+
+.spinner {
+    margin: 20px 0;
+    font-size: 18px;
+    color: #556EE6;
+}
+
+.login-btn {
+    padding: 15px;
+    background-color: #556EE6;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    width: 100%;
+}
+
+.login-btn:hover {
+    background-color: #485EC4;
+}
+
+.welcome-msg {
+    margin-top: 20px;
+    font-size: 18px;
+    color: #2c3e50;
 }
