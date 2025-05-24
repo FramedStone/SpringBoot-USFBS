@@ -37,3 +37,5 @@ application.yaml
 
 ### Contract wrappers ###
 **/src/main/**/contracts/*.java
+
+.GitHub/copilot-instructions.md
