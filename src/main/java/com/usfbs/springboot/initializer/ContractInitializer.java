@@ -322,7 +322,7 @@ public class ContractInitializer implements CommandLineRunner {
             error.printStackTrace();
         });
 
-        managementContract.userDeletedEventFlowable(
+        managementContract.userBannedEventFlowable(
             DefaultBlockParameterName.EARLIEST,
             DefaultBlockParameterName.LATEST
         ).subscribe(event -> {
@@ -334,6 +334,21 @@ public class ContractInitializer implements CommandLineRunner {
             System.out.println();
         }, error -> {
             System.err.println("Error in userDeleted subscription: " + error.getMessage());
+            error.printStackTrace();
+        });
+
+        managementContract.userUnbannedEventFlowable(
+            DefaultBlockParameterName.EARLIEST,
+            DefaultBlockParameterName.LATEST
+        ).subscribe(event -> {
+            System.out.println(">>> [userUnbanned] event received:");
+            System.out.println("    from           = " + event.from);
+            System.out.println("    user           = " + event.user);
+            System.out.println("    note           = " + event.note);
+            System.out.println("    timestamp      = " + event.timestamp);
+            System.out.println();
+        }, error -> {
+            System.err.println("Error in userUnbanned subscription: " + error.getMessage());
             error.printStackTrace();
         });
 
