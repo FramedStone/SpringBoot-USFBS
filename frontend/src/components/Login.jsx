@@ -47,7 +47,9 @@ function Login({ setUser }) {
         setLocalUser(null);
         setUser(null);
         setToast({ msg: "Invalid school email", type: "error" });
-        window.location.reload();
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
         return;
       }
 
