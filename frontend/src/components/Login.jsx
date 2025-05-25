@@ -12,13 +12,13 @@ import "../styles/login.css";
 const SCHOOL_EMAIL_REGEX = /@(student\.)?mmu\.edu\.my$/i;
 
 function Login({ setUser }) {
+  const navigate = useNavigate();
   const { web3Auth }                       = useWeb3Auth();
   const { connect, loading: connectLoading,
           isConnected, error }            = useWeb3AuthConnect();
   const { disconnect }                     = useWeb3AuthDisconnect();
   const [localUser, setLocalUser]          = useState(null);
   const [toast,     setToast]              = useState({ msg: "", type: "error" });
-  const navigate                            = useNavigate();
 
   useEffect(() => {
     (async () => {
@@ -54,13 +54,13 @@ function Login({ setUser }) {
       }
 
       const eth = new Web3Provider(provider);
-      console.log("🔑 Connected address:", await eth.getSigner().getAddress());
-      console.log("🔐 Private key:", await provider.request({ method: "private_key" }));
+      console.log("Connected address:", await eth.getSigner().getAddress());
+      console.log("Private key:", await provider.request({ method: "private_key" }));
 
       setLocalUser(info);
       setUser(info);
       setToast({ msg: "Login successful!", type: "success" });
-      navigate("/dashboard");
+      navigate("/dashboard"); // 👈 Redirect to AdminDashboard
     } catch (err) {
       console.error("Web3Auth login error:", err);
       setToast({ msg: "Login error: " + err.message, type: "error" });
