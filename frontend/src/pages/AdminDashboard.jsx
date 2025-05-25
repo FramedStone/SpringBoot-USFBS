@@ -1,5 +1,4 @@
-import React from "react";
-import "../styles/AdminDashboard.css";
+import "@styles/AdminDashboard.css";
 
 function AdminDashboard() {
   return (

@@ -1,12 +1,11 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Web3Provider } from "@ethersproject/providers";
-import Login from "./components/Login";
-import AdminDashboard from "./pages/AdminDashboard";
-import Toast from "./components/Toast";
+import { JsonRpcProvider } from "@ethersproject/providers";
+import Login from "@components/Login";
+import AdminDashboard from "@pages/AdminDashboard"; 
+import Toast from "@components/Toast";
 import "./App.css";
 
-// 🅿️ AppRoutes handles routing and blockchain check
 function AppRoutes() {
   const location = useLocation();
   const [web3Auth, setWeb3Auth] = useState(null);
@@ -16,10 +15,11 @@ function AppRoutes() {
   useEffect(() => {
     const checkBlockchain = async () => {
       try {
-        const provider = new Web3Provider(window.ethereum || import.meta.env.VITE_QUORUM_RPC_URL);
+        const provider = new JsonRpcProvider(import.meta.env.VITE_QUORUM_RPC_URL); 
         await provider.getBlockNumber();
       } catch (err) {
         setToast({ msg: "Blockchain node is offline or unreachable.", type: "error" });
+        console.error("Blockchain health check failed:", err); 
       }
     };
     checkBlockchain();
