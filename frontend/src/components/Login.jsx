@@ -83,6 +83,7 @@ function Login({ setUser }) {
         authConnectionId: "usfbs",
         extraLoginOptions: {
           login_hint: email,
+          flow_type: "link", // magic link flow
         },
       });
       if (!provider) throw new Error("No wallet provider");
