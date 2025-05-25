@@ -14,38 +14,34 @@ import org.web3j.tx.gas.StaticGasProvider;
 @Configuration
 public class QuorumConfig {
     @Value("${quorum.url}")
-    private String quorumUrl;
-    @Value("${quorum.privateKey}")
-    private String privateKey;
-    // @Value("${quorum.chainId}")
-    // private long chainId;
+    private String rpcUrl;
+    @Value("${quorum.moderator}")
+    private String moderator;
+    @Value("${quorum.admin}")
+    private String admin;
 
     @Bean
     public Quorum quorum() {
-        return Quorum.build(new HttpService(quorumUrl));
+        return Quorum.build(new HttpService(rpcUrl));
+    }
+
+    @Bean
+    public Credentials credentialModerator() {
+        return Credentials.create(moderator);
+    }
+
+    @Bean
+    public Credentials credentialAdmin() {
+        return Credentials.create(admin);
     }
 
     // @Bean
-    // public long chainId() {
-    //     return chainId;
+    // public Credentials credentialUser(String userAddress) {
+    //     return Credentials.create(userAddress);
     // }
-
-    @Bean
-    public Credentials credentials() {
-        return Credentials.create(privateKey);
-    }
 
     @Bean
     public ContractGasProvider contractGasProvider() {
         return new StaticGasProvider(BigInteger.ZERO, BigInteger.valueOf(4700000));
     }
-
-    // @Bean
-    // TODO: Booking contract
-
-    // @Bean
-    // TODO: Facility contract
-
-    // @Bean
-    // TODO: Management contract
 }
