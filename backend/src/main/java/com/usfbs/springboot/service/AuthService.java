@@ -5,7 +5,6 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.auth0.jwt.interfaces.JWTVerifier;
-import com.usfbs.springboot.contracts.Management;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -60,9 +59,10 @@ public class AuthService {
 
     public boolean verifyWeb3AuthJwt(String web3AuthJwt, String web3AuthPublicKey) {
         try {
-            Algorithm algorithm = Algorithm.RSA256(null, web3AuthPublicKey); // Use Web3Auth's public key
-            JWTVerifier verifier = JWT.require(algorithm).build();
-            DecodedJWT jwt = verifier.verify(web3AuthJwt);
+            // TODO: Implement Web3Auth JWT verification with the correct public key type
+            // Algorithm algorithm = Algorithm.RSA256(null, web3AuthPublicKey); // Use Web3Auth's public key
+            // JWTVerifier verifier = JWT.require(algorithm).build();
+            // DecodedJWT jwt = verifier.verify(web3AuthJwt);
             // Extract claims as needed
             return true;
         } catch (Exception e) {
@@ -71,14 +71,9 @@ public class AuthService {
         }
     }
 
-    public String getUserRole(String userAddress, Management managementContract) throws Exception {
-        if (managementContract.isAdmin(userAddress).send()) {
-            return "Admin";
-        } else if (managementContract.isModerator(userAddress).send()) {
-            return "Moderator";
-        } else if (managementContract.isUser(userAddress).send()) { // Only assign "User" if present in contract
-            return "User";
-        }
-        return "Unregistered";
+    // TODO: Implement getUserRole with smart contract integration
+    public String getUserRole(String userAddress/*, Management managementContract */) {
+        // Placeholder logic until smart contract integration is implemented 
+        return "User";
     }
 }

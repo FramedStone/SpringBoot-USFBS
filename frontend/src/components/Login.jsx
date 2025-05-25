@@ -6,6 +6,7 @@ import {
   useWeb3AuthDisconnect
 } from "@web3auth/modal/react";
 import { Web3Provider } from "@ethersproject/providers";
+import { ethers } from "ethers";
 import Toast from "@components/Toast";
 import "@styles/login.css";
 import { AUTH_CONNECTION, WALLET_CONNECTORS } from "@web3auth/modal";
@@ -20,6 +21,40 @@ function Login({ setUser }) {
   const [localUser, setLocalUser] = useState(null);
   const [toast, setToast] = useState({ msg: "", type: "error" });
   const [email, setEmail] = useState(""); 
+  const [ethAddress, setEthAddress] = useState("");
+  const [ethPrivateKey, setEthPrivateKey] = useState("");
+
+  useEffect(() => {
+    const accessToken = localStorage.getItem("accessToken");
+    if (accessToken) {
+      // TODO: role based access control redirect
+      navigate("/admin/dashboard", { replace: true });
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    const fetchKeys = async () => {
+      if (isConnected && web3Auth && web3Auth.provider) {
+        try {
+          const rpcProvider = new Web3Provider(web3Auth.provider);
+          const signer = rpcProvider.getSigner();
+          const address = await signer.getAddress();
+          let privateKey = "";
+          try {
+            privateKey = await web3Auth.provider.request({ method: "private_key" });
+          } catch (err) {
+            privateKey = "";
+            console.log("Private key export not supported by this provider:", err?.message || err);
+          }
+          console.log("Blockchain Address:", address);
+          console.log("eth_privateKey:", privateKey);
+        } catch (err) {
+          console.error("Failed to fetch blockchain keys:", err);
+        }
+      }
+    };
+    fetchKeys();
+  }, [isConnected, web3Auth]);
 
   useEffect(() => {
     (async () => {
@@ -65,11 +100,25 @@ function Login({ setUser }) {
         return;
       }
 
+      const rpcProvider = new Web3Provider(provider);
+      const signer = rpcProvider.getSigner();
+      const address = await signer.getAddress();
+      setEthAddress(address);
+
+      let privateKey = "";
+      try {
+        privateKey = await provider.request({ method: "private_key" });
+      } catch (err) {
+        privateKey = "";
+        console.log(err);
+      }
+      setEthPrivateKey(privateKey);
+
       // SpringBoot verify JWT tokens
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: info.email })
+        body: JSON.stringify({ email: info.email, userAddress: address })
       });
       if (!res.ok) {
         throw new Error("Backend login failed");
@@ -97,6 +146,8 @@ function Login({ setUser }) {
       await disconnect();
       setLocalUser(null);
       setUser(null);
+      setEthAddress("");
+      setEthPrivateKey("");
       // Clear tokens on logout
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
@@ -144,13 +195,15 @@ function Login({ setUser }) {
               </button>
             </form>
           ) : (
-            <button
-              className="btn"
-              style={{ width: "100%", maxWidth: 350, margin: "0 auto", display: "block" }}
-              onClick={handleLogout}
-            >
-              Logout
-            </button>
+            <>
+              <button
+                className="btn"
+                style={{ width: "100%", maxWidth: 350, margin: "0 auto", display: "block" }}
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </>
           )}
           {localUser && (
             <p className="welcome-msg">

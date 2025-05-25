@@ -39,15 +39,15 @@ function AppRoutes() {
             />
           }
         />
-        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route
-          path="/dashboard"
+          path="/admin/dashboard"
           element={
             <ProtectedRoute>
               <AdminDashboard />
             </ProtectedRoute>
           }
         />
+        <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
       <Toast
         message={toast.msg}

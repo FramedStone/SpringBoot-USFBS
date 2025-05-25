@@ -1,6 +1,7 @@
 package com.usfbs.springboot.controller;
 
 import com.auth0.jwt.interfaces.Claim;
+import com.usfbs.springboot.contracts.Management;
 import com.usfbs.springboot.dto.LoginRequest;
 import com.usfbs.springboot.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,17 +19,23 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    // private final Management managementContract;
 
     @Autowired
     public AuthController(AuthService authService) {
         this.authService = authService;
+        // TODO: add managementContract parameter 
+        // this.managementContract = managementContract;
     }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
         // TODO: verify Web3Auth JWT or email and extract user address
         String userAddress = loginRequest.getUserAddress(); // Replace with actual extraction logic
-        String role = authService.getUserRole(userAddress, managementContract);
+
+        // TODO: add managementContract argument
+        String role = authService.getUserRole(userAddress);
+
         if ("Unregistered".equals(role)) {
             return ResponseEntity.status(403).body("User not registered in the system.");
         }
