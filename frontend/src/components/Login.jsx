@@ -97,7 +97,7 @@ function Login({ setUser }) {
       await disconnect();
       setLocalUser(null);
       setUser(null);
-      // 🦙 camelCase: Clear tokens on logout
+      // Clear tokens on logout
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("role");

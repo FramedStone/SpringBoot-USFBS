@@ -25,12 +25,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest) {
-        if (!authService.validateEmail(loginRequest.getEmail())) {
-            return ResponseEntity.badRequest().body("Invalid MMU email address.");
+    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
+        // TODO: verify Web3Auth JWT or email and extract user address
+        String userAddress = loginRequest.getUserAddress(); // Replace with actual extraction logic
+        String role = authService.getUserRole(userAddress, managementContract);
+        if ("Unregistered".equals(role)) {
+            return ResponseEntity.status(403).body("User not registered in the system.");
         }
-        // TODO: Get role from smart contract (Management.sol) here
-        String role = "User"; // Placeholder, replace with actual role lookup
         String accessToken = authService.generateAccessToken(loginRequest.getEmail(), role);
         String refreshToken = authService.generateRefreshToken(loginRequest.getEmail(), role);
         Map<String, String> response = new HashMap<>();
