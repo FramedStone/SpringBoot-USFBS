@@ -12,3 +12,6 @@ jwt:
     secret: ${JWT_SCERET}
     accessExpiry: 
     refreshExpiry: 
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS} # blockchain and SpringBoot backend
