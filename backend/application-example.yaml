@@ -7,3 +7,8 @@ quorum:
         booking: ${CONTRACT_ADDRESS}
         sportFacility: ${CONTRACT_ADDRESS}
         management: ${CONTRACT_ADDRESS}
+
+jwt:
+    secret: ${JWT_SCERET}
+    accessExpiry: 
+    refreshExpiry: 
