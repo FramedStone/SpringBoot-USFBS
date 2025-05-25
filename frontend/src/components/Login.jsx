@@ -65,9 +65,21 @@ function Login({ setUser }) {
         return;
       }
 
-      const eth = new Web3Provider(provider);
-      console.log("Connected address:", await eth.getSigner().getAddress());
-      console.log("Private key:", await provider.request({ method: "private_key" }));
+      // SpringBoot verify JWT tokens
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: info.email })
+      });
+      if (!res.ok) {
+        throw new Error("Backend login failed");
+      }
+      const { accessToken, refreshToken, role } = await res.json();
+
+      // Store tokens and role in localStorage
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("refreshToken", refreshToken);
+      localStorage.setItem("role", role);
 
       setLocalUser(info);
       setUser(info);
@@ -85,6 +97,10 @@ function Login({ setUser }) {
       await disconnect();
       setLocalUser(null);
       setUser(null);
+      // 🦙 camelCase: Clear tokens on logout
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("role");
       setToast({ msg: "Logged out successfully.", type: "success" });
     } catch (err) {
       console.error("Logout error:", err);

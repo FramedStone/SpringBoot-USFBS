@@ -4,6 +4,7 @@ import { JsonRpcProvider } from "@ethersproject/providers";
 import Login from "@components/Login";
 import AdminDashboard from "@pages/AdminDashboard"; 
 import Toast from "@components/Toast";
+import ProtectedRoute from "@components/ProtectedRoute";
 import "./App.css";
 
 function AppRoutes() {
@@ -39,7 +40,14 @@ function AppRoutes() {
           }
         />
         <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/dashboard" element={<AdminDashboard />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
       <Toast
         message={toast.msg}
