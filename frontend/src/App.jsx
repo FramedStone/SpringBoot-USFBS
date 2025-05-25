@@ -1,15 +1,32 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { useState } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Web3Provider } from "@ethersproject/providers";
 import Login from "./components/Login";
 import AdminDashboard from "./pages/AdminDashboard";
+import Toast from "./components/Toast";
 import "./App.css";
 
-function App() {
+// 🅿️ AppRoutes handles routing and blockchain check
+function AppRoutes() {
+  const location = useLocation();
   const [web3Auth, setWeb3Auth] = useState(null);
   const [user, setUser] = useState(null);
+  const [toast, setToast] = useState({ msg: "", type: "error" });
+
+  useEffect(() => {
+    const checkBlockchain = async () => {
+      try {
+        const provider = new Web3Provider(window.ethereum || import.meta.env.VITE_QUORUM_RPC_URL);
+        await provider.getBlockNumber();
+      } catch (err) {
+        setToast({ msg: "Blockchain node is offline or unreachable.", type: "error" });
+      }
+    };
+    checkBlockchain();
+  }, [location]);
 
   return (
-    <Router>
+    <>
       <Routes>
         <Route
           path="/login"
@@ -24,6 +41,19 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/dashboard" element={<AdminDashboard />} />
       </Routes>
+      <Toast
+        message={toast.msg}
+        type={toast.type}
+        onClose={() => setToast({ msg: "", type: "error" })}
+      />
+    </>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppRoutes />
     </Router>
   );
 }
