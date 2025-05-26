@@ -1,8 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { JsonRpcProvider } from "@ethersproject/providers";
-import Login from "@components/Login";
-import AdminDashboard from "@pages/AdminDashboard"; 
+import Login from "@pages/Login";
+// import AdminDashboard from "@pages/AdminDashboard"; 
 import Toast from "@components/Toast";
 import ProtectedRoute from "@components/ProtectedRoute";
 import "./App.css";
@@ -39,14 +39,14 @@ function AppRoutes() {
             />
           }
         />
-        <Route
+        {/* <Route
           path="/admin/dashboard"
           element={
             <ProtectedRoute setToast={setToast}>
               <AdminDashboard />
             </ProtectedRoute>
           }
-        />
+        /> */}
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
       <Toast
