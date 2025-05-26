@@ -114,6 +114,9 @@ contract Management {
             block.timestamp
         );
     }
+    function getUser(address user) external view isAdmin returns(bool isRegistered) {
+        return users[user];
+    }
 
     // Announcement CRUD
     function addAnnouncement(
