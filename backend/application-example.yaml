@@ -14,4 +14,4 @@ jwt:
     refreshExpiry: 
 
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS} # blockchain and SpringBoot backend
+  allowed-origins: ${CORS_ALLOWED_ORIGINS} # blockchain and frontend 
