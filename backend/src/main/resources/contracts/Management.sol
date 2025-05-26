@@ -5,7 +5,7 @@ contract Management {
     // Variable & Modifier Initialization
     struct Announcement {
         // string message;
-        string   ipfsHash;
+        string  ipfsHash;
         uint256 startTime;
         uint256 endTime;
     }
@@ -77,8 +77,10 @@ contract Management {
     );
 
     // Main functions
-    constructor(address admin) {
-       admins[admin] = true; 
+    constructor(address[] memory admins_) {
+        for(uint256 i=0; i<admins_.length; i++) {
+            admins[admins_[i]] = true; 
+        }
     }
     function addUser(address user) public isAdmin {
         require(user != address(0), "User address not provided");

@@ -90,8 +90,10 @@ contract SportFacility is Management {
     }
 
     // Main Functions
-    constructor(address admin) Management(admin) {
-       admins[admin] = true; 
+    constructor(address[] memory admins_) Management(admins_) {
+        for(uint256 i=0; i<admins_.length; i++) {
+            admins[admins_[i]] = true; 
+        }
     }
 
     // Sport Facility CRUD

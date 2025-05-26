@@ -176,8 +176,10 @@ contract Booking is Management {
     }
 
     // Main Functions
-    constructor(address admin, address sfAddress) Management(admin) {
-        admins[admin] = true;
+    constructor(address[] memory admins_, address sfAddress) Management(admins_) {
+        for(uint256 i=0; i<admins_.length; i++) {
+            admins[admins_[i]] = true; 
+        }
         sfContract = SportFacility(sfAddress);
     }
 
