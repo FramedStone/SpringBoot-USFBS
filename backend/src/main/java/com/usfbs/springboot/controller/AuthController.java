@@ -9,43 +9,79 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
+@CrossOrigin(
+    origins = "${cors.allowed-origins}",  
+    allowCredentials = "true",
+    allowedHeaders = "*",
+    methods = { RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS }
+)
 @RequestMapping("/api/auth")
 @Validated
 public class AuthController {
 
     private final AuthService authService;
-    // private final Management managementContract;
 
     @Autowired
     public AuthController(AuthService authService) {
         this.authService = authService;
-        // TODO: add managementContract parameter 
-        // this.managementContract = managementContract;
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
-        // TODO: verify Web3Auth JWT or email and extract user address
-        String userAddress = loginRequest.getUserAddress(); // Replace with actual extraction logic
+    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest, HttpServletResponse response) {
+        String email = loginRequest.getEmail();
+        String userAddress = loginRequest.getUserAddress();
 
-        // TODO: add managementContract argument
-        String role = authService.getUserRole(userAddress);
-
-        if ("Unregistered".equals(role)) {
-            return ResponseEntity.status(403).body("User not registered in the system.");
+        if (email == null || !email.matches("^[\\w.-]+@(student\\.)?mmu\\.edu\\.my$")) {
+            return ResponseEntity.status(400).body("Invalid MMU email address.");
         }
-        String accessToken = authService.generateAccessToken(loginRequest.getEmail(), role);
-        String refreshToken = authService.generateRefreshToken(loginRequest.getEmail(), role);
-        Map<String, String> response = new HashMap<>();
-        response.put("accessToken", accessToken);
-        response.put("refreshToken", refreshToken);
-        response.put("role", role);
-        return ResponseEntity.ok(response);
+
+        String role;
+        try {
+            role = authService.getUserRole(userAddress);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+
+        List<String> permissions = authService.getPermissions(role);
+        String accessToken = authService.generateAccessToken(email, role, userAddress);
+        String refreshToken = authService.generateRefreshToken(email, role, userAddress);
+
+        Map<String, Object> responseBody = new HashMap<>();
+        responseBody.put("accessToken", accessToken);
+        responseBody.put("refreshToken", refreshToken);
+        responseBody.put("role", role);
+        responseBody.put("address", userAddress);
+        responseBody.put("permissions", permissions);
+
+        Cookie accessCookie = new Cookie("accessToken", accessToken);
+        accessCookie.setHttpOnly(true);
+        // accessCookie.setSecure(true); // Comment this out for localhost
+        accessCookie.setPath("/");
+        accessCookie.setMaxAge(authService.getAccessExpiry());
+
+        Cookie refreshCookie = new Cookie("refreshToken", refreshToken);
+        refreshCookie.setHttpOnly(true);
+        // refreshCookie.setSecure(true); // Comment this out for localhost
+        refreshCookie.setPath("/");
+        refreshCookie.setMaxAge(authService.getRefreshExpiry());
+
+        response.addCookie(accessCookie);
+        response.addCookie(refreshCookie);
+
+        // return role/permissions for frontend UI
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("role", role);
+        resp.put("permissions", permissions);
+        return ResponseEntity.ok(resp);
     }
 
     @PostMapping("/refresh")
@@ -55,12 +91,51 @@ public class AuthController {
             Map<String, Claim> claims = authService.verifyToken(refreshToken);
             String email = claims.get("sub").asString();
             String role = claims.get("role").asString();
-            String newAccessToken = authService.generateAccessToken(email, role);
+            String address = claims.get("address").asString();
+            String newAccessToken = authService.generateAccessToken(email, role, address);
             Map<String, String> response = new HashMap<>();
             response.put("accessToken", newAccessToken);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(401).body("Invalid or expired refresh token");
+        }
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getMe(HttpServletRequest request) {
+        try {
+            // Extract JWT from cookie or Authorization header
+            String token = null;
+            if (request.getCookies() != null) {
+                for (Cookie cookie : request.getCookies()) {
+                    if ("accessToken".equals(cookie.getName())) {
+                        token = cookie.getValue();
+                        break;
+                    }
+                }
+            }
+            if (token == null) {
+                String authHeader = request.getHeader("Authorization");
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    token = authHeader.substring(7);
+                }
+            }
+            if (token == null) {
+                return ResponseEntity.status(401).body("No access token provided");
+            }
+
+            Map<String, Claim> claims = authService.verifyToken(token);
+            String email = claims.get("sub").asString();
+            String role = claims.get("role").asString();
+            String address = claims.get("address").asString();
+
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("email", email);
+            resp.put("role", role);
+            resp.put("address", address);
+            return ResponseEntity.ok(resp);
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body("Invalid or expired token");
         }
     }
 }

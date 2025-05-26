@@ -2,78 +2,137 @@ package com.usfbs.springboot.service;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
-import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.auth0.jwt.interfaces.JWTVerifier;
+import com.auth0.jwt.interfaces.Claim;
+import com.usfbs.springboot.contracts.Management;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.web3j.crypto.Credentials;
 
-import java.util.Date;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class AuthService {
+    private final Management managementContract;
+    private final Credentials credentialAdmin;
+    private final Credentials credentialModerator;
+
     @Value("${jwt.secret}")
     private String jwtSecret;
 
     @Value("${jwt.accessExpiry}")
-    private long accessExpiry; 
+    private int accessExpiry; // in seconds
 
     @Value("${jwt.refreshExpiry}")
-    private long refreshExpiry; 
+    private int refreshExpiry; // in seconds
 
-    public boolean validateEmail(String email) {
-        return email != null && email.matches("^[A-Za-z0-9._%+-]+@(student\\.)?mmu\\.edu\\.my$");
+    @Value("${quorum.admin}")
+    private String adminAddresses; // Comma-separated
+
+    @Value("${quorum.moderator}")
+    private String moderatorAddresses; // Comma-separated
+
+    @Autowired
+    public AuthService(
+        Management managementContract,
+        Credentials credentialAdmin,       
+        Credentials credentialModerator    
+    ) {
+        this.managementContract = managementContract;
+        this.credentialAdmin   = credentialAdmin;
+        this.credentialModerator = credentialModerator;
     }
 
-    public String generateAccessToken(String email, String role) {
-        return JWT.create()
-                .withSubject(email)
-                .withClaim("role", role)
-                .withIssuedAt(new Date())
-                .withExpiresAt(new Date(System.currentTimeMillis() + accessExpiry * 1000))
-                .sign(Algorithm.HMAC256(jwtSecret));
-    }
+    /** Determine role by comparing addresses derived from private keys or on-chain check */
+    public String getUserRole(String userAddress) {
+        String normalized = userAddress.toLowerCase();
 
-    public String generateRefreshToken(String email, String role) {
-        return JWT.create()
-                .withSubject(email)
-                .withClaim("role", role)
-                .withIssuedAt(new Date())
-                .withExpiresAt(new Date(System.currentTimeMillis() + refreshExpiry * 1000))
-                .sign(Algorithm.HMAC256(jwtSecret));
-    }
+        String adminAddr = credentialAdmin.getAddress().toLowerCase();
+        if (normalized.equals(adminAddr)) {
+            return "Admin";
+        }
 
-    public String generateBackendJwt(String email, String role) {
-        return JWT.create()
-            .withSubject(email)
-            .withClaim("role", role)
-            .withIssuedAt(new Date())
-            .withExpiresAt(new Date(System.currentTimeMillis() + accessExpiry * 1000))
-            .sign(Algorithm.HMAC256(jwtSecret));
-    }
+        String modAddr = credentialModerator.getAddress().toLowerCase();
+        if (normalized.equals(modAddr)) {
+            return "Moderator";
+        }
 
-    public Map<String, Claim> verifyToken(String token) {
-        return JWT.require(Algorithm.HMAC256(jwtSecret)).build().verify(token).getClaims();
-    }
-
-    public boolean verifyWeb3AuthJwt(String web3AuthJwt, String web3AuthPublicKey) {
         try {
-            // TODO: Implement Web3Auth JWT verification with the correct public key type
-            // Algorithm algorithm = Algorithm.RSA256(null, web3AuthPublicKey); // Use Web3Auth's public key
-            // JWTVerifier verifier = JWT.require(algorithm).build();
-            // DecodedJWT jwt = verifier.verify(web3AuthJwt);
-            // Extract claims as needed
-            return true;
+            Boolean isRegistered = managementContract.getUser(userAddress).send();
+            if (Boolean.TRUE.equals(isRegistered)) {
+                return "User";
+            }
+            // auto-register new user
+            managementContract.addUser(userAddress).send();
+            return "User";
         } catch (Exception e) {
-            // Log error
-            return false;
+            throw new RuntimeException("Failed to verify/register user on-chain", e);
         }
     }
 
-    // TODO: Implement getUserRole with smart contract integration
-    public String getUserRole(String userAddress/*, Management managementContract */) {
-        // Placeholder logic until smart contract integration is implemented 
-        return "User";
+    /**
+     * Returns permissions based on role.
+     */
+    public List<String> getPermissions(String role) {
+        switch (role) {
+            case "Admin":
+                return Arrays.asList(
+                    "createBooking", "rejectBooking", "viewBookingStatus", "viewAllBookingsHistory",
+                    "banUser", "unbanUser", "crudAnnouncement", "crudSportFacility"
+                );
+            case "Moderator":
+                return Collections.singletonList("subscribeSmartContractEvents");
+            case "User":
+                return Arrays.asList(
+                    "createBooking", "cancelBooking", "viewBookingStatus", "viewOwnBookingsHistory",
+                    "submitFeedback"
+                );
+            default:
+                return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Generates JWT token with email, role, blockchain address, and permissions.
+     */
+    public String generateAccessToken(String email, String role, String userAddress) {
+        List<String> permissions = getPermissions(role);
+        Algorithm algorithm = Algorithm.HMAC256(jwtSecret);
+        return JWT.create()
+                .withSubject(email)
+                .withClaim("role", role)
+                .withClaim("address", userAddress)
+                .withClaim("permissions", permissions)
+                .withIssuedAt(new Date())
+                .withExpiresAt(new Date(System.currentTimeMillis() + accessExpiry * 1000L))
+                .sign(algorithm);
+    }
+
+    public String generateRefreshToken(String email, String role, String userAddress) {
+        Algorithm algorithm = Algorithm.HMAC256(jwtSecret);
+        return JWT.create()
+                .withSubject(email)
+                .withClaim("role", role)
+                .withClaim("address", userAddress)
+                .withIssuedAt(new Date())
+                .withExpiresAt(new Date(System.currentTimeMillis() + refreshExpiry * 1000L))
+                .sign(algorithm);
+    }
+
+    public Map<String, Claim> verifyToken(String token) {
+        Algorithm algorithm = Algorithm.HMAC256(jwtSecret);
+        JWTVerifier verifier = JWT.require(algorithm).build();
+        DecodedJWT jwt = verifier.verify(token);
+        return jwt.getClaims();
+    }
+
+    public int getAccessExpiry() {
+        return accessExpiry;
+    }
+
+    public int getRefreshExpiry() {
+        return refreshExpiry;
     }
 }

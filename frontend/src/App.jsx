@@ -42,7 +42,7 @@ function AppRoutes() {
         <Route
           path="/admin/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute setToast={setToast}>
               <AdminDashboard />
             </ProtectedRoute>
           }

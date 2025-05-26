@@ -10,7 +10,7 @@ import { ethers } from "ethers";
 import Toast from "@components/Toast";
 import "@styles/login.css";
 import { AUTH_CONNECTION, WALLET_CONNECTORS } from "@web3auth/modal";
-
+import { authFetch } from "@utils/authFetch";             
 const SCHOOL_EMAIL_REGEX = /@(student\.)?mmu\.edu\.my$/i;
 
 function Login({ setUser }) {
@@ -25,11 +25,28 @@ function Login({ setUser }) {
   const [ethPrivateKey, setEthPrivateKey] = useState("");
 
   useEffect(() => {
-    const accessToken = localStorage.getItem("accessToken");
-    if (accessToken) {
-      // TODO: role based access control redirect
-      navigate("/admin/dashboard", { replace: true });
+    async function checkRoleRedirect() {
+      try {
+        const res = await authFetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/auth/me`
+        );
+        if (res.ok) {
+          const { role } = await res.json();
+          console.log("User role:", role);
+
+          if (role === "Admin") {
+            navigate("/admin/dashboard", { replace: true });
+          } else if (role === "Moderator") {
+            navigate("/moderator/events", { replace: true });
+          } else {
+            navigate("/user/bookings", { replace: true });
+          }
+        }
+      } catch (err) {
+        console.error("Role redirect check failed:", err);
+      }
     }
+    checkRoleRedirect();
   }, [navigate]);
 
   useEffect(() => {
@@ -83,7 +100,7 @@ function Login({ setUser }) {
         authConnectionId: "usfbs",
         extraLoginOptions: {
           login_hint: email,
-          flow_type: "link", // magic link flow
+          flow_type: "link",
         },
       });
       if (!provider) throw new Error("No wallet provider");
@@ -111,30 +128,48 @@ function Login({ setUser }) {
         privateKey = await provider.request({ method: "private_key" });
       } catch (err) {
         privateKey = "";
-        console.log(err);
       }
       setEthPrivateKey(privateKey);
 
       // SpringBoot verify JWT tokens
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: info.email, userAddress: address })
-      });
+      // Prepare payload
+      const payload = { email: info.email, userAddress: address };
+      console.log("Login payload:", payload);
+
+      // Send request
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/auth/login`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        }
+      );
+
+      // Log status & body on failure
       if (!res.ok) {
-        throw new Error("Backend login failed");
+        const errorText = await res.text();
+        console.error(
+          `Login failed: status=${res.status}, body=${errorText}`
+        );
+        throw new Error(`Backend login failed (${res.status})`);
       }
-      const { accessToken, refreshToken, role } = await res.json();
 
-      // Store tokens and role in localStorage
-      localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("refreshToken", refreshToken);
-      localStorage.setItem("role", role);
-
+      // Success
+      const data = await res.json();
+      console.log("Login response:", data);
       setLocalUser(info);
       setUser(info);
       setToast({ msg: "Login successful!", type: "success" });
-      navigate("/dashboard");
+
+      if (data.role === "Admin") {
+        navigate("/admin/dashboard");
+      } else if (data.role === "Moderator") {
+        navigate("/moderator/events");
+      } else {
+        navigate("/user/bookings");
+      }
     } catch (err) {
       console.error("Web3Auth login error:", err);
       setToast({ msg: "Login error: " + err.message, type: "error" });
@@ -147,12 +182,6 @@ function Login({ setUser }) {
       await disconnect();
       setLocalUser(null);
       setUser(null);
-      setEthAddress("");
-      setEthPrivateKey("");
-      // Clear tokens on logout
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("role");
       setToast({ msg: "Logged out successfully.", type: "success" });
     } catch (err) {
       console.error("Logout error:", err);
