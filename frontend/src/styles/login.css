@@ -201,3 +201,22 @@
 .read-the-docs {
   color: #888;
 }
+
+@media (max-width: 600px) {
+  .login-outer .login-container {
+    padding: 1rem;
+    width: calc(100% - 2rem);
+    max-width: none;
+  }
+  .login-outer .logo {
+    height: 4em;
+  }
+  .login-outer .login-btn,
+  .login-outer .btn {
+    font-size: 0.875rem;
+    padding: 0.75rem;
+  }
+  .login-outer h1 {
+    font-size: 1.5rem;
+  }
+}

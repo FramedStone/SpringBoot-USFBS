@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useWeb3Auth, useWeb3AuthDisconnect } from "@web3auth/modal/react";
 import { useNavigate } from "react-router-dom";
-import Toast from "../components/Toast";                  // ← import Toast
-import { authFetch } from "@utils/authFetch";             // ← helper with credentials
+import Toast from "@components/Toast";                 
 import {
   Users, Calendar, FileText, Settings,
   ExternalLink, Download, Edit, Trash2,
   Plus, Menu, X, User, LogOut
 } from 'lucide-react';
-import './AdminDashboard.css';
+import '@styles/AdminDashboard.css';
 
 export default function AdminDashboard() {
   const { web3Auth } = useWeb3Auth();
@@ -16,7 +15,7 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
 
   const [userEmail, setUserEmail] = useState('');
-  const [toast, setToast] = useState({ msg: "", type: "success" });  // ← toast state
+  const [toast, setToast] = useState({ msg: "", type: "success" });  
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
