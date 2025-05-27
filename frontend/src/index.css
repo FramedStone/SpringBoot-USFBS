@@ -1,0 +1,12 @@
+/* Define the main font stack in a CSS variable */
+:root {
+  --main-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+html, body, #root {
+  font-family: var(--main-font);
+}
+
+* {
+  font-family: var(--main-font);
+}
