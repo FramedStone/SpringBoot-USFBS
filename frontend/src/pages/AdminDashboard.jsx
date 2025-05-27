@@ -205,7 +205,16 @@ export default function AdminDashboard() {
           <div className="system-logs-section">
             <div className="section-header">
               <h3>System Logs</h3>
-              <ExternalLink size={16} />
+              <button
+                className="icon-link-btn"
+                onClick={() => {
+                  // TODO: Route to system logs page
+                }}
+                aria-label="Go to System Logs"
+                style={{ background: "none", border: "none", cursor: "pointer" }}
+              >
+                <ExternalLink size={16} />
+              </button>
             </div>
             <div className="logs-list">
               {systemLogs.map((log, index) => (
@@ -263,7 +272,16 @@ export default function AdminDashboard() {
                 <Download size={16} />
                 Export Report
               </button>
-              <ExternalLink size={16} />
+              <button
+                className="icon-link-btn"
+                onClick={() => {
+                  // TODO: Route to export report page
+                }}
+                aria-label="Go to Export Report"
+                style={{ background: "none", border: "none", cursor: "pointer" }}
+              >
+                <ExternalLink size={16} />
+              </button>
             </div>
           </div>
           <div className="bookings-table">
