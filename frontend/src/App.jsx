@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "r
 import { useEffect, useState } from "react";
 import { JsonRpcProvider } from "@ethersproject/providers";
 import Login from "@pages/Login";
-// import AdminDashboard from "@pages/AdminDashboard"; 
+import AdminDashboard from "@pages/AdminDashboard"; 
 import Toast from "@components/Toast";
 import ProtectedRoute from "@components/ProtectedRoute";
 import "./App.css";
@@ -39,14 +39,14 @@ function AppRoutes() {
             />
           }
         />
-        {/* <Route
+        <Route
           path="/admin/dashboard"
           element={
             <ProtectedRoute setToast={setToast}>
               <AdminDashboard />
             </ProtectedRoute>
           }
-        /> */}
+        />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
       <Toast

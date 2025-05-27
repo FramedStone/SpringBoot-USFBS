@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.web3j.crypto.Credentials;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class AuthService {
@@ -33,6 +34,10 @@ public class AuthService {
 
     @Value("${quorum.moderator}")
     private String moderatorAddresses; // Comma-separated
+
+    // in-memory revocation sets
+    private final Set<String> revokedAccess = ConcurrentHashMap.newKeySet();
+    private final Set<String> revokedRefresh = ConcurrentHashMap.newKeySet();
 
     @Autowired
     public AuthService(
@@ -134,5 +139,18 @@ public class AuthService {
 
     public int getRefreshExpiry() {
         return refreshExpiry;
+    }
+
+    public void revokeAccessToken(String t) {
+        if (t != null) revokedAccess.add(t);
+    }
+    public void revokeRefreshToken(String t) {
+        if (t != null) revokedRefresh.add(t);
+    }
+    public boolean isAccessTokenRevoked(String t) {
+        return t != null && revokedAccess.contains(t);
+    }
+    public boolean isRefreshTokenRevoked(String t) {
+        return t != null && revokedRefresh.contains(t);
     }
 }

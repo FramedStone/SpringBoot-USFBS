@@ -6,10 +6,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.Cookie;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import com.usfbs.springboot.service.AuthService;   
 
 import java.io.IOException;
 
+@Component
 public class JwtAuthFilter extends OncePerRequestFilter {
+    @Autowired private AuthService authService;
 
     @Override
     protected void doFilterInternal(
@@ -28,9 +33,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         String token = resolveToken(request);
-        if (token == null) {
+        if (token == null || authService.isAccessTokenRevoked(token)) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED,
-                               "Missing or invalid Authorization header");
+                token==null ? "Missing token" : "Token revoked");
             return;
         }
 

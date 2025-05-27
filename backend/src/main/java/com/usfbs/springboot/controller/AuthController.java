@@ -5,6 +5,8 @@ import com.usfbs.springboot.contracts.Management;
 import com.usfbs.springboot.dto.LoginRequest;
 import com.usfbs.springboot.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -84,11 +86,24 @@ public class AuthController {
         return ResponseEntity.ok(resp);
     }
 
+    private String extractToken(HttpServletRequest req, String name) {
+        if (req.getCookies()!=null) {
+            for (Cookie c: req.getCookies()) {
+                if (name.equals(c.getName())) return c.getValue();
+            }
+        }
+        String h = req.getHeader("Authorization");
+        return h!=null && h.startsWith("Bearer ") ? h.substring(7) : null;
+    }
+
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@RequestBody Map<String, String> body) {
-        String refreshToken = body.get("refreshToken");
+    public ResponseEntity<?> refresh(@RequestBody Map<String,String> b) {
+        String rt = b.get("refreshToken");
+        if (authService.isRefreshTokenRevoked(rt)) {
+            return ResponseEntity.status(401).body("Refresh token revoked");
+        }
         try {
-            Map<String, Claim> claims = authService.verifyToken(refreshToken);
+            Map<String, Claim> claims = authService.verifyToken(rt);  
             String email = claims.get("sub").asString();
             String role = claims.get("role").asString();
             String address = claims.get("address").asString();
@@ -137,5 +152,31 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.status(401).body("Invalid or expired token");
         }
+    }
+
+    /**
+     * Logout endpoint: clears auth cookies
+     * TODO: consider rate-limiting if needed
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest req, HttpServletResponse res) {
+        authService.revokeAccessToken(extractToken(req, "accessToken"));
+        authService.revokeRefreshToken(extractToken(req, "refreshToken"));
+
+        Cookie clearA = new Cookie("accessToken", "");
+        clearA.setHttpOnly(true);
+        clearA.setSecure(false);    // false for localhost; set true in prod
+        clearA.setPath("/");
+        clearA.setMaxAge(0);
+        res.addCookie(clearA);
+
+        Cookie clearR = new Cookie("refreshToken", "");
+        clearR.setHttpOnly(true);
+        clearR.setSecure(false);
+        clearR.setPath("/");
+        clearR.setMaxAge(0);
+        res.addCookie(clearR);
+
+        return ResponseEntity.noContent().build();
     }
 }
