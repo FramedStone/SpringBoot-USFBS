@@ -82,6 +82,7 @@ export default function LoginButton({
       setLocalUser(info);
       setToast({ msg: "Login successful!", type: "success" });
 
+      // Redirect based on role
       if (data.role === "Admin") {
         navigate("/admin/dashboard");
       } else if (data.role === "Moderator") {

@@ -69,7 +69,7 @@ public class AuthService {
             if (Boolean.TRUE.equals(isRegistered)) {
                 return "User";
             }
-            // auto-register new user
+            // Auto-register new user if not found
             managementContract.addUser(userAddress).send();
             return "User";
         } catch (Exception e) {

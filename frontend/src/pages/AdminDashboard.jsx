@@ -207,9 +207,7 @@ export default function AdminDashboard() {
               <h3>System Logs</h3>
               <button
                 className="icon-link-btn"
-                onClick={() => {
-                  // TODO: Route to system logs page
-                }}
+                onClick={() => navigate("/logs")}
                 aria-label="Go to System Logs"
                 style={{ background: "none", border: "none", cursor: "pointer" }}
               >

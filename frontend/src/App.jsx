@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { JsonRpcProvider } from "@ethersproject/providers";
 import Login from "@pages/Login";
 import AdminDashboard from "@pages/AdminDashboard"; 
+import SystemLogs from "@pages/SystemLogs"; 
 import Toast from "@components/Toast";
 import ProtectedRoute from "@components/ProtectedRoute";
 import "./App.css";
@@ -44,6 +45,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute setToast={setToast}>
               <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/logs"
+          element={
+            <ProtectedRoute setToast={setToast}>
+              <SystemLogs />
             </ProtectedRoute>
           }
         />
