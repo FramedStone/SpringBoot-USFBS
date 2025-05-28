@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
+import Spinner from "@components/Spinner";
 import { authFetch } from "@utils/authFetch";
-import Spinner from "@components/Spinner";  
-import BookingManagement from "@pages/BookingManagement";
 
 /**
  * Restricts access by role and banned status.
  * Shows spinner while loading, toast on error, and redirects to /login.
  */
-function ProtectedRoute({ children, setToast, allowedRoles }) {
+function ProtectedRoute({ children, setToast, allowedRoles, resetAppState }) {
   const [isAuth, setIsAuth] = useState(null);
 
   useEffect(() => {
@@ -28,6 +27,7 @@ function ProtectedRoute({ children, setToast, allowedRoles }) {
               type: "error",
               autoDismiss: true,
             });
+          if (resetAppState) resetAppState();
           return;
         }
 
@@ -41,22 +41,23 @@ function ProtectedRoute({ children, setToast, allowedRoles }) {
               type: "error",
               autoDismiss: true,
             });
+          if (resetAppState) resetAppState();
         }
       } catch (err) {
         setIsAuth(false);
         if (setToast)
           setToast({
-            msg: "Access denied",
+            msg: "Session expired. Please login again.",
             type: "error",
             autoDismiss: true,
           });
-        console.error("Access denied in ProtectedRoute:", err);
+        if (resetAppState) resetAppState();
       }
     }
     checkAuth();
-  }, [allowedRoles, setToast]);
+  }, [allowedRoles, setToast, resetAppState]);
 
-  if (isAuth === null) return <Spinner />; 
+  if (isAuth === null) return <Spinner />;
   if (!isAuth) return <Navigate to="/login" replace />;
   return children;
 }

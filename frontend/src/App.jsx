@@ -15,6 +15,7 @@ function AppRoutes() {
   const [web3Auth, setWeb3Auth] = useState(null);
   const [user, setUser] = useState(null);
   const [toast, setToast] = useState({ msg: "", type: "error" });
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   useEffect(() => {
     const checkBlockchain = async () => {
@@ -29,6 +30,15 @@ function AppRoutes() {
     checkBlockchain();
   }, [location]);
 
+  // Reset all app state and storage on logout or token expiry
+  const resetAppState = () => {
+    setActiveTab("dashboard");
+    setUser(null);
+    setToast({ msg: "", type: "error" });
+    localStorage.clear();
+    sessionStorage.clear();
+  };
+
   return (
     <>
       <Routes>
@@ -39,14 +49,16 @@ function AppRoutes() {
               web3Auth={web3Auth}
               setWeb3Auth={setWeb3Auth}
               setUser={setUser}
+              setToast={setToast}
+              resetAppState={resetAppState}
             />
           }
         />
         <Route
           path="/admin/dashboard"
           element={
-            <ProtectedRoute setToast={setToast}>
-              <AdminDashboard />
+            <ProtectedRoute setToast={setToast} resetAppState={resetAppState}>
+              <AdminDashboard activeTab={activeTab} setActiveTab={setActiveTab} />
             </ProtectedRoute>
           }
         />
@@ -74,7 +86,7 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
       <Toast
         message={toast.msg}
