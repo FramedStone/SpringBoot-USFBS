@@ -116,8 +116,13 @@ contract Management {
             block.timestamp
         );
     }
+
+    // Getters
     function getUser(address user) external view isAdmin returns(bool isRegistered) {
         return users[user];
+    }
+    function getBannedUser(address user) external view isAdmin returns(bool isBanned) {
+        return bannedUsers[user];
     }
 
     // Announcement CRUD

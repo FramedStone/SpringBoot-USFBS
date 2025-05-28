@@ -14,6 +14,9 @@ import org.web3j.crypto.Credentials;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Handles authentication, role, and banned status logic.
+ */
 @Service
 public class AuthService {
     private final Management managementContract;
@@ -50,7 +53,10 @@ public class AuthService {
         this.credentialModerator = credentialModerator;
     }
 
-    /** Determine role by comparing addresses derived from private keys or on-chain check */
+    /**
+     * Determine role by comparing addresses derived from private keys or on-chain check.
+     * Checks if user is banned before getUser/addUser logic.
+     */
     public String getUserRole(String userAddress) {
         String normalized = userAddress.toLowerCase();
 
@@ -62,6 +68,19 @@ public class AuthService {
         String modAddr = credentialModerator.getAddress().toLowerCase();
         if (normalized.equals(modAddr)) {
             return "Moderator";
+        }
+
+        // Check if user is banned before any user logic
+        try {
+            Boolean isBanned = managementContract.getBannedUser(userAddress).send();
+            if (Boolean.TRUE.equals(isBanned)) {
+                throw new RuntimeException("User is banned");
+            }
+        } catch (Exception e) {
+            // 📝 Log error with context
+            System.err.println("Error checking banned status for user: " + userAddress);
+            e.printStackTrace();
+            throw new RuntimeException("Failed to check banned status", e);
         }
 
         try {
