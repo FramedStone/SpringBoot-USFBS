@@ -51,7 +51,7 @@ function AppRoutes() {
         <Route
           path="/logs"
           element={
-            <ProtectedRoute setToast={setToast}>
+            <ProtectedRoute setToast={setToast} allowedRoles={["Admin", "Moderator"]}>
               <SystemLogs />
             </ProtectedRoute>
           }

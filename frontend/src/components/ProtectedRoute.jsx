@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { authFetch } from "@utils/authFetch";
 
-function ProtectedRoute({ children, setToast }) {
+function ProtectedRoute({ children, setToast, allowedRoles }) {
   const [isAuth, setIsAuth] = useState(null);
 
   useEffect(() => {
@@ -11,8 +11,17 @@ function ProtectedRoute({ children, setToast }) {
         const res = await authFetch(
           `${import.meta.env.VITE_BACKEND_URL}/api/auth/me`
         );
-        if (res.ok) setIsAuth(true);
-        else throw new Error("Access denied");
+        if (!res.ok) throw new Error("Access denied");
+        const data = await res.json();
+        if (
+          !allowedRoles ||
+          allowedRoles.includes(data.role)
+        ) {
+          setIsAuth(true);
+        } else {
+          setIsAuth(false);
+          if (setToast) setToast({ msg: "Access denied", type: "error" });
+        }
       } catch (err) {
         setIsAuth(false);
         if (setToast) setToast({ msg: "Access denied", type: "error" });
