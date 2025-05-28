@@ -17,33 +17,33 @@ const SystemLogs = () => {
     'Added Announcement': true
   });
 
-  // Sample data with blockchain addresses and IPFS CIDs
+  // Sample data with email addresses and IPFS CIDs
   const logsData = [
     {
       id: 'QmX7vQJ8KfGxRtN2pL9wYzHm5Fq3Bs4CvDnE8A1rT6kM',
       action: 'Form Received',
-      user: '0x742d35C5F6c4B8c9d8E1F3A2B5C7D9E4F6G8H2I3J5K',
+      email: 'user1@mmu.com',
       timestamp: '2025-04-29 14:32',
       note: 'Complaint'
     },
     {
       id: 'QmY8wRK9LgHyStO3qM0xZnI6Gr4Ct5DwEnF9B2sU7lN',
       action: 'Rejected Booking',
-      user: '0xA1B2C3D4E5F6789012345678901234567890ABCD',
+      email: 'user2@mmu.com',
       timestamp: '2025-04-29 14:40',
       note: 'Booking #100 Rejected'
     },
     {
       id: 'QmZ9xSL0MhIzTuP4rN1yAoJ7Hs5Du6ExFoG0C3tV8mO',
       action: 'Approved Booking',
-      user: '0xB2C3D4E5F6789012345678901234567890ABCDEF',
+      email: 'user3@mmu.com',
       timestamp: '2025-04-29 15:00',
       note: 'Booking #101 Approved'
     },
     {
       id: 'QmA0yTM1NiJ0UvQ5sO2zBpK8It6Ev7FyGpH1D4uW9nP',
       action: 'Added Announcement',
-      user: '0xC3D4E5F6789012345678901234567890ABCDEF12',
+      email: 'user4@mmu.com',
       timestamp: '2025-04-29 15:30',
       note: 'Basketball Tournament'
     }
@@ -71,10 +71,10 @@ const SystemLogs = () => {
   const filteredLogs = useMemo(() => {
     return logsData.filter(log => {
       // Search filter
-      const matchesSearch = searchTerm === '' || 
+      const matchesSearch = searchTerm === '' ||
         log.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.note.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Action filter
@@ -84,7 +84,7 @@ const SystemLogs = () => {
       const logDate = new Date(log.timestamp);
       const start = startDate ? new Date(startDate) : null;
       const end = endDate ? new Date(endDate) : null;
-      
+
       const matchesDate = (!start || logDate >= start) && (!end || logDate <= end);
 
       return matchesSearch && matchesAction && matchesDate;
@@ -94,7 +94,7 @@ const SystemLogs = () => {
   return (
     <div className="system-logs">
       <h1 className="page-title">System Logs</h1>
-      
+
       <div className="filters-container">
         {/* Search Bar */}
         <div className="search-section">
@@ -162,7 +162,7 @@ const SystemLogs = () => {
             <tr>
               <th>IPFS CID</th>
               <th>Action</th>
-              <th>Blockchain Address</th>
+              <th>Email Address</th>
               <th>Timestamp</th>
               <th>Note</th>
             </tr>
@@ -176,9 +176,9 @@ const SystemLogs = () => {
                     <span className="cid-mobile">{abbreviate(log.id)}</span>
                   </td>
                   <td>{log.action}</td>
-                  <td className="address-cell">
-                    <span className="address-desktop">{log.user}</span>
-                    <span className="address-mobile">{abbreviate(log.user)}</span>
+                  <td className="email-cell">
+                    <span className="email-desktop">{log.email}</span>
+                    <span className="email-mobile">{abbreviate(log.email)}</span>
                   </td>
                   <td>{log.timestamp}</td>
                   <td>{log.note}</td>

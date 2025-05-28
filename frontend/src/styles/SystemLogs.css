@@ -206,6 +206,15 @@
   max-width: 250px;
 }
 
+.email-cell {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  color: #2563eb;
+  font-weight: 500;
+  word-break: break-all;
+  max-width: 250px;
+}
+
 .no-results {
   text-align: center;
   padding: 40px 20px;
@@ -214,21 +223,25 @@
 }
 
 .cid-desktop,
-.address-desktop {
+.address-desktop,
+.email-desktop {
   display: inline;
 }
 .cid-mobile,
-.address-mobile {
+.address-mobile,
+.email-mobile {
   display: none;
 }
 
 @media (max-width: 900px) {
   .cid-desktop,
-  .address-desktop {
+  .address-desktop,
+  .email-desktop {
     display: none !important;
   }
   .cid-mobile,
-  .address-mobile {
+  .address-mobile,
+  .email-mobile {
     display: inline !important;
   }
 }
@@ -271,7 +284,8 @@
   }
   
   .cid-cell,
-  .address-cell {
+  .address-cell,
+  .email-cell {
     max-width: 150px;
     font-size: 11px;
   }
@@ -285,7 +299,8 @@
   }
   
   .cid-cell,
-  .address-cell {
+  .address-cell,
+  .email-cell {
     max-width: 120px;
     font-size: 10px;
   }
