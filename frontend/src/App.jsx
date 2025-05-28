@@ -5,6 +5,7 @@ import Login from "@pages/Login";
 import AdminDashboard from "@pages/AdminDashboard";
 import SystemLogs from "@pages/SystemLogs";
 import BookingManagement from "@pages/BookingManagement";
+import UserManagement from "@pages/UserManagement";
 import Toast from "@components/Toast";
 import ProtectedRoute from "@components/ProtectedRoute";
 import "./App.css";
@@ -62,6 +63,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute setToast={setToast} allowedRoles={["Admin"]}>
               <BookingManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/user-management"
+          element={
+            <ProtectedRoute setToast={setToast} allowedRoles={["Admin"]}>
+              <UserManagement />
             </ProtectedRoute>
           }
         />

@@ -9,7 +9,7 @@ import "@styles/Navbar.css";
 
 const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: Settings, route: "/admin/dashboard" },
-  { id: "users", label: "User Management", icon: Users, route: "/admin/users" },
+  { id: "users", label: "User Management", icon: Users, route: "/admin/user-management" },
   { id: "courts", label: "Court & Slot Management", icon: Calendar, route: "/admin/courts" },
   { id: "bookings", label: "Booking Management", icon: FileText, route: "/admin/booking-management" },
 ];

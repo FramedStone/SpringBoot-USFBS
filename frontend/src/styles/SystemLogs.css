@@ -209,8 +209,28 @@
 .no-results {
   text-align: center;
   padding: 40px 20px;
-  color: #7f8c8d;
+  color: #7f8c8c;
   font-style: italic;
+}
+
+.cid-desktop,
+.address-desktop {
+  display: inline;
+}
+.cid-mobile,
+.address-mobile {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .cid-desktop,
+  .address-desktop {
+    display: none !important;
+  }
+  .cid-mobile,
+  .address-mobile {
+    display: inline !important;
+  }
 }
 
 /* Responsive Design */

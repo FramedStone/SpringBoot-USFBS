@@ -1,6 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import '@styles/SystemLogs.css';
 
+const abbreviate = (value) => {
+  if (!value) return '';
+  return value.length > 16 ? value.slice(0, 6) + '...' + value.slice(-4) : value;
+};
+
 const SystemLogs = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -166,9 +171,15 @@ const SystemLogs = () => {
             {filteredLogs.length > 0 ? (
               filteredLogs.map((log) => (
                 <tr key={log.id}>
-                  <td className="cid-cell">{log.id}</td>
+                  <td className="cid-cell">
+                    <span className="cid-desktop">{log.id}</span>
+                    <span className="cid-mobile">{abbreviate(log.id)}</span>
+                  </td>
                   <td>{log.action}</td>
-                  <td className="address-cell">{log.user}</td>
+                  <td className="address-cell">
+                    <span className="address-desktop">{log.user}</span>
+                    <span className="address-mobile">{abbreviate(log.user)}</span>
+                  </td>
                   <td>{log.timestamp}</td>
                   <td>{log.note}</td>
                 </tr>
