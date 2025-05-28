@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { authFetch } from "@utils/authFetch";
-import Spinner from "@components/Spinner"; // 🅿️ PascalCase for component
+import Spinner from "@components/Spinner";  
+import BookingManagement from "@pages/BookingManagement";
 
 /**
- * 🅿️ ProtectedRoute
  * Restricts access by role and banned status.
  * Shows spinner while loading, toast on error, and redirects to /login.
  */
@@ -20,7 +20,6 @@ function ProtectedRoute({ children, setToast, allowedRoles }) {
         if (!res.ok) throw new Error("Access denied");
         const data = await res.json();
 
-        // 🐫 camelCase: Check for banned user
         if (data.isBanned) {
           setIsAuth(false);
           if (setToast)
@@ -32,7 +31,6 @@ function ProtectedRoute({ children, setToast, allowedRoles }) {
           return;
         }
 
-        // 🐫 camelCase: Role-based access
         if (!allowedRoles || allowedRoles.includes(data.role)) {
           setIsAuth(true);
         } else {
@@ -52,14 +50,13 @@ function ProtectedRoute({ children, setToast, allowedRoles }) {
             type: "error",
             autoDismiss: true,
           });
-        // 🐫 camelCase: Log error with context
         console.error("Access denied in ProtectedRoute:", err);
       }
     }
     checkAuth();
   }, [allowedRoles, setToast]);
 
-  if (isAuth === null) return <Spinner />; // 🅿️ PascalCase spinner component
+  if (isAuth === null) return <Spinner />; 
   if (!isAuth) return <Navigate to="/login" replace />;
   return children;
 }

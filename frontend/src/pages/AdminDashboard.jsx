@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useWeb3Auth, useWeb3AuthDisconnect } from "@web3auth/modal/react";
 import { useNavigate } from "react-router-dom";
-import Toast from "@components/Toast";                 
+import Toast from "@components/Toast";
+import Navbar from "@components/Navbar";
 import {
-  Users, Calendar, FileText, Settings,
   ExternalLink, Download, Edit, Trash2,
-  Plus, Menu, X, User, LogOut
+  Plus
 } from 'lucide-react';
 import '@styles/AdminDashboard.css';
 
@@ -15,10 +15,8 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
 
   const [userEmail, setUserEmail] = useState('');
-  const [toast, setToast] = useState({ msg: "", type: "success" });  
+  const [toast, setToast] = useState({ msg: "", type: "success" });
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (!web3Auth) return;
@@ -36,7 +34,6 @@ export default function AdminDashboard() {
           credentials: 'include'
         }
       );
-
       if (!res.ok) {
         const err = await res.text();
         console.error('Logout API error:', err);
@@ -76,15 +73,7 @@ export default function AdminDashboard() {
     { type: 'form', message: 'Form Received', status: 'error' },
     { type: 'admin', message: 'Admin Action', status: 'warning' },
     { type: 'booking', message: 'Booking Approved (System)', status: 'success' },
-    { type: 'admin', message: 'Admin Action', status: 'warning' }
   ]);
-
-  const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: Settings },
-    { id: 'users', label: 'User Management', icon: Users },
-    { id: 'courts', label: 'Court & Slot Management', icon: Calendar },
-    { id: 'bookings', label: 'Booking Management', icon: FileText }
-  ];
 
   const handleDeleteAnnouncement = (id) => {
     setAnnouncements(announcements.filter(ann => ann.id !== id));
@@ -92,11 +81,6 @@ export default function AdminDashboard() {
 
   const handleRejectBooking = (id) => {
     console.log('Rejecting booking:', id);
-  };
-
-  const handleTabClick = (tabId) => {
-    setActiveTab(tabId);
-    setIsMobileMenuOpen(false);
   };
 
   const getLogIcon = (type) => {
@@ -119,89 +103,10 @@ export default function AdminDashboard() {
 
   return (
     <div className="admin-dashboard">
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <Settings size={24} />
-          <span>Admin Dashboard</span>
-        </div>
-        
-        {/* ─── Mobile Menu & Profile ─────────────────────────── */}
-        <button
-          className="mobile-menu-toggle"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        >
-          {isMobileMenuOpen ? <X size={24}/> : <Menu size={24}/>}
-        </button>
-        <div className={`nav-tabs ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
-          {tabs.map(tab => {
-            const IconComponent = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => handleTabClick(tab.id)}
-              >
-                <IconComponent size={20} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-
-          {isMobileMenuOpen && (
-            <div className="mobile-profile-section">
-              <div className="email-item-mobile">{userEmail}</div>
-              <button
-                className="logout-item-mobile"
-                onClick={handleLogout}
-              >
-                <LogOut size={16}/> Logout
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* ─── Desktop Profile Dropdown ──────────────────────── */}
-        <div className="profile-section">
-          <div className="profile-dropdown">
-            <button
-              className="profile-button"
-              onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-            >
-              <User size={20}/>
-            </button>
-            {isProfileDropdownOpen && (
-              <>
-                <div className="dropdown-menu">
-                  <div className="dropdown-item email-item">
-                    {userEmail}
-                  </div>
-                  <button
-                    className="dropdown-item logout-item"
-                    onClick={handleLogout}
-                  >
-                    <LogOut size={16}/>
-                    Logout
-                  </button>
-                </div>
-                <div
-                  className="dropdown-overlay"
-                  onClick={() => setIsProfileDropdownOpen(false)}
-                />
-              </>
-            )}
-          </div>
-        </div>
-
-        {isMobileMenuOpen && (
-          <div
-            className="mobile-overlay"
-            onClick={() => setIsMobileMenuOpen(false)}
-          />
-        )}
-      </nav>
-
+      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
       <div className="dashboard-content">
         <div className="content-grid">
+          {/* System Logs Section */}
           <div className="system-logs-section">
             <div className="section-header">
               <h3>System Logs</h3>
@@ -224,6 +129,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* Announcements Section */}
           <div className="announcements-section">
             <div className="section-header">
               <h3>Announcement</h3>
@@ -261,6 +167,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* System Approved Bookings Section */}
         <div className="bookings-section">
           <div className="section-header">
             <h3>System Approved Bookings</h3>
@@ -272,10 +179,8 @@ export default function AdminDashboard() {
               </button>
               <button
                 className="icon-link-btn"
-                onClick={() => {
-                  // TODO: Route to export report page
-                }}
-                aria-label="Go to Export Report"
+                onClick={() => navigate("/admin/booking-management")}
+                aria-label="Go to Booking Management"
                 style={{ background: "none", border: "none", cursor: "pointer" }}
               >
                 <ExternalLink size={16} />
@@ -299,9 +204,13 @@ export default function AdminDashboard() {
                 <span className="time-cell">{booking.time}</span>
                 <span>{booking.sport}</span>
                 <div className="action-buttons">
-                  <button 
+                  <button
                     className="reject-btn"
                     onClick={() => handleRejectBooking(booking.id)}
+                    disabled={
+                      booking.status &&
+                      booking.status.toLowerCase() === "rejected"
+                    }
                   >
                     Reject
                   </button>
@@ -319,4 +228,4 @@ export default function AdminDashboard() {
       />
     </div>
   );
-};
+}

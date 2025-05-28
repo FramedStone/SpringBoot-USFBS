@@ -2,8 +2,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "r
 import { useEffect, useState } from "react";
 import { JsonRpcProvider } from "@ethersproject/providers";
 import Login from "@pages/Login";
-import AdminDashboard from "@pages/AdminDashboard"; 
-import SystemLogs from "@pages/SystemLogs"; 
+import AdminDashboard from "@pages/AdminDashboard";
+import SystemLogs from "@pages/SystemLogs";
+import BookingManagement from "@pages/BookingManagement";
 import Toast from "@components/Toast";
 import ProtectedRoute from "@components/ProtectedRoute";
 import "./App.css";
@@ -17,11 +18,11 @@ function AppRoutes() {
   useEffect(() => {
     const checkBlockchain = async () => {
       try {
-        const provider = new JsonRpcProvider(import.meta.env.VITE_QUORUM_RPC_URL); 
+        const provider = new JsonRpcProvider(import.meta.env.VITE_QUORUM_RPC_URL);
         await provider.getBlockNumber();
       } catch (err) {
         setToast({ msg: "Blockchain node is offline or unreachable.", type: "error" });
-        console.error("Blockchain health check failed:", err); 
+        console.error("Blockchain health check failed:", err);
       }
     };
     checkBlockchain();
@@ -53,6 +54,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute setToast={setToast} allowedRoles={["Admin", "Moderator"]}>
               <SystemLogs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/booking-management"
+          element={
+            <ProtectedRoute setToast={setToast} allowedRoles={["Admin"]}>
+              <BookingManagement />
             </ProtectedRoute>
           }
         />

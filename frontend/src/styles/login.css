@@ -59,6 +59,9 @@
 .login-outer .header {
     margin-bottom: 16px; 
     text-align: center;
+    background-color: transparent !important;
+    padding: 20px;
+    border-bottom: none !important;
 }
 
 .login-outer .header h1 {
@@ -70,7 +73,7 @@
 
 .login-outer .header p {
     color: #7f8c8d;
-    font-size: 16px;
+    font-size: 15px;
     line-height: 1.5;
     margin-bottom: 0; 
 }
