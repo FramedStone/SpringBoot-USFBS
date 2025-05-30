@@ -136,8 +136,16 @@ contract Management {
         require(startTime != 0, "startTime not provided");
         require(endTime   != 0, "endTime not provided");
 
-        announcements_.push(Announcement(ipfsHash, startTime, endTime));
-        announcements[ipfsHash] = Announcement(ipfsHash, startTime, endTime);
+        uint256 aId = announcements_.length;
+
+        // look for any empty index in announcements_ 
+        for(uint256 i=0; i<announcements_.length; i++) {
+            if(bytes(announcements_[i].ipfsHash).length == 0) {
+                aId = i;
+            }
+        }
+
+        announcements_[aId] = (Announcement(ipfsHash, startTime, endTime));
         emit announcementAdded(msg.sender, ipfsHash, startTime, endTime, block.timestamp);
     }
 
@@ -145,13 +153,15 @@ contract Management {
         string memory ipfsHash_,
         string memory ipfsHash
     ) external isAdmin {
-       require(bytes(announcements[ipfsHash_].ipfsHash).length != 0, "Announcement not found");
-       require(bytes(ipfsHash).length != 0, "ipfsHash not provided");
+        require(bytes(ipfsHash).length != 0, "ipfsHash not provided");
 
-        announcements[ipfsHash] = Announcement(ipfsHash, announcements[ipfsHash_].startTime, announcements[ipfsHash_].endTime);
-        delete announcements[ipfsHash_];
-
-        emit announcementIpfsHashModified(msg.sender, ipfsHash_, ipfsHash, block.timestamp);
+        for (uint256 i = 0; i < announcements_.length; i++) {
+            if (keccak256(bytes(announcements_[i].ipfsHash)) == keccak256(bytes(ipfsHash_))) {
+                announcements_[i].ipfsHash = ipfsHash;
+                emit announcementIpfsHashModified(msg.sender, ipfsHash_, ipfsHash, block.timestamp);
+                break;
+            }
+        }
     }
 
     function updateAnnouncementTime(
@@ -159,29 +169,33 @@ contract Management {
         uint256 startTime,
         uint256 endTime
     ) external isAdmin {
-       require(bytes(announcements[ipfsHash].ipfsHash).length != 0, "Announcement not found");
         require(startTime != 0, "startTime not provided");
-        require(endTime   != 0, "endTime not provided");
+        require(endTime != 0, "endTime not provided");
 
-        uint256 oldStart = announcements[ipfsHash].startTime;
-        uint256 oldEnd   = announcements[ipfsHash].endTime;
-
-        announcements[ipfsHash].startTime = startTime;
-        announcements[ipfsHash].endTime   = endTime;
-
-        emit announcementTimeModified(msg.sender, ipfsHash, oldStart, oldEnd, startTime, endTime, block.timestamp);
+        for (uint256 i = 0; i < announcements_.length; i++) {
+            if (keccak256(bytes(announcements_[i].ipfsHash)) == keccak256(bytes(ipfsHash))) {
+                uint256 oldStart = announcements_[i].startTime;
+                uint256 oldEnd = announcements_[i].endTime;
+                announcements_[i].startTime = startTime;
+                announcements_[i].endTime = endTime;
+                emit announcementTimeModified(msg.sender, ipfsHash, oldStart, oldEnd, startTime, endTime, block.timestamp);
+                break;
+            }
+        }
     }
 
     function deleteAnnouncement(
         string memory ipfsHash
     ) external isAdmin {
-       require(bytes(announcements[ipfsHash].ipfsHash).length != 0, "Announcement not found");
-
-        delete announcements[ipfsHash];
+        for (uint256 i = 0; i < announcements_.length; i++) {
+            if (keccak256(bytes(announcements_[i].ipfsHash)) == keccak256(bytes(ipfsHash))) {
+                delete announcements_[i];
+            }
+        }
         emit announcementDeleted(msg.sender, ipfsHash, block.timestamp);
     }
 
-    function getAnnouncements() external returns(Announcement[] memory anns_) {
+    function getAnnouncements() external isAdmin returns(Announcement[] memory anns_) {
         require(announcements_.length > 0, "No Announcement found in blockchain");
 
         Announcement[] memory anns = new Announcement[](announcements_.length);
