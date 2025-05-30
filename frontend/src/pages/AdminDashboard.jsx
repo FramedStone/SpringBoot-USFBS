@@ -74,8 +74,8 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
       return;
     }
 
-    const startTs = new Date(dateRange.start).getTime();
-    const endTs = new Date(dateRange.end).getTime();
+    const startTs = Math.floor(new Date(dateRange.start).getTime() / 1000);
+    const endTs = Math.floor(new Date(dateRange.end).getTime() / 1000);
 
     const formData = new FormData();
     formData.append("file", media);                 // File object

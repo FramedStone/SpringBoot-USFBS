@@ -132,9 +132,15 @@ contract Management {
         uint256 startTime,
         uint256 endTime
     ) external isAdmin {
-       require(bytes(announcements[ipfsHash].ipfsHash).length == 0, "Duplicated ipfsHash");
         require(startTime != 0, "startTime not provided");
         require(endTime   != 0, "endTime not provided");
+
+        // Check for duplicated ipfsHash
+        for (uint256 i = 0; i < announcements_.length; i++) {
+            if (keccak256(bytes(announcements_[i].ipfsHash)) == keccak256(bytes(ipfsHash))) {
+                revert("duplicated ipfsHash");
+            }
+        }
 
         uint256 aId = announcements_.length;
 

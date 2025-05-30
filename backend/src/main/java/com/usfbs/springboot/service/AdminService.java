@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
+import org.web3j.tx.RawTransactionManager;
 
 import java.math.BigInteger;
 import java.util.Map;
@@ -20,6 +21,9 @@ public class AdminService {
     this.pinataUtil = pinataUtil;
     this.managementContract = managementContract;
   }
+
+  @Autowired
+  private RawTransactionManager rawTransactionManager;
 
   public void addUser(String userAddress) throws Exception {
     managementContract.addUser(userAddress).send();
