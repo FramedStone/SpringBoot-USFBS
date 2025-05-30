@@ -1,11 +1,11 @@
-
+  
     body {
       margin: 0;
       font-family: 'Inter', sans-serif;
       background-color: #D8D8D8;
     }
 
-    /* Top navigation bar */
+    
     .navbar {
       display: flex;
       background-color: #fff;
@@ -13,7 +13,7 @@
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
 
-    /* Individual nav items */
+    
     .nav-item {
       flex: 1;
       padding: 12px 0;
@@ -22,67 +22,64 @@
       font-size: 14px;
       color: #4F4F4F;
       border-right: 1px solid #eee;
+
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
+
+      text-decoration: none;
+      user-select: none;
+      transition: background-color 0.2s, color 0.2s;
     }
 
-    /* Remove right border from last item */
+    
     .nav-item:last-child {
       border-right: none;
     }
 
-    /* Icon size and spacing */
+    
     .nav-item i {
       font-size: 16px;
       margin-bottom: 4px;
+      color: inherit;
     }
 
-    /* Active (selected) nav item */
+    
     .nav-item.active {
       background-color: #2f80ed;
       color: white;
-      text-decoration: none;
     }
 
-    .nav-item.active i {
-      color: white;
-    }
-
-    /* Content container styling */
     .content {
       background-color: white;
-      margin: 32px auto; /* 2rem = 32px */
-      padding: 32px; /* 2rem = 32px */
+      margin: 32px auto;
+      padding: 32px;
       max-width: 1100px;
       border-radius: 8px;
     }
 
-    /* Section title with icon */
     .section-title {
-      font-size: 24px; /* 1.5rem = 24px */
+      font-size: 24px;
       font-weight: 600;
       display: flex;
       align-items: center;
-      gap: 8px; /* 0.5rem = 8px */
-      margin-bottom: 16px; /* 1rem = 16px */
+      gap: 8px;
+      margin-bottom: 16px;
     }
 
-    /* Table styling for system logs */
     table {
       width: 100%;
       border-collapse: collapse;
     }
 
-    /* Table cell padding and border */
-    th, td {
+    th,
+    td {
       text-align: left;
-      padding: 12px; /* 0.75rem = 12px */
+      padding: 12px;
       border-bottom: 1px solid #ccc;
     }
 
-    /* Table header text color */
     th {
       color: #666;
     }
