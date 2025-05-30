@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+
+<head>
+  
+  <title>Booking Management</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="booking_management.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  
+  
+</head>
+<body>
+  
+  <div class="navbar">
+    <div class="nav-item">
+      <a href="dashboard.html">
+        <i class="fa-solid fa-table-columns"></i>
+        Dashboard
+      </a>
+    </div>
+    <div class="nav-item">
+      <a href="user_management.html">
+        <i class="fa-solid fa-user-group"></i>
+        User Management
+      </a>
+    </div>
+    <div class="nav-item">
+      <a href="court_slot_management.html">
+      <i class="fa-solid fa-layer-group"></i>
+        Court & Slot Management
+      </a>
+    </div>
+    <div class="nav-item active">
+      <a href="booking_management.html">
+        <i class="fa-solid fa-calendar-check"></i>
+        Booking Management
+      </a>
+    </div>
+  </div>
+
+  <!-- Main container -->
+  <div class="container">
+    <div class="header">
+      <div class="header-title">Booking Management</div>
+      <div class="search-bar">
+        <input type="text" placeholder="Search bookings...">
+      </div>
+      <div class="status-filter">
+        <select>
+          <option>All Status</option>
+          <option>Approved</option>
+          <option>Pending</option>
+          <option>Rejected</option>
+        </select>
+      </div>
+      <button class="btn-export" onclick="exportPDF()">Export Report</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>Court</th>
+          <th>Time</th>
+          <th>Sport</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>BK001</td>
+          <td>123120000</td>
+          <td>Court A</td>
+          <td>2025-03-24<br>10 AM - 12 PM</td>
+          <td>Badminton</td>
+          <td class="status approved">Approved</td>
+          <td><button class="btn-reject">Reject</button></td>
+        </tr>
+        <tr>
+          <td>BK002</td>
+          <td>123120001</td>
+          <td>Court B</td>
+          <td>2025-03-25<br>8 AM - 10 AM</td>
+          <td>Volleyball</td>
+          <td class="status pending">Pending</td>
+          <td><button class="btn-reject">Reject</button></td>
+        </tr>
+        <tr>
+          <td>BK003</td>
+          <td>123120002</td>
+          <td>Court C</td>
+          <td>2025-03-26<br>1 PM - 3 PM</td>
+          <td>Basketball</td>
+          <td class="status rejected">Rejected</td>
+          <td><button class="btn-reject" disabled>Reject</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <script src="booking_management.js"></script>
+
+</body>
+</html>
