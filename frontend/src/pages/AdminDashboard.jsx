@@ -206,32 +206,30 @@ export default function AdminDashboard() {
     return `${hrs}h ${mins}m`;
   };
 
+  const loadAnnouncements = useCallback(async () => {
+    setAnnouncementsLoading(true);
+    try {
+      const res = await authFetch("/api/admin/get-announcements");
+      if (!res.ok) throw new Error("Failed to load announcements");
+      const data = await res.json();
+      const items = data.map(item => ({
+        ...item,
+        timeLeft: calculateTimeLeft(item.endDate),
+        id: item.ipfsHash,
+      }));
+      setAnnouncements(items);
+    } catch (err) {
+      console.error("Error loading announcements:", err);
+      setToast({ msg: err.message, type: "error" });
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  }, []);
+
   // Load all announcements from backend, always use authFetch
   useEffect(() => {
-    async function loadAnnouncements() {
-      setAnnouncementsLoading(true);
-      try {
-        const res = await authFetch("/api/admin/get-announcements");
-        if (!res.ok) throw new Error("Failed to load announcements");
-        const data = await res.json();
-        console.log("Fetched announcements data:", data);
-        const items = data.map(item => ({
-          ...item,
-          timeLeft: calculateTimeLeft(item.endDate),
-          id: item.ipfsHash,
-        }));
-        setAnnouncements(items);
-      } catch (err) {
-        console.error("Error loading announcements:", err);
-        setToast({ msg: err.message, type: "error" });
-      } finally {
-        setAnnouncementsLoading(false);
-      }
-    }
-
     loadAnnouncements();
-
-  }, []);
+  }, [loadAnnouncements]);
 
   const [bookings] = useState([
     { id: 'BK001', user: '123120000', court: 'Court A', time: '2025-03-24\n10 AM - 12 PM', sport: 'Badminton' },
@@ -280,7 +278,6 @@ export default function AdminDashboard() {
       const res = await authFetch("/api/admin/upload-announcement", {
         method: "POST",
         body: formData,
-        // Don't set Content-Type for FormData, browser will set it
         headers: {},
       });
       if (!res.ok) {
@@ -290,7 +287,6 @@ export default function AdminDashboard() {
       const { message } = await res.json();
       setShowAddAnnouncementModal(false);
       setToast({ msg: message, type: "success" });
-      // Refresh list after add
       await loadAnnouncements();
     } catch (err) {
       console.error("Add announcement failed:", err);

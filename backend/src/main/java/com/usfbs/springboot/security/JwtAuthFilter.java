@@ -11,6 +11,11 @@ import org.springframework.stereotype.Component;
 import com.usfbs.springboot.service.AuthService;   
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -39,7 +44,25 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        // …existing verify & set Authentication…
+        try {
+            Map<String, com.auth0.jwt.interfaces.Claim> claims = authService.verifyToken(token);
+            String role = claims.get("role").asString();
+            String email = claims.get("sub").asString();
+
+            // Map role to Spring Security format
+            List<SimpleGrantedAuthority> authorities = List.of(
+                new SimpleGrantedAuthority("ROLE_" + role)
+            );
+
+            UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken(email, null, authorities);
+
+            SecurityContextHolder.getContext().setAuthentication(auth);
+        } catch (Exception e) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
+            return;
+        }
+
         chain.doFilter(request, response);
     }
 
