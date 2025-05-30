@@ -10,7 +10,7 @@ import "@styles/Navbar.css";
 const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: Settings, route: "/admin/dashboard" },
   { id: "users", label: "User Management", icon: Users, route: "/admin/user-management" },
-  { id: "courts", label: "Court & Slot Management", icon: Calendar, route: "/admin/courts" },
+  { id: "courts", label: "Sport Facility & Court Management", icon: Calendar, route: "/admin/sportfacility&court-management" },
   { id: "bookings", label: "Booking Management", icon: FileText, route: "/admin/booking-management" },
 ];
 
@@ -64,7 +64,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
       <nav className="dashboard-nav">
         <div className="nav-brand" onClick={() => navigate("/admin/dashboard")} style={{ cursor: "pointer" }}>
           <Settings size={24} />
-          <span>Admin Dashboard</span>
+          <span>Admin Panel</span>
         </div>
         <button
           className="mobile-menu-toggle"

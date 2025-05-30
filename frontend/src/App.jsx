@@ -6,6 +6,7 @@ import AdminDashboard from "@pages/AdminDashboard";
 import SystemLogs from "@pages/SystemLogs";
 import BookingManagement from "@pages/BookingManagement";
 import UserManagement from "@pages/UserManagement";
+import SportAndCourtManagement from "@pages/SportAndCourtManagement";
 import Toast from "@components/Toast";
 import ProtectedRoute from "@components/ProtectedRoute";
 import "./App.css";
@@ -57,16 +58,24 @@ function AppRoutes() {
         <Route
           path="/admin/dashboard"
           element={
-            <ProtectedRoute setToast={setToast} resetAppState={resetAppState}>
+            <ProtectedRoute setToast={setToast} resetAppState={resetAppState} allowedRoles={["Admin"]}>
               <AdminDashboard activeTab={activeTab} setActiveTab={setActiveTab} />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/logs"
+          path="/admin/user-management"
           element={
-            <ProtectedRoute setToast={setToast} allowedRoles={["Admin", "Moderator"]}>
-              <SystemLogs />
+            <ProtectedRoute setToast={setToast} allowedRoles={["Admin"]}>
+              <UserManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/sportfacility&court-management"
+          element={
+            <ProtectedRoute setToast={setToast} allowedRoles={["Admin"]}>
+              <SportAndCourtManagement />
             </ProtectedRoute>
           }
         />
@@ -79,10 +88,10 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/admin/user-management"
+          path="/logs"
           element={
-            <ProtectedRoute setToast={setToast} allowedRoles={["Admin"]}>
-              <UserManagement />
+            <ProtectedRoute setToast={setToast} allowedRoles={["Admin", "Moderator"]}>
+              <SystemLogs />
             </ProtectedRoute>
           }
         />

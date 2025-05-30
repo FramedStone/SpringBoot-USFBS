@@ -14,6 +14,7 @@ import org.web3j.quorum.Quorum;
 import org.web3j.tx.RawTransactionManager;
 import org.web3j.tx.gas.ContractGasProvider;
 
+import com.usfbs.springboot.config.QuorumConfig;
 import com.usfbs.springboot.contracts.Booking;
 import com.usfbs.springboot.contracts.Management;
 import com.usfbs.springboot.contracts.SportFacility;

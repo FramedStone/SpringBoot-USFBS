@@ -1,59 +1,87 @@
 package com.usfbs.springboot.controller;
 
+import com.usfbs.springboot.dto.AnnouncementItem;
+import com.usfbs.springboot.dto.PinataManifest;
+import com.usfbs.springboot.contracts.Management;
 import com.usfbs.springboot.service.AdminService;
-import com.usfbs.springboot.service.AuthService; 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
+import org.web3j.protocol.core.methods.response.TransactionReceipt;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 
-import java.util.Map;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
+@RequestMapping("/api/admin")
 public class AdminController {
 
+    private final Management managementContract;
+    private final RestTemplate rest;
     private final AdminService adminService;
-    private final AuthService authService; 
 
     @Autowired
-    public AdminController(AdminService adminService, AuthService authService) { 
+    public AdminController(Management managementContract, RestTemplate restTemplate, AdminService adminService) {
+        this.managementContract = managementContract;
+        this.rest = restTemplate;
         this.adminService = adminService;
-        this.authService = authService;
     }
 
-    @PostMapping("/api/admin/add-user")
-    public ResponseEntity<?> addUser(@RequestHeader("Authorization") String authHeader, @RequestBody Map<String, String> body) {
-        String token = authHeader.replace("Bearer ", "");
-        String role = authService.verifyToken(token).get("role").asString();
-        if (!"Admin".equals(role)) {
-            return ResponseEntity.status(403).body("Forbidden: Admins only");
-        }
-        try {
-            adminService.addUser(body.get("userAddress"));
-            return ResponseEntity.ok("User added");
-        } catch (Exception e) {
-            // TODO: Proper error logging
-            return ResponseEntity.status(500).body("Failed to add user: " + e.getMessage());
-        }
+    @GetMapping("/get-announcements")
+    public List<AnnouncementItem> getAnnouncementEvents() throws Exception {
+        // Get all past AnnouncementAdded events
+        List<Management.AnnouncementAddedEventResponse> events =
+            managementContract.announcementAddedEventFlowable(
+                new org.web3j.protocol.core.DefaultBlockParameterNumber(0),
+                org.web3j.protocol.core.DefaultBlockParameterName.LATEST
+            ).toList().blockingGet();
+
+        return events.stream().map(ev -> {
+            String hash  = ev.ipfsHash;
+            long   start = ev.startTime.longValue();
+            long   end   = ev.endTime.longValue();
+
+            // Fetch manifest from IPFS via Pinata gateway
+            PinataManifest manifest = rest.getForObject(
+                "https://gateway.pinata.cloud/ipfs/" + hash,
+                PinataManifest.class
+            );
+
+            return new AnnouncementItem(
+                hash,
+                manifest != null ? manifest.getTitle() : "",
+                manifest != null ? manifest.getFileCid() : "",
+                start,
+                end
+            );
+        }).collect(Collectors.toList());
     }
 
-    @PostMapping("/api/admin/ban-user")
-    public ResponseEntity<?> banUser(@RequestBody Map<String, String> body) {
+    @PostMapping(
+        value = "/upload-announcement",
+        consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> uploadAnnouncement(
+        @RequestParam("file") MultipartFile file,
+        @RequestParam("title") String title,
+        @RequestParam("startDate") long startDate,
+        @RequestParam("endDate") long endDate
+    ) {
         try {
-            adminService.banUser(body.get("userAddress"));
-            return ResponseEntity.ok("User banned");
+            String txHash = adminService.uploadAnnouncement(file, title, startDate, endDate);
+            return ResponseEntity.ok().body(
+                java.util.Map.of("message", "Announcement uploaded", "txHash", txHash)
+            );
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Failed to ban user: " + e.getMessage());
-        }
-    }
-
-    @PostMapping("/api/admin/unban-user")
-    public ResponseEntity<?> unbanUser(@RequestBody Map<String, String> body) {
-        try {
-            adminService.unbanUser(body.get("userAddress"));
-            return ResponseEntity.ok("User unbanned");
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Failed to unban user: " + e.getMessage());
+            // Log error with context
+            System.err.println("uploadAnnouncement error: " + e.getMessage());
+            return ResponseEntity.status(500).body(
+                java.util.Map.of("error", "Upload failed", "details", e.getMessage())
+            );
         }
     }
 }

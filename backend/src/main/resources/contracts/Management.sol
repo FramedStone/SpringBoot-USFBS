@@ -9,7 +9,8 @@ contract Management {
         uint256 startTime;
         uint256 endTime;
     }
-   mapping(string => Announcement)  announcements;
+    Announcement[] private announcements_;
+    mapping(string => Announcement) private announcements;
 
     mapping(address => bool) internal admins;
     mapping(address => bool) internal users;
@@ -135,6 +136,7 @@ contract Management {
         require(startTime != 0, "startTime not provided");
         require(endTime   != 0, "endTime not provided");
 
+        announcements_.push(Announcement(ipfsHash, startTime, endTime));
         announcements[ipfsHash] = Announcement(ipfsHash, startTime, endTime);
         emit announcementAdded(msg.sender, ipfsHash, startTime, endTime, block.timestamp);
     }
@@ -179,13 +181,14 @@ contract Management {
         emit announcementDeleted(msg.sender, ipfsHash, block.timestamp);
     }
 
-    function getAnnouncement(
-        string memory ipfsHash
-    ) external returns(Announcement memory) {
-       require(bytes(announcements[ipfsHash].ipfsHash).length != 0, "Announcement not found");
+    function getAnnouncements() external returns(Announcement[] memory anns_) {
+        require(announcements_.length > 0, "No Announcement found in blockchain");
 
-        Announcement memory announcement = announcements[ipfsHash];
-        emit announcementRequested(msg.sender, announcement.ipfsHash, block.timestamp);
-        return announcement;
+        Announcement[] memory anns = new Announcement[](announcements_.length);
+        for(uint256 i=0; i<announcements_.length; i++) {
+            anns[i] = announcements_[i];
+            emit announcementRequested(msg.sender, announcements_[i].ipfsHash, block.timestamp);
+        }
+        return anns;
     }
 }

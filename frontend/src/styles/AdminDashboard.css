@@ -365,19 +365,20 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background-color: white;
-  border: 1px solid #d1d5db;
-  color: #374151;
+  background-color: #4f46e5; 
+  border: none;             
+  color: white;              
   padding: 0.5rem 1rem;
   border-radius: 6px;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-weight: 500;          
+  transition: background-color 0.2s ease;
 }
 
 .export-btn:hover {
-  background-color: #f9fafb;
-  border-color: #9ca3af;
+  background-color: #4338ca;
+  border: none;
 }
 
 @media (max-width: 1024px) {

@@ -63,21 +63,17 @@ export default function LoginButton({
 
       // SpringBoot verify JWT tokens
       const payload = { email: info.email, userAddress: address };
-      const res = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/auth/login`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        }
-      );
+      const res = await fetch(`/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include", // <-- include cookies
+        body: JSON.stringify(payload), 
+      });
 
       if (!res.ok) {
         const errorText = await res.text();
-        throw new Error(`Login failed: status=${res.status}, body=${errorText}`);
+        throw new Error(`Login failed: ${res.status} – ${errorText}`);
       }
-
       const data = await res.json();
       setLocalUser(info);
       setToast({ msg: "Login successful!", type: "success" });
