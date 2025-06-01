@@ -77,7 +77,7 @@ public class AuthService {
                 throw new RuntimeException("User is banned");
             }
         } catch (Exception e) {
-            // 📝 Log error with context
+            // Log error with context
             System.err.println("Error checking banned status for user: " + userAddress);
             e.printStackTrace();
             throw new RuntimeException("Failed to check banned status", e);
