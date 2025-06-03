@@ -184,43 +184,62 @@ contract SportFacility is Management {
     }
 
     // Sport Facility getters
-    function getAllSportFacility_(
+    function getSportFacility_(
         string memory fname
     ) external isAdmin returns(string memory name_, string memory location_, string memory status_) {
         require(sfIndex[fname] != 0, "Sport Facility not found");
-
         sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
         emit facilityDetailsRequested(msg.sender, sf.name, "Requested by admin", block.timestamp);
-        return (
-            sf.name,
-            sf.location,
-            statusToString(sf.status)
-        );
+        return (sf.name, sf.location, statusToString(sf.status));
     }
 
-    function getAllSportFacility(
+    function getAllSportFacility_()
+        external
+        isAdmin
+        returns (string[] memory names, string[] memory locations, string[] memory statuses)
+    {
+        require(sportFacilities.length > 0, "No Sport Facility found in blockchain");
+
+        uint256 len = sportFacilities.length;
+        names = new string[](len);
+        locations = new string[](len);
+        statuses = new string[](len);
+
+        for (uint256 i = 0; i < len; i++) {
+            names[i] = sportFacilities[i].name;
+            locations[i] = sportFacilities[i].location;
+            statuses[i] = statusToString(sportFacilities[i].status);
+        }
+        emit facilityDetailsRequested(msg.sender, "ALL", "Requested all facilities by admin", block.timestamp);
+        return (names, locations, statuses);
+    }
+
+    function getSportFacility(
         string memory fname
     ) external isUser returns(string memory name_, string memory status_) {
         require(sfIndex[fname] != 0, "Sport Facility not found");
-
         sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
         emit facilityDetailsRequested(msg.sender, sf.name, "Requested by user", block.timestamp);
-        return (
-            sf.name,
-            statusToString(sf.status)
-        );
+        return (sf.name, statusToString(sf.status));
     }
 
-    function getFacilityLocation(
-        string memory fname
-    ) external isUser returns(string memory location_) {
-        require(sfIndex[fname] != 0, "Sport Facility not found");
+    function getAllSportFacility()
+        external
+        isUser
+        returns (string[] memory names, string[] memory statuses)
+    {
+        require(sportFacilities.length > 0, "No Sport Facility found in blockchain");
 
-        sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
-        emit facilityDetailsRequested(msg.sender, sf.name, "Requested by user", block.timestamp);
-        return (
-            sf.location
-        );
+        uint256 len = sportFacilities.length;
+        names = new string[](len);
+        statuses = new string[](len);
+
+        for (uint256 i = 0; i < len; i++) {
+            names[i] = sportFacilities[i].name;
+            statuses[i] = statusToString(sportFacilities[i].status);
+        }
+        emit facilityDetailsRequested(msg.sender, "ALL", "Requested all facilities by user", block.timestamp);
+        return (names, statuses);
     }
 
     // Court CRUD
