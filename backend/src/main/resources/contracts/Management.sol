@@ -151,7 +151,11 @@ contract Management {
             }
         }
 
-        announcements_[aId] = (Announcement(ipfsHash, startTime, endTime));
+        if(aId != 0) {
+            announcements_[aId] = (Announcement(ipfsHash, startTime, endTime));
+        } else {
+            announcements_.push(Announcement(ipfsHash, startTime, endTime));
+        }
         emit announcementAdded(msg.sender, ipfsHash, startTime, endTime, block.timestamp);
     }
 
