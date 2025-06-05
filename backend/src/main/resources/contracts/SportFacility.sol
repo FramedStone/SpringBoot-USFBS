@@ -91,9 +91,9 @@ contract SportFacility is Management {
 
     // Main Functions
     constructor(address[] memory admins_) Management(admins_) {
-        for(uint256 i=0; i<admins_.length; i++) {
-            admins[admins_[i]] = true; 
-        }
+        // for(uint256 i=0; i<admins_.length; i++) {
+        //     admins[admins_[i]] = true; 
+        // }
     }
 
     // Sport Facility CRUD
@@ -508,8 +508,10 @@ contract SportFacility is Management {
 
     function getAvailableTimeRange_(
         string memory fname,
-        string memory cname 
-    ) external isAdmin returns(uint256 earliestTime_, uint256 latestTime_) {
+        string memory cname,
+        address adminAddress
+    ) external returns(uint256 earliestTime_, uint256 latestTime_) {
+        require(admins[adminAddress] == true, "Access Denied");
         require(sfIndex[fname] != 0, "Sport Facility not found");
         uint256 facilityIdx = sfIndex[fname] - 1;
         require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
@@ -530,8 +532,10 @@ contract SportFacility is Management {
 
     function getAvailableTimeRange(
         string memory fname,
-        string memory cname 
+        string memory cname ,
+        address userAddress
     ) external isUser returns(uint256 earliestTime_, uint256 latestTime_) {
+        require(admins[userAddress] == true, "Access Denied");
         require(sfIndex[fname] != 0, "Sport Facility not found");
         uint256 facilityIdx = sfIndex[fname] - 1;
         require(facilityIdx < sportFacilities.length, "Facility index out of bounds");

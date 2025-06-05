@@ -105,7 +105,7 @@ contract Booking is Management {
         string memory cname,
         timeSlot memory time
     ) internal isAdmin returns(bool result) {
-        (uint256 startTime, uint256 endTime) = sfContract.getAvailableTimeRange_(fname, cname);
+        (uint256 startTime, uint256 endTime) = sfContract.getAvailableTimeRange_(fname, cname, msg.sender);
         require(time.startTime >= startTime && time.endTime <= endTime, "Booking request not within court time range");
 
         for(uint256 i=0; i<bookings.length; i++) {
@@ -115,7 +115,7 @@ contract Booking is Management {
                 bookings[i].time.startTime             >= time.startTime &&
                 bookings[i].time.endTime               <= time.endTime
             ) {
-                if(bookings[i].status == status.APPROVED || bookings[i].status == status.PENDING) {
+                if(bookings[i].status == status.APPROVED) {
                     return false;
                 } else {
                     return true;
@@ -134,7 +134,7 @@ contract Booking is Management {
         require(bytes(cname).length > 0, "Court name not provided");
         require(time.startTime != 0 && time.endTime != 0, "Start or End time not provided");
 
-        (uint256 startTime, uint256 endTime) = sfContract.getAvailableTimeRange(fname, cname);
+        (uint256 startTime, uint256 endTime) = sfContract.getAvailableTimeRange(fname, cname, msg.sender);
         require(time.startTime >= startTime && time.endTime <= endTime, "Booking request not within court time range");
 
         for(uint256 i=0; i<bookings.length; i++) {
@@ -144,7 +144,7 @@ contract Booking is Management {
                 bookings[i].time.startTime             >= time.startTime &&
                 bookings[i].time.endTime               <= time.endTime
             ) {
-                if(bookings[i].status == status.APPROVED || bookings[i].status == status.PENDING) {
+                if(bookings[i].status == status.APPROVED) {
                     return false;
                 } else {
                     return true;
@@ -177,9 +177,6 @@ contract Booking is Management {
 
     // Main Functions
     constructor(address[] memory admins_, address sfAddress) Management(admins_) {
-        for(uint256 i=0; i<admins_.length; i++) {
-            admins[admins_[i]] = true; 
-        }
         sfContract = SportFacility(sfAddress);
     }
 
@@ -316,8 +313,11 @@ contract Booking is Management {
 
     // Getters
     function getBooking_(uint256 bookingId) external isAdmin freeUpStorage_ returns(bookingTransaction memory booking) {
-        require(bookingId != 0, "Booking not found");
-
+        require(bookings.length > 0, "No bookings exist");
+        require(bookingId < bookings.length, "Booking ID out of range");
+        require(bookings[bookingId].bookingId != 0 || bytes(bookings[bookingId].ipfsHash).length > 0, "Booking not found");
+        require(bookings[bookingId].owner == msg.sender, "Not booking owner");
+        
         emit bookingRequested(msg.sender, bookingId, block.timestamp);
         return bookings[bookingId];
     }
@@ -380,7 +380,7 @@ contract Booking is Management {
             block.timestamp
         );
 
-        if(isAvailable_(fname, cname, time)) {
+        if(isAvailable(fname, cname, time)) {
             bookings[bookingId].status = status.APPROVED;
             emit bookingUpdated(
                 msg.sender,
@@ -390,7 +390,7 @@ contract Booking is Management {
                 "Booking approved by system",
                 block.timestamp
             );
-        } else if(!isAvailable_(fname, cname, time)) {
+        } else if(!isAvailable(fname, cname, time)) {
             bookings[bookingId].status = status.REJECTED;
             emit bookingUpdated(
                 msg.sender,
@@ -418,7 +418,9 @@ contract Booking is Management {
 
     // Getters
     function getBooking(uint256 bookingId) external isUser freeUpStorage_ returns(bookingTransaction memory booking) {
-        require(bookingId != 0, "Booking not found");
+        require(bookings.length > 0, "No bookings exist");
+        require(bookingId < bookings.length, "Booking ID out of range");
+        require(bookings[bookingId].bookingId != 0 || bytes(bookings[bookingId].ipfsHash).length > 0, "Booking not found");
         require(bookings[bookingId].owner == msg.sender, "Not booking owner");
 
         emit bookingRequested(msg.sender, bookingId, block.timestamp);
