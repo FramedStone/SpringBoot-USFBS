@@ -98,47 +98,54 @@ contract SportFacility is Management {
 
     // Sport Facility CRUD
     function addSportFacility(
-        string memory fname,
-        string memory flocation,
-        status fstatus, // default (if not provided) = 0 (OPEN)
-        court[] memory fcourts 
+        string memory facilityName,
+        string memory facilityLocation,
+        status facilityStatus,
+        court[] memory facilityCourts 
     ) external isAdmin {
-       require(bytes(fname).length      > 0, "Sport Facility name not provided");
-       require(bytes(flocation).length > 0, "Sport Facility location not provided");
+        require(bytes(facilityName).length > 0, "Sport Facility name not provided");
+        require(bytes(facilityLocation).length > 0, "Sport Facility location not provided");
+        require(sfIndex[facilityName] == 0, "Sport Facility name already exists");
 
         sportFacility storage sf = sportFacilities.push();
-        sf.name = fname;
-        sf.location = flocation;
-        sf.status = fstatus;
+        sf.name = facilityName;
+        sf.location = facilityLocation;
+        sf.status = facilityStatus;
 
-        string memory courtsNames = "";
-        for(uint256 i=0; i<fcourts.length; i++) {
-            sf.courts.push(fcourts[i]);
-            sf.cIndex[fcourts[i].name] = i;
-            courtsNames = i == 0
-                ? fcourts[i].name
-                : string(abi.encodePacked(courtsNames, ",", fcourts[i].name));
+        string memory courtNames = "";
+        for(uint256 i = 0; i < facilityCourts.length; i++) {
+            require(bytes(facilityCourts[i].name).length > 0, "Court name cannot be empty");
+            require(sf.cIndex[facilityCourts[i].name] == 0, "Court name already exists in this facility");
+            require(facilityCourts[i].earliestTime < facilityCourts[i].latestTime, "Invalid time range");
+            
+            sf.courts.push(facilityCourts[i]);
+            sf.cIndex[facilityCourts[i].name] = i + 1; 
+            courtNames = i == 0
+                ? facilityCourts[i].name
+                : string(abi.encodePacked(courtNames, ",", facilityCourts[i].name));
         }
-        sfIndex[fname] = sportFacilities.length;
+        sfIndex[facilityName] = sportFacilities.length; 
 
-        emit sportFacilityAdded(msg.sender, fname, flocation, statusToString(fstatus), courtsNames, block.timestamp);
+        emit sportFacilityAdded(msg.sender, facilityName, facilityLocation, statusToString(facilityStatus), courtNames, block.timestamp);
     }
 
     function updateSportFacilityName(
-        string memory fname_,
-        string memory fname
+        string memory oldFacilityName,
+        string memory newFacilityName
     ) external isAdmin {
-       require(bytes(fname_).length > 0, "Sport Facility name not provided (old)");
-       require(bytes(fname).length  > 0, "Sport Facility name not provided (new)");
-        require(sfIndex[fname_] != 0, "Sport Facility not found");
+        require(bytes(oldFacilityName).length > 0, "Sport Facility name not provided (old)");
+        require(bytes(newFacilityName).length > 0, "Sport Facility name not provided (new)");
+        require(sfIndex[oldFacilityName] != 0, "Sport Facility not found");
+        require(sfIndex[newFacilityName] == 0, "New facility name already exists");
 
-        uint256 index = sfIndex[fname_];
-        sportFacility storage sf = sportFacilities[index - 1];
+        uint256 facilityIndex = sfIndex[oldFacilityName];
+        sportFacility storage sf = sportFacilities[facilityIndex - 1];
 
-        sf.name = fname;
-        sfIndex[fname] = sfIndex[fname_]; // remap 
+        sf.name = newFacilityName;
+        sfIndex[newFacilityName] = facilityIndex; 
+        delete sfIndex[oldFacilityName]; 
 
-        emit sportFacilityModified(msg.sender, fname_, fname_, fname, block.timestamp);
+        emit sportFacilityModified(msg.sender, oldFacilityName, oldFacilityName, newFacilityName, block.timestamp);
     }
 
     function updateSportFacilityLocation(
@@ -175,11 +182,34 @@ contract SportFacility is Management {
     }
 
     function deleteSportFacility(string memory fname) external isAdmin {
-       require(bytes(fname).length > 0, "Sport Facility name not provided");
-       require(sfIndex[fname] != 0, "Sport Facility not found");
+        require(bytes(fname).length > 0, "Sport Facility name not provided");
+        require(sfIndex[fname] != 0, "Sport Facility not found");
+        
+        uint256 facilityIndex = sfIndex[fname] - 1;
+        
+        if (facilityIndex != sportFacilities.length - 1) {
+            sportFacility storage toDelete = sportFacilities[facilityIndex];
+            sportFacility storage lastFacility = sportFacilities[sportFacilities.length - 1];
+            
+            // Copy fields manually (excluding mapping)
+            toDelete.name = lastFacility.name;
+            toDelete.location = lastFacility.location;
+            toDelete.status = lastFacility.status;
+            
+            // Clear and copy courts array
+            delete toDelete.courts;
+            for(uint256 i = 0; i < lastFacility.courts.length; i++) {
+                toDelete.courts.push(lastFacility.courts[i]);
+                toDelete.cIndex[lastFacility.courts[i].name] = i + 1;
+            }
+            
+            // Update mapping for moved facility
+            sfIndex[lastFacility.name] = facilityIndex + 1;
+        }
+        
         emit sportFacilityDeleted(msg.sender, fname, block.timestamp);
-
-        delete sportFacilities[sfIndex[fname]];
+        
+        sportFacilities.pop(); 
         delete sfIndex[fname];
     }
 
@@ -243,38 +273,56 @@ contract SportFacility is Management {
     }
 
     // Court CRUD
+    // Smart Court Addition - handles both single and multiple courts
     function addCourt(
-        string memory fname,
-        court memory newCourt
+        string memory facilityName,
+        court[] memory newCourts
     ) external isAdmin {
-       require(bytes(newCourt.name).length > 0, "Court name not provided");
-        require(newCourt.earliestTime != 0, "earlistTime not provided");
-        require(newCourt.latestTime   != 0, "latestTime not provided");
-        require(sfIndex[fname]        != 0, "Sport Facility not found");
+        require(sfIndex[facilityName] != 0, "Sport Facility not found");
+        require(newCourts.length > 0, "No courts provided");
 
-        sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
-        sf.courts.push(newCourt);
-        sf.cIndex[newCourt.name] = sf.courts.length;
-
-        emit courtAdded(msg.sender, newCourt.name, newCourt.earliestTime, newCourt.latestTime, statusToString(newCourt.status), block.timestamp);
+        sportFacility storage sf = sportFacilities[sfIndex[facilityName] - 1];
+        
+        for(uint256 i = 0; i < newCourts.length; i++) {
+            require(bytes(newCourts[i].name).length > 0, "Court name not provided");
+            require(newCourts[i].earliestTime != 0, "earliestTime not provided");
+            require(newCourts[i].latestTime != 0, "latestTime not provided");
+            require(newCourts[i].earliestTime < newCourts[i].latestTime, "Invalid time range");
+            require(sf.cIndex[newCourts[i].name] == 0, "Court name already exists in this facility");
+            
+            sf.courts.push(newCourts[i]);
+            sf.cIndex[newCourts[i].name] = sf.courts.length; 
+            
+            emit courtAdded(msg.sender, newCourts[i].name, newCourts[i].earliestTime, 
+                           newCourts[i].latestTime, statusToString(newCourts[i].status), block.timestamp);
+        }
     }
 
     function updateCourtName(
-        string memory fname,
-        string memory cname_,
-        string memory cname
+        string memory facilityName,
+        string memory oldCourtName,
+        string memory newCourtName
     ) external isAdmin {
-       require(bytes(cname).length > 0, "Court name not provided");
-        require(sfIndex[fname] != 0, "Sport Facility not found");
-        require(sportFacilities[sfIndex[fname]].cIndex[cname_] != 0, "Court not found");
-
-        sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
-        court storage c = sf.courts[sf.cIndex[cname_] - 1];
-
-        c.name = cname;
-        sf.cIndex[cname] = sf.cIndex[cname_]; // remap
+        require(bytes(newCourtName).length > 0, "Court name not provided");
+        require(sfIndex[facilityName] != 0, "Sport Facility not found");
         
-        emit courtModified(msg.sender, fname, cname, cname_, cname, block.timestamp);
+        uint256 facilityIdx = sfIndex[facilityName] - 1;
+        require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
+        
+        sportFacility storage sf = sportFacilities[facilityIdx];
+        require(sf.cIndex[oldCourtName] != 0, "Court not found");
+        require(sf.cIndex[newCourtName] == 0, "New court name already exists in this facility");
+
+        uint256 courtIdx = sf.cIndex[oldCourtName] - 1;
+        require(courtIdx < sf.courts.length, "Court index out of bounds");
+
+        court storage courtToUpdate = sf.courts[courtIdx];
+        courtToUpdate.name = newCourtName;
+        
+        sf.cIndex[newCourtName] = sf.cIndex[oldCourtName];
+        delete sf.cIndex[oldCourtName];
+        
+        emit courtModified(msg.sender, facilityName, newCourtName, oldCourtName, newCourtName, block.timestamp);
     }
 
     function updateCourtTime(
@@ -284,13 +332,18 @@ contract SportFacility is Management {
         uint256 latestTime
     ) external isAdmin {
         require(sfIndex[fname] != 0, "Sport Facility not found");
-        require(sportFacilities[sfIndex[fname]].cIndex[cname] != 0, "Court not found");
+        uint256 facilityIdx = sfIndex[fname] - 1;
+        require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
 
-        sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
-        court storage c = sf.courts[sf.cIndex[cname] - 1];
+        sportFacility storage sf = sportFacilities[facilityIdx];
+        require(sf.cIndex[cname] != 0, "Court not found");
+        uint256 courtIdx = sf.cIndex[cname] - 1;
+        require(courtIdx < sf.courts.length, "Court index out of bounds");
+
+        court storage c = sf.courts[courtIdx];
 
         uint256 earliestTime_ = c.earliestTime;
-        uint256 latestTime_   = c.latestTime;
+        uint256 latestTime_ = c.latestTime;
 
         c.earliestTime = earliestTime;
         c.latestTime   = latestTime;
@@ -314,10 +367,15 @@ contract SportFacility is Management {
         status cstatus 
     ) external isAdmin {
         require(sfIndex[fname] != 0, "Sport Facility not found");
-        require(sportFacilities[sfIndex[fname]].cIndex[cname] != 0, "Court not found");
+        uint256 facilityIdx = sfIndex[fname] - 1;
+        require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
 
-        sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
-        court storage c = sf.courts[sf.cIndex[cname] - 1];
+        sportFacility storage sf = sportFacilities[facilityIdx];
+        require(sf.cIndex[cname] != 0, "Court not found");
+        uint256 courtIdx = sf.cIndex[cname] - 1;
+        require(courtIdx < sf.courts.length, "Court index out of bounds");
+
+        court storage c = sf.courts[courtIdx];
 
         status cstatus_ = c.status;
         c.status = cstatus;
@@ -330,101 +388,165 @@ contract SportFacility is Management {
         string memory cname
     ) external isAdmin {
         require(sfIndex[fname] != 0, "Sport Facility not found");
-        require(sportFacilities[sfIndex[fname]].cIndex[cname] != 0, "Court not found");
+        uint256 facilityIdx = sfIndex[fname] - 1;
+        require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
 
-        sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
-        court memory c = sf.courts[sf.cIndex[cname] - 1];
-
-        delete c;
-        delete sf.cIndex[cname]; // delete mapping
+        sportFacility storage sf = sportFacilities[facilityIdx];
+        require(sf.cIndex[cname] != 0, "Court not found");
+        uint256 courtIdx = sf.cIndex[cname] - 1;
+        require(courtIdx < sf.courts.length, "Court index out of bounds");
+        
+        if (courtIdx != sf.courts.length - 1) {
+            sf.courts[courtIdx] = sf.courts[sf.courts.length - 1];
+            sf.cIndex[sf.courts[courtIdx].name] = courtIdx + 1;
+        }
+        
+        sf.courts.pop(); 
+        delete sf.cIndex[cname]; 
+        
+        emit courtDeleted(msg.sender, cname, block.timestamp);
     }
 
-    // Court getters
+    // Court getters 
     // admin
     function getCourt_(
         string memory fname,
         string memory cname
-    ) external isAdmin returns(court memory court_) {
+    ) external isAdmin returns(string memory name_, uint256 earliestTime_, uint256 latestTime_, string memory status_) {
         require(sfIndex[fname] != 0, "Sport Facility not found");
-        require(sportFacilities[sfIndex[fname]].cIndex[cname] != 0, "Court not found");
+        uint256 facilityIdx = sfIndex[fname] - 1;
+        require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
 
-        sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
-        court storage c = sf.courts[sf.cIndex[cname] - 1];
+        sportFacility storage sf = sportFacilities[facilityIdx];
+        require(sf.cIndex[cname] != 0, "Court not found");
+        uint256 courtIdx = sf.cIndex[cname] - 1;
+        require(courtIdx < sf.courts.length, "Court index out of bounds");
+
+        court storage c = sf.courts[courtIdx];
 
         emit courtDetailsRequested(msg.sender, fname, cname, "Requested by admin", block.timestamp);
-        return c;
+        return (c.name, c.earliestTime, c.latestTime, statusToString(c.status));
     }
 
-    function getAllCourts_(string memory fname) external isAdmin returns(court[] memory courts) {
+    function getAllCourts_(string memory fname) external isAdmin returns(
+        string[] memory names,
+        uint256[] memory earliestTimes,
+        uint256[] memory latestTimes,
+        string[] memory statuses
+    ) {
         require(sfIndex[fname] != 0, "Sport Facility not found");
-
-        sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
-
+        uint256 facilityIdx = sfIndex[fname] - 1;
+        require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
+        
+        sportFacility storage sf = sportFacilities[facilityIdx];
+        
+        uint256 courtCount = sf.courts.length;
+        names = new string[](courtCount);
+        earliestTimes = new uint256[](courtCount);
+        latestTimes = new uint256[](courtCount);
+        statuses = new string[](courtCount);
+        
+        for(uint256 i = 0; i < courtCount; i++) {
+            names[i] = sf.courts[i].name;
+            earliestTimes[i] = sf.courts[i].earliestTime;
+            latestTimes[i] = sf.courts[i].latestTime;
+            statuses[i] = statusToString(sf.courts[i].status);
+        }
+        
         emit courtDetailsRequested(msg.sender, fname, "All courts", "Requested by admin", block.timestamp);
-        return sf.courts;
-    }
-
-    function getAvailableTimeRange_(
-        string memory fname,
-        string memory cname 
-    ) public isAdmin returns(uint256 earliestTime_, uint256 latestTime_) {
-        require(sfIndex[fname] != 0, "Sport Facility not found");
-        require(sportFacilities[sfIndex[fname]].cIndex[cname] != 0, "Court not found");
-
-        sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
-        court storage c = sf.courts[sf.cIndex[cname] - 1];
-
-        require(sf.status == status.OPEN, "Sport Facility status is not OPENED");
-        require(c.status == status.OPEN, "Court status is not OPENED");
-
-        uint256 earliestTime = c.earliestTime;
-        uint256 latestTime = c.latestTime;
-        emit courtDetailsRequested(msg.sender, fname, cname, "Requested by admin", block.timestamp);
-
-        return(earliestTime, latestTime);
+        return (names, earliestTimes, latestTimes, statuses);
     }
 
     // user
     function getCourt(
         string memory fname,
         string memory cname
-    ) external isUser returns(court memory court_) {
+    ) external isUser returns(string memory name_, uint256 earliestTime_, uint256 latestTime_, string memory status_) {
         require(sfIndex[fname] != 0, "Sport Facility not found");
-        require(sportFacilities[sfIndex[fname]].cIndex[cname] != 0, "Court not found");
+        uint256 facilityIdx = sfIndex[fname] - 1;
+        require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
 
-        sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
-        court storage c = sf.courts[sf.cIndex[cname] - 1];
+        sportFacility storage sf = sportFacilities[facilityIdx];
+        require(sf.cIndex[cname] != 0, "Court not found");
+        uint256 courtIdx = sf.cIndex[cname] - 1;
+        require(courtIdx < sf.courts.length, "Court index out of bounds");
+
+        court storage c = sf.courts[courtIdx];
 
         emit courtDetailsRequested(msg.sender, fname, cname, "Requested by user", block.timestamp);
-        return c;
+        return (c.name, c.earliestTime, c.latestTime, statusToString(c.status));
     }
 
-    function getAllCourts(string memory fname) external isUser returns(court[] memory courts) {
+    function getAllCourts(string memory fname) external isUser returns(
+        string[] memory names,
+        uint256[] memory earliestTimes,
+        uint256[] memory latestTimes,
+        string[] memory statuses
+    ) {
         require(sfIndex[fname] != 0, "Sport Facility not found");
-
-        sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
-
+        uint256 facilityIdx = sfIndex[fname] - 1;
+        require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
+        
+        sportFacility storage sf = sportFacilities[facilityIdx];
+        
+        uint256 courtCount = sf.courts.length;
+        names = new string[](courtCount);
+        earliestTimes = new uint256[](courtCount);
+        latestTimes = new uint256[](courtCount);
+        statuses = new string[](courtCount);
+        
+        for(uint256 i = 0; i < courtCount; i++) {
+            names[i] = sf.courts[i].name;
+            earliestTimes[i] = sf.courts[i].earliestTime;
+            latestTimes[i] = sf.courts[i].latestTime;
+            statuses[i] = statusToString(sf.courts[i].status);
+        }
+        
         emit courtDetailsRequested(msg.sender, fname, "All courts", "Requested by user", block.timestamp);
-        return sf.courts;
+        return (names, earliestTimes, latestTimes, statuses);
+    }
+
+    function getAvailableTimeRange_(
+        string memory fname,
+        string memory cname 
+    ) external isAdmin returns(uint256 earliestTime_, uint256 latestTime_) {
+        require(sfIndex[fname] != 0, "Sport Facility not found");
+        uint256 facilityIdx = sfIndex[fname] - 1;
+        require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
+
+        sportFacility storage sf = sportFacilities[facilityIdx];
+        require(sf.cIndex[cname] != 0, "Court not found");
+        uint256 courtIdx = sf.cIndex[cname] - 1;
+        require(courtIdx < sf.courts.length, "Court index out of bounds");
+
+        court storage c = sf.courts[courtIdx];
+
+        require(sf.status == status.OPEN, "Sport Facility status is not OPENED");
+        require(c.status == status.OPEN, "Court status is not OPENED");
+
+        emit courtDetailsRequested(msg.sender, fname, cname, "Requested by admin", block.timestamp);
+        return(c.earliestTime, c.latestTime);
     }
 
     function getAvailableTimeRange(
         string memory fname,
         string memory cname 
-    ) public isUser returns(uint256 earliestTime_, uint256 latestTime_) {
+    ) external isUser returns(uint256 earliestTime_, uint256 latestTime_) {
         require(sfIndex[fname] != 0, "Sport Facility not found");
-        require(sportFacilities[sfIndex[fname]].cIndex[cname] != 0, "Court not found");
+        uint256 facilityIdx = sfIndex[fname] - 1;
+        require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
 
-        sportFacility storage sf = sportFacilities[sfIndex[fname] - 1];
-        court storage c = sf.courts[sf.cIndex[cname] - 1];
+        sportFacility storage sf = sportFacilities[facilityIdx];
+        require(sf.cIndex[cname] != 0, "Court not found");
+        uint256 courtIdx = sf.cIndex[cname] - 1;
+        require(courtIdx < sf.courts.length, "Court index out of bounds");
+
+        court storage c = sf.courts[courtIdx];
 
         require(sf.status == status.OPEN, "Sport Facility status is not OPENED");
         require(c.status == status.OPEN, "Court status is not OPENED");
 
-        uint256 earliestTime = c.earliestTime;
-        uint256 latestTime = c.latestTime;
         emit courtDetailsRequested(msg.sender, fname, cname, "Requested by user", block.timestamp);
-
-        return(earliestTime, latestTime);
+        return(c.earliestTime, c.latestTime);
     }
 }
