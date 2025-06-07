@@ -66,12 +66,6 @@ contract Booking is Management {
         uint256 bookingId,
         uint256 timestamp
     );
-    event timeSlotRequested(
-        address indexed from,
-        string facilityName,
-        string courtName,
-        uint256 timestamp
-    );
 
     // Helper Functions
     function statusToString(status s) internal pure returns(string memory sString) {
@@ -105,8 +99,18 @@ contract Booking is Management {
         string memory cname,
         timeSlot memory time
     ) internal isAdmin returns(bool result) {
-        (uint256 startTime, uint256 endTime) = sfContract.getAvailableTimeRange_(fname, cname, msg.sender);
-        require(time.startTime >= startTime && time.endTime <= endTime, "Booking request not within court time range");
+        require(bytes(fname).length > 0, "Facility name not provided");
+        require(bytes(cname).length > 0, "Court name not provided");
+        require(time.startTime != 0 && time.endTime != 0, "Start or End time not provided");
+
+        (uint256 dailyStart, uint256 dailyEnd) = sfContract.getAvailableTimeRange_(fname, cname, msg.sender);
+        
+        // Convert booking times to time-of-day (seconds since midnight)
+        uint256 bookingStartTime = time.startTime % 86400;
+        uint256 bookingEndTime = time.endTime % 86400;
+        
+        require(bookingStartTime >= dailyStart && bookingEndTime <= dailyEnd, 
+                "Booking request not within court daily operating hours");
 
         for(uint256 i=0; i<bookings.length; i++) {
             if(
@@ -134,8 +138,14 @@ contract Booking is Management {
         require(bytes(cname).length > 0, "Court name not provided");
         require(time.startTime != 0 && time.endTime != 0, "Start or End time not provided");
 
-        (uint256 startTime, uint256 endTime) = sfContract.getAvailableTimeRange(fname, cname, msg.sender);
-        require(time.startTime >= startTime && time.endTime <= endTime, "Booking request not within court time range");
+        (uint256 dailyStart, uint256 dailyEnd) = sfContract.getAvailableTimeRange(fname, cname, msg.sender);
+
+        // Convert booking times to time-of-day (seconds since midnight)
+        uint256 bookingStartTime = time.startTime % 86400;
+        uint256 bookingEndTime = time.endTime % 86400;
+        
+        require(bookingStartTime >= dailyStart && bookingEndTime <= dailyEnd, 
+                "Booking request not within court daily operating hours");
 
         for(uint256 i=0; i<bookings.length; i++) {
             if(
@@ -185,22 +195,40 @@ contract Booking is Management {
         string memory fname,
         string memory cname
     ) external freeUpStorage_ returns(timeSlot[] memory timeSlots_) {
+        require(users[msg.sender] == true || admins[msg.sender] == true, "Access denied: Must be user or admin");
         require(bytes(fname).length > 0, "Facility name not provided");
         require(bytes(cname).length > 0, "Court name not provided");
 
-        // initialize array to full length – you can filter out unused slots off‐chain
-        timeSlot[] memory timeSlots = new timeSlot[](bookings.length);
-
-        for(uint256 i=0; i<bookings.length; i++) {
+        // First pass: count matching active bookings
+        uint256 activeBookingCount = 0;
+        for(uint256 i = 0; i < bookings.length; i++) {
             if(
                 keccak256(bytes(bookings[i].facilityName)) == keccak256(bytes(fname)) &&
-                keccak256(bytes(bookings[i].courtName))  == keccak256(bytes(cname)) &&
+                keccak256(bytes(bookings[i].courtName)) == keccak256(bytes(cname)) &&
                 (bookings[i].status == status.APPROVED || bookings[i].status == status.PENDING)
             ) {
-                timeSlots[i] = bookings[i].time;
-                emit timeSlotRequested(msg.sender, fname, cname, block.timestamp);
+                activeBookingCount++;
             }
         }
+
+        require(activeBookingCount > 0, "No active bookings found for this court");
+
+        // Second pass: populate correctly sized array
+        timeSlot[] memory timeSlots = new timeSlot[](activeBookingCount);
+        uint256 arrayIndex = 0;
+        
+        for(uint256 i = 0; i < bookings.length; i++) {
+            if(
+                keccak256(bytes(bookings[i].facilityName)) == keccak256(bytes(fname)) &&
+                keccak256(bytes(bookings[i].courtName)) == keccak256(bytes(cname)) &&
+                (bookings[i].status == status.APPROVED || bookings[i].status == status.PENDING)
+            ) {
+                timeSlots[arrayIndex] = bookings[i].time;
+                emit bookingRequested(msg.sender, bookings[i].bookingId, block.timestamp);
+                arrayIndex++;
+            }
+        }
+        
         return timeSlots;
     }
 

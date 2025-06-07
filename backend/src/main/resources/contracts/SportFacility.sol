@@ -186,30 +186,35 @@ contract SportFacility is Management {
         require(sfIndex[fname] != 0, "Sport Facility not found");
         
         uint256 facilityIndex = sfIndex[fname] - 1;
+        sportFacility storage facilityToDelete = sportFacilities[facilityIndex];
+        
+        // Clean up court mappings for the facility being deleted
+        for(uint256 i = 0; i < facilityToDelete.courts.length; i++) {
+            delete facilityToDelete.cIndex[facilityToDelete.courts[i].name];
+        }
         
         if (facilityIndex != sportFacilities.length - 1) {
-            sportFacility storage toDelete = sportFacilities[facilityIndex];
             sportFacility storage lastFacility = sportFacilities[sportFacilities.length - 1];
             
-            // Copy fields manually (excluding mapping)
-            toDelete.name = lastFacility.name;
-            toDelete.location = lastFacility.location;
-            toDelete.status = lastFacility.status;
+            // Copy fields manually
+            facilityToDelete.name = lastFacility.name;
+            facilityToDelete.location = lastFacility.location;
+            facilityToDelete.status = lastFacility.status;
             
             // Clear and copy courts array
-            delete toDelete.courts;
+            delete facilityToDelete.courts;
             for(uint256 i = 0; i < lastFacility.courts.length; i++) {
-                toDelete.courts.push(lastFacility.courts[i]);
-                toDelete.cIndex[lastFacility.courts[i].name] = i + 1;
+                facilityToDelete.courts.push(lastFacility.courts[i]);
+                facilityToDelete.cIndex[lastFacility.courts[i].name] = i + 1;
             }
             
-            // Update mapping for moved facility
+            // Update facility mapping for moved facility
             sfIndex[lastFacility.name] = facilityIndex + 1;
         }
         
         emit sportFacilityDeleted(msg.sender, fname, block.timestamp);
         
-        sportFacilities.pop(); 
+        sportFacilities.pop();
         delete sfIndex[fname];
     }
 
