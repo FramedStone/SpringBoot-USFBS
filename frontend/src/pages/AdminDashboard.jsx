@@ -38,6 +38,78 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentMediaUrl, setCurrentMediaUrl] = useState(null);
+  const [mediaType, setMediaType] = useState(null);
+  const [newFilePreviewUrl, setNewFilePreviewUrl] = useState(null);
+  const [newFileType, setNewFileType] = useState(null);
+  const [zoomedMedia, setZoomedMedia] = useState(null);
+
+  // Fetch current media when editing
+  useEffect(() => {
+    if (initialData?.fileCid) {
+      const fetchCurrentMedia = async () => {
+        try {
+          const gatewayUrl = `https://gateway.pinata.cloud/ipfs/${initialData.fileCid}`;
+          setCurrentMediaUrl(gatewayUrl);
+          
+          // Determine media type based on file extension or content type
+          const response = await fetch(gatewayUrl, { method: 'HEAD' });
+          const contentType = response.headers.get('content-type');
+          
+          if (contentType?.startsWith('image/')) {
+            setMediaType('image');
+          } else if (contentType?.includes('pdf')) {
+            setMediaType('pdf');
+          } else {
+            setMediaType('document');
+          }
+        } catch (error) {
+          console.error('Failed to fetch current media:', error);
+        }
+      };
+      
+      fetchCurrentMedia();
+    }
+  }, [initialData]);
+
+  // Handle file selection and preview
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    setFormData({ ...formData, file: selectedFile });
+
+    // Clear previous preview
+    if (newFilePreviewUrl) {
+      URL.revokeObjectURL(newFilePreviewUrl);
+      setNewFilePreviewUrl(null);
+      setNewFileType(null);
+    }
+
+    if (selectedFile) {
+      // Determine file type
+      const fileType = selectedFile.type;
+      if (fileType.startsWith('image/')) {
+        setNewFileType('image');
+        const previewUrl = URL.createObjectURL(selectedFile);
+        setNewFilePreviewUrl(previewUrl);
+      } else if (fileType.includes('pdf')) {
+        setNewFileType('pdf');
+        const previewUrl = URL.createObjectURL(selectedFile);
+        setNewFilePreviewUrl(previewUrl);
+      } else {
+        setNewFileType('document');
+        setNewFilePreviewUrl(null);
+      }
+    }
+  };
+
+  // Clean up preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (newFilePreviewUrl) {
+        URL.revokeObjectURL(newFilePreviewUrl);
+      }
+    };
+  }, [newFilePreviewUrl]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -97,105 +169,438 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
     }
   };
 
-  return (
-    <div className="modal-overlay" onClick={handleOverlayClick}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{initialData ? "Edit Announcement" : "Add New Announcement"}</h3>
-          <button 
-            onClick={onClose} 
-            className="close-btn"
-            disabled={isSubmitting}
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="announcement-form">
-          <div className="form-group">
-            <label>Title</label>
-            <input
-              type="text"
-              value={formData.title}
-              onChange={e => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Enter announcement title"
-              required
-              disabled={isSubmitting}
-            />
-          </div>
-          <div className="form-group">
-            <label>
-              File 
-              {initialData && (
-                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 'normal' }}>
-                  {' '}(Optional - leave empty to keep current file)
-                </span>
-              )}
-            </label>
-            <input
-              type="file"
-              onChange={e => setFormData({ ...formData, file: e.target.files[0] })}
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              required={!initialData}
-              disabled={isSubmitting}
-            />
-            {initialData && (
-              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                Current file will be preserved if no new file is selected
-              </div>
-            )}
-          </div>
-          <div className="form-group">
-            <label>Date Range</label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                type="date"
-                value={formData.dateRange.start}
-                onChange={e => setFormData({ 
-                  ...formData, 
-                  dateRange: { ...formData.dateRange, start: e.target.value }
-                })}
-                required
-                disabled={isSubmitting}
+  // Handle zoom functionality
+  const handleImageZoom = (imageUrl, altText) => {
+    setZoomedMedia({ url: imageUrl, type: 'image', alt: altText });
+  };
+
+  const handlePdfZoom = (pdfUrl, title) => {
+    setZoomedMedia({ url: pdfUrl, type: 'pdf', title: title });
+  };
+
+  const closeZoom = () => {
+    setZoomedMedia(null);
+  };
+
+  // Handle escape key to close zoom
+  useEffect(() => {
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape' && zoomedMedia) {
+        closeZoom();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscapeKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [zoomedMedia]);
+
+  const renderCurrentMedia = () => {
+    if (!currentMediaUrl || !initialData) return null;
+
+    return (
+      <div className="current-media-preview">
+        <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px', display: 'block' }}>
+          Current File
+        </label>
+        <div style={{ 
+          border: '1px solid #d1d5db', 
+          borderRadius: '8px', 
+          padding: '12px',
+          backgroundColor: '#f9fafb'
+        }}>
+          {mediaType === 'image' ? (
+            <div style={{ textAlign: 'center' }}>
+              <img 
+                src={currentMediaUrl} 
+                alt="Current announcement media"
+                style={{ 
+                  maxWidth: '200px', 
+                  maxHeight: '150px', 
+                  objectFit: 'contain',
+                  borderRadius: '4px',
+                  marginBottom: '8px',
+                  cursor: 'zoom-in'
+                }}
+                onClick={() => handleImageZoom(currentMediaUrl, 'Current announcement media')}
+                title="Click to zoom"
               />
-              <span style={{ color: '#6b7280', fontSize: '14px' }}>to</span>
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                Current image file (Click to zoom)
+              </div>
+            </div>
+          ) : mediaType === 'pdf' ? (
+            <div style={{ textAlign: 'center' }}>
+              <div 
+                style={{ 
+                  padding: '20px', 
+                  backgroundColor: '#fee2e2', 
+                  borderRadius: '4px',
+                  marginBottom: '8px',
+                  cursor: 'zoom-in'
+                }}
+                onClick={() => handlePdfZoom(currentMediaUrl, 'Current PDF')}
+                title="Click to view fullscreen"
+              >
+                PDF Document
+              </div>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => handlePdfZoom(currentMediaUrl, 'Current PDF')}
+                  style={{
+                    padding: '4px 8px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Zoom View
+                </button>
+                <a 
+                  href={currentMediaUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ 
+                    padding: '4px 8px',
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                >
+                  Open in Tab
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ 
+                padding: '20px', 
+                backgroundColor: '#e5e7eb', 
+                borderRadius: '4px',
+                marginBottom: '8px'
+              }}>
+                Document
+              </div>
+              <a 
+                href={currentMediaUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ 
+                  color: '#3b82f6', 
+                  textDecoration: 'none',
+                  fontSize: '14px'
+                }}
+              >
+                Download Current File
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderNewFilePreview = () => {
+    if (!formData.file) return null;
+
+    return (
+      <div className="new-file-preview">
+        <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px', display: 'block' }}>
+          New File Preview
+        </label>
+        <div style={{ 
+          border: '1px solid #d1d5db', 
+          borderRadius: '8px', 
+          padding: '12px',
+          backgroundColor: '#f0f9ff'
+        }}>
+          {newFileType === 'image' && newFilePreviewUrl ? (
+            <div style={{ textAlign: 'center' }}>
+              <img 
+                src={newFilePreviewUrl} 
+                alt="New file preview"
+                style={{ 
+                  maxWidth: '200px', 
+                  maxHeight: '150px', 
+                  objectFit: 'contain',
+                  borderRadius: '4px',
+                  marginBottom: '8px',
+                  cursor: 'zoom-in'
+                }}
+                onClick={() => handleImageZoom(newFilePreviewUrl, 'New file preview')}
+                title="Click to zoom"
+              />
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                {formData.file.name} ({(formData.file.size / 1024 / 1024).toFixed(2)} MB)
+              </div>
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>
+                Click image to zoom
+              </div>
+            </div>
+          ) : newFileType === 'pdf' && newFilePreviewUrl ? (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ 
+                padding: '20px', 
+                backgroundColor: '#dbeafe', 
+                borderRadius: '4px',
+                marginBottom: '8px'
+              }}>
+                PDF Document (Preview)
+              </div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
+                {formData.file.name} ({(formData.file.size / 1024 / 1024).toFixed(2)} MB)
+              </div>
+              <div style={{ marginBottom: '8px' }}>
+                <iframe
+                  src={newFilePreviewUrl}
+                  style={{
+                    width: '100%',
+                    height: '200px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '4px'
+                  }}
+                  title="PDF Preview"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => handlePdfZoom(newFilePreviewUrl, formData.file.name)}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                View Fullscreen
+              </button>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ 
+                padding: '20px', 
+                backgroundColor: '#dbeafe', 
+                borderRadius: '4px',
+                marginBottom: '8px'
+              }}>
+                Document (Selected)
+              </div>
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                {formData.file.name} ({(formData.file.size / 1024 / 1024).toFixed(2)} MB)
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderZoomModal = () => {
+    if (!zoomedMedia) return null;
+
+    return (
+      <div 
+        className="zoom-modal-overlay"
+        onClick={closeZoom}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.9)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000,
+          padding: '20px'
+        }}
+      >
+        <div 
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'relative',
+            maxWidth: '95vw',
+            maxHeight: '95vh',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            overflow: 'hidden'
+          }}
+        >
+          <button
+            onClick={closeZoom}
+            style={{
+              position: 'absolute',
+              top: '10px',
+              right: '10px',
+              background: 'rgba(0, 0, 0, 0.7)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '50%',
+              width: '32px',
+              height: '32px',
+              cursor: 'pointer',
+              zIndex: 2001,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '18px'
+            }}
+            title="Close (Press Esc)"
+          >
+            ×
+          </button>
+          
+          {zoomedMedia.type === 'image' ? (
+            <img
+              src={zoomedMedia.url}
+              alt={zoomedMedia.alt}
+              style={{
+                maxWidth: '95vw',
+                maxHeight: '95vh',
+                objectFit: 'contain',
+                display: 'block'
+              }}
+            />
+          ) : (
+            <iframe
+              src={zoomedMedia.url}
+              title={zoomedMedia.title}
+              style={{
+                width: '90vw',
+                height: '90vh',
+                border: 'none',
+                borderRadius: '8px'
+              }}
+            />
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div className="modal-overlay" onClick={handleOverlayClick}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h3>{initialData ? "Edit Announcement" : "Add New Announcement"}</h3>
+            <button 
+              onClick={onClose} 
+              className="close-btn"
+              disabled={isSubmitting}
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <form onSubmit={handleSubmit} className="announcement-form">
+            <div className="form-group">
+              <label>Title</label>
               <input
-                type="date"
-                value={formData.dateRange.end}
-                onChange={e => setFormData({ 
-                  ...formData, 
-                  dateRange: { ...formData.dateRange, end: e.target.value }
-                })}
+                type="text"
+                value={formData.title}
+                onChange={e => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Enter announcement title"
                 required
                 disabled={isSubmitting}
               />
             </div>
-          </div>
-          <div className="modal-actions">
-            <button 
-              type="button" 
-              onClick={onClose} 
-              className="cancel-btn"
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit" 
-              className="save-btn"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  {initialData ? "Saving..." : "Adding..."}
-                </>
-              ) : (
-                initialData ? "Save Changes" : "Add Announcement"
+            
+            {/* Show current media when editing */}
+            {initialData && renderCurrentMedia()}
+            
+            <div className="form-group">
+              <label>
+                {initialData ? 'New File' : 'File'}
+                {initialData && (
+                  <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 'normal' }}>
+                    {' '}(Optional - leave empty to keep current file)
+                  </span>
+                )}
+              </label>
+              <input
+                type="file"
+                onChange={handleFileChange}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                required={!initialData}
+                disabled={isSubmitting}
+              />
+              {initialData && (
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                  Current file will be preserved if no new file is selected
+                </div>
               )}
-            </button>
-          </div>
-        </form>
+            </div>
+
+            {/* Show new file preview when file is selected */}
+            {renderNewFilePreview()}
+            
+            <div className="form-group">
+              <label>Date Range</label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="date"
+                  value={formData.dateRange.start}
+                  onChange={e => setFormData({ 
+                    ...formData, 
+                    dateRange: { ...formData.dateRange, start: e.target.value }
+                  })}
+                  required
+                  disabled={isSubmitting}
+                />
+                <span style={{ color: '#6b7280', fontSize: '14px' }}>to</span>
+                <input
+                  type="date"
+                  value={formData.dateRange.end}
+                  onChange={e => setFormData({ 
+                    ...formData, 
+                    dateRange: { ...formData.dateRange, end: e.target.value }
+                  })}
+                  required
+                  disabled={isSubmitting}
+                />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button 
+                type="button" 
+                onClick={onClose} 
+                className="cancel-btn"
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                className="save-btn"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    {initialData ? "Saving..." : "Adding..."}
+                  </>
+                ) : (
+                  initialData ? "Save Changes" : "Add Announcement"
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+      
+      {/* Render zoom modal */}
+      {renderZoomModal()}
+    </>
   );
 };
 
@@ -211,7 +616,7 @@ export default function AdminDashboard() {
     if (!web3Auth) return;
     web3Auth.getUserInfo()
       .then(info => setUserEmail(info.email))
-      .catch(err => console.error("Failed to fetch user info:", err));
+      // .catch(err => console.error "Failed to fetch user info:", err);
   }, [web3Auth]);
 
   const [announcements, setAnnouncements] = useState([]);

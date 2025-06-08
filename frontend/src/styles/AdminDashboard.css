@@ -562,6 +562,69 @@
   color: #9ca3af;
 }
 
+.current-media-preview {
+  margin-bottom: 1rem;
+}
+
+.current-media-preview img {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+  cursor: zoom-in;
+}
+
+.current-media-preview img:hover {
+  transform: scale(1.05);
+}
+
+.current-media-preview a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  background-color: #3b82f6;
+  color: white;
+  text-decoration: none;
+  font-size: 12px;
+  transition: background-color 0.2s ease;
+}
+
+.current-media-preview a:hover {
+  background-color: #2563eb;
+}
+
+.new-file-preview {
+  margin-bottom: 1rem;
+}
+
+.new-file-preview img {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+  cursor: zoom-in;
+}
+
+.new-file-preview img:hover {
+  transform: scale(1.05);
+}
+
+.new-file-preview iframe {
+  transition: box-shadow 0.2s ease;
+}
+
+.new-file-preview iframe:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.file-size-indicator {
+  font-size: 11px;
+  color: #6b7280;
+  background-color: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 12px;
+  display: inline-block;
+  margin-top: 4px;
+}
+
 @media (max-width: 1024px) {
   .content-grid {
     grid-template-columns: 1fr;
@@ -733,5 +796,34 @@
   
   .form-group {
     margin-bottom: 16px;
+  }
+}
+
+.zoom-modal-overlay {
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.zoom-modal-overlay > div {
+  animation: zoomIn 0.3s ease;
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
   }
 }
