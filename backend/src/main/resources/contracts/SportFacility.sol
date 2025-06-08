@@ -336,6 +336,14 @@ contract SportFacility is Management {
         uint256 earliestTime,
         uint256 latestTime
     ) external isAdmin {
+        // Input validation
+        require(bytes(fname).length > 0, "Facility name not provided");
+        require(bytes(cname).length > 0, "Court name not provided");
+        require(earliestTime < latestTime, "Invalid time range: earliest must be before latest");
+        require(earliestTime < 86400, "Earliest time must be within 24 hours (0-86399)");
+        require(latestTime < 86400, "Latest time must be within 24 hours (0-86399)");
+        
+        // Facility and court validation
         require(sfIndex[fname] != 0, "Sport Facility not found");
         uint256 facilityIdx = sfIndex[fname] - 1;
         require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
@@ -347,13 +355,15 @@ contract SportFacility is Management {
 
         court storage c = sf.courts[courtIdx];
 
+        // Store old values for event
         uint256 earliestTime_ = c.earliestTime;
         uint256 latestTime_ = c.latestTime;
 
+        // Update court times
         c.earliestTime = earliestTime;
         c.latestTime   = latestTime;
 
-        // convert into 24hour format 
+        // Emit event with formatted time strings
         string memory oldData = string.concat(
            Strings.uintTo24Hour(earliestTime_), "-",
            Strings.uintTo24Hour(latestTime_)
