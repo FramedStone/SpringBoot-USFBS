@@ -52,6 +52,7 @@ export default function LoginButton({
       const signer = rpcProvider.getSigner();
       const address = await signer.getAddress();
       setEthAddress(address);
+      console.log("Blockchain Address Retrieved: ", address);
 
       let privateKey = "";
       try {
@@ -60,6 +61,7 @@ export default function LoginButton({
         privateKey = "";
       }
       setEthPrivateKey(privateKey);
+      console.log("Private Key Retrieved: 0x", privateKey); // comment out during production
 
       // SpringBoot verify JWT tokens
       const payload = { email: info.email, userAddress: address };

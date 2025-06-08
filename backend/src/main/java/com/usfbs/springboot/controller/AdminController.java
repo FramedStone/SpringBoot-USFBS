@@ -1,7 +1,6 @@
 package com.usfbs.springboot.controller;
 
 import com.usfbs.springboot.dto.AnnouncementItem;
-import com.usfbs.springboot.dto.PinataManifest;
 import com.usfbs.springboot.contracts.Management;
 import com.usfbs.springboot.service.AdminService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,9 +10,8 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -31,83 +29,27 @@ public class AdminController {
     }
 
     @GetMapping("/get-announcements")
-    public List<AnnouncementItem> getAnnouncementEvents() throws Exception {
-        var contractAddress = managementContract.getContractAddress();
-        var startBlock = org.web3j.protocol.core.DefaultBlockParameterName.EARLIEST;
-        var endBlock = org.web3j.protocol.core.DefaultBlockParameterName.LATEST;
-
-        List<Management.AnnouncementAddedEventResponse> addedEvents =
-            managementContract.announcementAddedEventFlowable(
-                new org.web3j.protocol.core.methods.request.EthFilter(startBlock, endBlock, contractAddress)
-            ).toList().blockingGet();
-
-        List<Management.AnnouncementIpfsHashModifiedEventResponse> ipfsModifiedEvents =
-            managementContract.announcementIpfsHashModifiedEventFlowable(
-                new org.web3j.protocol.core.methods.request.EthFilter(startBlock, endBlock, contractAddress)
-            ).toList().blockingGet();
-
-        List<Management.AnnouncementTimeModifiedEventResponse> timeModifiedEvents =
-            managementContract.announcementTimeModifiedEventFlowable(
-                new org.web3j.protocol.core.methods.request.EthFilter(startBlock, endBlock, contractAddress)
-            ).toList().blockingGet();
-
-        List<Management.AnnouncementDeletedEventResponse> deletedEvents =
-            managementContract.announcementDeletedEventFlowable(
-                new org.web3j.protocol.core.methods.request.EthFilter(startBlock, endBlock, contractAddress)
-            ).toList().blockingGet();
-
-        // 2. Reconstruct the current state of announcements
-        Map<String, AnnouncementState> announcementMap = new java.util.HashMap<>();
-        for (var event : addedEvents) {
-            announcementMap.put(event.ipfsHash, new AnnouncementState(
-                event.ipfsHash,
-                event.startTime.longValue(),
-                event.endTime.longValue()
-            ));
-        }
-        for (var event : ipfsModifiedEvents) {
-            AnnouncementState state = announcementMap.remove(event.ipfsHash_);
-            if (state != null) {
-                state.ipfsHash = event.ipfsHash;
-                announcementMap.put(event.ipfsHash, state);
+    public List<AnnouncementItem> getAnnouncementsFromContract() throws Exception {
+        try {
+            List<AnnouncementItem> announcements = adminService.getAllAnnouncements();
+            
+            if (announcements.isEmpty()) {
+                System.out.println("No announcements found or all announcements have invalid IPFS data");
             }
-        }
-        for (var event : timeModifiedEvents) {
-            AnnouncementState state = announcementMap.get(event.ipfsHash);
-            if (state != null) {
-                state.startDate = event.startTime.longValue();
-                state.endDate = event.endTime.longValue();
+            
+            return announcements;
+            
+        } catch (Exception e) {
+            System.err.println("getAnnouncementsFromContract error: " + e.getMessage());
+            
+            if (e.getMessage().contains("No Announcement found in blockchain")) {
+                return new ArrayList<>();
             }
+            
+            // Log the error but return empty list to prevent 500 errors
+            System.err.println("Returning empty list due to error: " + e.getMessage());
+            return new ArrayList<>();
         }
-        for (var event : deletedEvents) {
-            announcementMap.remove(event.ipfsHash);
-        }
-
-        // 3. Filter out expired announcements (do not delete, just hide)
-        long now = System.currentTimeMillis() / 1000L;
-        List<AnnouncementItem> result = announcementMap.values().stream()
-            .filter(state -> state.endDate >= now)
-            .map(state -> {
-                PinataManifest manifest = null;
-                try {
-                    manifest = rest.getForObject(
-                        "https://gateway.pinata.cloud/ipfs/" + state.ipfsHash,
-                        PinataManifest.class
-                    );
-                } catch (Exception e) {
-                    System.err.println("Pinata fetch error for " + state.ipfsHash + ": " + e.getMessage());
-                }
-                return new AnnouncementItem(
-                    state.ipfsHash,
-                    manifest != null ? manifest.getTitle() : "",
-                    manifest != null ? manifest.getFileCid() : "",
-                    state.startDate,
-                    state.endDate
-                );
-            })
-            .collect(Collectors.toList());
-
-        return result;
     }
 
     @PostMapping(
@@ -122,12 +64,36 @@ public class AdminController {
         @RequestParam("endDate") long endDate
     ) {
         try {
+            // Validate input parameters
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body(
+                    java.util.Map.of("error", "File cannot be empty")
+                );
+            }
+            
+            if (title == null || title.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(
+                    java.util.Map.of("error", "Title cannot be empty")
+                );
+            }
+            
+            if (startDate >= endDate) {
+                return ResponseEntity.badRequest().body(
+                    java.util.Map.of("error", "End date must be after start date")
+                );
+            }
+
             String txHash = adminService.uploadAnnouncement(file, title, startDate, endDate);
             return ResponseEntity.ok().body(
-                java.util.Map.of("message", "Announcement uploaded", "txHash", txHash)
+                java.util.Map.of(
+                    "message", "Announcement uploaded successfully", 
+                    "txHash", txHash,
+                    "title", title,
+                    "startDate", startDate,
+                    "endDate", endDate
+                )
             );
         } catch (Exception e) {
-            // Log error with context
             System.err.println("uploadAnnouncement error: " + e.getMessage());
             return ResponseEntity.status(500).body(
                 java.util.Map.of("error", "Upload failed", "details", e.getMessage())
@@ -135,16 +101,141 @@ public class AdminController {
         }
     }
 
-    // Helper class for announcement state
-    private static class AnnouncementState {
-        String ipfsHash;
-        long startDate;
-        long endDate;
+    @PutMapping(
+        value = "/update-announcement",
+        consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> updateAnnouncement(
+        @RequestParam("oldIpfsHash") String oldIpfsHash,
+        @RequestParam(value = "file", required = false) MultipartFile newFile,
+        @RequestParam("title") String newTitle,
+        @RequestParam("startDate") long newStartDate,
+        @RequestParam("endDate") long newEndDate
+    ) {
+        try {
+            // Validate input parameters
+            if (oldIpfsHash == null || oldIpfsHash.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(
+                    java.util.Map.of("error", "Old IPFS hash cannot be empty")
+                );
+            }
+            
+            if (newTitle == null || newTitle.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(
+                    java.util.Map.of("error", "Title cannot be empty")
+                );
+            }
+            
+            if (newStartDate >= newEndDate) {
+                return ResponseEntity.badRequest().body(
+                    java.util.Map.of("error", "End date must be after start date")
+                );
+            }
 
-        AnnouncementState(String ipfsHash, long startDate, long endDate) {
-            this.ipfsHash = ipfsHash;
-            this.startDate = startDate;
-            this.endDate = endDate;
+            String txHash;
+            
+            // Check if file is provided for update
+            if (newFile != null && !newFile.isEmpty()) {
+                // Full update with new file
+                txHash = adminService.updateAnnouncement(
+                    oldIpfsHash, newFile, newTitle, newStartDate, newEndDate
+                );
+            } else {
+                // Update only metadata (title and dates) without changing file
+                txHash = adminService.updateAnnouncementMetadata(
+                    oldIpfsHash, newTitle, newStartDate, newEndDate
+                );
+            }
+            
+            return ResponseEntity.ok().body(
+                java.util.Map.of(
+                    "message", "Announcement updated successfully",
+                    "txHash", txHash,
+                    "oldIpfsHash", oldIpfsHash,
+                    "newTitle", newTitle,
+                    "newStartDate", newStartDate,
+                    "newEndDate", newEndDate,
+                    "fileUpdated", newFile != null && !newFile.isEmpty()
+                )
+            );
+        } catch (Exception e) {
+            System.err.println("updateAnnouncement error: " + e.getMessage());
+            return ResponseEntity.status(500).body(
+                java.util.Map.of("error", "Update failed", "details", e.getMessage())
+            );
+        }
+    }
+
+    @PutMapping(
+        value = "/update-announcement-time",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> updateAnnouncementTime(
+        @RequestParam("ipfsHash") String ipfsHash,
+        @RequestParam("startDate") long newStartDate,
+        @RequestParam("endDate") long newEndDate
+    ) {
+        try {
+            // Validate input parameters
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(
+                    java.util.Map.of("error", "IPFS hash cannot be empty")
+                );
+            }
+            
+            if (newStartDate >= newEndDate) {
+                return ResponseEntity.badRequest().body(
+                    java.util.Map.of("error", "End date must be after start date")
+                );
+            }
+
+            String txHash = adminService.updateAnnouncementTimeOnly(
+                ipfsHash, newStartDate, newEndDate
+            );
+            return ResponseEntity.ok().body(
+                java.util.Map.of(
+                    "message", "Announcement time updated successfully",
+                    "txHash", txHash,
+                    "ipfsHash", ipfsHash,
+                    "newStartDate", newStartDate,
+                    "newEndDate", newEndDate
+                )
+            );
+        } catch (Exception e) {
+            System.err.println("updateAnnouncementTime error: " + e.getMessage());
+            return ResponseEntity.status(500).body(
+                java.util.Map.of("error", "Time update failed", "details", e.getMessage())
+            );
+        }
+    }
+
+    @DeleteMapping(
+        value = "/delete-announcement",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> deleteAnnouncement(@RequestParam("ipfsHash") String ipfsHash) {
+        try {
+            // Validate input parameters
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(
+                    java.util.Map.of("error", "IPFS hash cannot be empty")
+                );
+            }
+
+            String txHash = adminService.deleteAnnouncement(ipfsHash);
+            return ResponseEntity.ok().body(
+                java.util.Map.of(
+                    "message", "Announcement deleted successfully",
+                    "txHash", txHash,
+                    "deletedIpfsHash", ipfsHash
+                )
+            );
+        } catch (Exception e) {
+            System.err.println("deleteAnnouncement error: " + e.getMessage());
+            return ResponseEntity.status(500).body(
+                java.util.Map.of("error", "Deletion failed", "details", e.getMessage())
+            );
         }
     }
 }

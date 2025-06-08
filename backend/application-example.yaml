@@ -18,3 +18,4 @@ cors:
 
 pinata:
     jwt: ${PINATA_JWT:}
+    gateway: ${PINATA_GATEWAY:}

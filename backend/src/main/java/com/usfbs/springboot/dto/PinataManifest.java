@@ -1,15 +1,27 @@
 package com.usfbs.springboot.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class PinataManifest {
     
+    @JsonProperty("title")
     private String title;
+    
+    @JsonProperty("startDate")
+    private Long startDate;
+    
+    @JsonProperty("endDate")
+    private Long endDate;
+    
+    @JsonProperty("fileCid")
     private String fileCid;
 
-    // Default constructor needed for JSON deserialization
-    public PinataManifest() { }
+    public PinataManifest() {}
 
-    public PinataManifest(String title, String fileCid) {
-        this.title   = title;
+    public PinataManifest(String title, Long startDate, Long endDate, String fileCid) {
+        this.title = title;
+        this.startDate = startDate;
+        this.endDate = endDate;
         this.fileCid = fileCid;
     }
 
@@ -21,11 +33,37 @@ public class PinataManifest {
         this.title = title;
     }
 
+    public Long getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(Long startDate) {
+        this.startDate = startDate;
+    }
+
+    public Long getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(Long endDate) {
+        this.endDate = endDate;
+    }
+
     public String getFileCid() {
         return fileCid;
     }
 
     public void setFileCid(String fileCid) {
         this.fileCid = fileCid;
+    }
+
+    @Override
+    public String toString() {
+        return "PinataManifest{" +
+                "title='" + title + '\'' +
+                ", startDate=" + startDate +
+                ", endDate=" + endDate +
+                ", fileCid='" + fileCid + '\'' +
+                '}';
     }
 }

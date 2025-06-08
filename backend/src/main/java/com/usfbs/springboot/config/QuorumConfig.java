@@ -51,6 +51,9 @@ public class QuorumConfig {
 
     @Bean
     public ContractGasProvider contractGasProvider() {
-        return new StaticGasProvider(BigInteger.ZERO, BigInteger.valueOf(4_700_000));
+        return new StaticGasProvider(
+            BigInteger.valueOf(0L),           // gasPrice (0 for GoQuorum)
+            BigInteger.valueOf(10_000_000L)   
+        );
     }
 }

@@ -11,167 +11,155 @@ import {
 import '@styles/AdminDashboard.css';
 import { authFetch } from "@utils/authFetch";
 
-const MAX_MEDIA_SIZE_MB = 10;  
+const MAX_MEDIA_SIZE_MB = 10;
+
+// Helper function to format date for input field - declared at module level
+const formatDateForInput = (timestamp) => {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  return date.toISOString().split('T')[0];
+};
+
+// Convert date to timestamp for backend
+const convertDateToTimestamp = (dateString) => {
+  return Math.floor(new Date(dateString).getTime() / 1000);
+};
 
 const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
-  const [media, setMedia] = useState(initialData?.media || null);
-  const [mediaPreview, setMediaPreview] = useState(initialData?.mediaUrl || null);
-  const [title, setTitle] = useState(initialData?.title || '');
-  const [dateRange, setDateRange] = useState(initialData?.dateRange || { start: '', end: '' });
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!initialData) {
-      setMedia(null);
-      setMediaPreview(null);
-      setTitle('');
-      setDateRange({ start: '', end: '' });
-      setError('');
-    } else {
-      setMedia(initialData.media || null);
-      setMediaPreview(initialData.mediaUrl || null);
-      setTitle(initialData.title || '');
-      setDateRange(initialData.dateRange || { start: '', end: '' });
-      setError('');
+  const [formData, setFormData] = useState({
+    title: initialData?.title || '',
+    file: null,
+    dateRange: {
+      start: initialData ? formatDateForInput(initialData.startDate * 1000) : '',
+      end: initialData ? formatDateForInput(initialData.endDate * 1000) : ''
     }
-  }, [onClose, initialData]);
+  });
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    setError("");
-
-    if (file) {
-      console.log("Selected file size (bytes):", file.size);
-      if (file.size > MAX_MEDIA_SIZE_MB * 1024 * 1024) {
-        const msg = `File size must be less than ${MAX_MEDIA_SIZE_MB} MB`;
-        setError(msg);
-        setMedia(null);
-        setMediaPreview(null);
-        return;
-      }
-      setMedia(file);
-      setMediaPreview(URL.createObjectURL(file));
-    } else {
-      setMedia(null);
-      setMediaPreview(null);
-    }
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim()) {
-      setError('Title is required');
-      if (typeof window.setToast === 'function') {
-        window.setToast({ msg: 'Title is required', type: 'error' });
-      }
+    
+    if (!formData.title.trim()) {
+      alert('Please enter a title');
       return;
     }
-    if (!dateRange.start || !dateRange.end) {
-      setError('Date range is required');
-      if (typeof window.setToast === 'function') {
-        window.setToast({ msg: 'Date range is required', type: 'error' });
-      }
+    
+    if (!formData.file && !initialData) {
+      alert('Please select a file');
+      return;
+    }
+    
+    if (!formData.dateRange.start || !formData.dateRange.end) {
+      alert('Please select both start and end dates');
       return;
     }
 
-    const startTs = Math.floor(new Date(dateRange.start).getTime() / 1000);
-    const endTs = Math.floor(new Date(dateRange.end).getTime() / 1000);
+    const startTimestamp = convertDateToTimestamp(formData.dateRange.start);
+    const endTimestamp = convertDateToTimestamp(formData.dateRange.end);
 
-    const formData = new FormData();
-    formData.append("file", media);                 // File object
-    formData.append("title", title);
-    formData.append("startDate", startTs);
-    formData.append("endDate",   endTs);
+    if (startTimestamp >= endTimestamp) {
+      alert('End date must be after start date');
+      return;
+    }
 
-    // DEBUG
-    console.log("FormData entries:", [...formData.entries()]);
+    const submitData = new FormData();
+    submitData.append('title', formData.title);
+    submitData.append('startDate', startTimestamp);
+    submitData.append('endDate', endTimestamp);
+    
+    if (initialData) {
+      // For editing existing announcement
+      submitData.append('oldIpfsHash', initialData.ipfsHash);
+      // Only append file if one is selected
+      if (formData.file) {
+        submitData.append('file', formData.file);
+      }
+    } else {
+      // For new announcement, file is required
+      submitData.append('file', formData.file);
+    }
 
-    onSave(formData); 
-
-    // Reset form state
-    setMedia(null);
-    setMediaPreview(null);
-    setTitle("");
-    setDateRange({ start: "", end: "" });
-    setError("");
+    onSave(submitData);
   };
 
-  const previewStyle = {
-    width: 320,
-    height: 180,
-    objectFit: "cover",
-    borderRadius: 8,
-    background: "#eee",
-    display: "block",
-    margin: "0 auto"
+  // Handle overlay click to close modal
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal">
+    <div className="modal-overlay" onClick={handleOverlayClick}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>{initialData ? "Edit Announcement" : "Add Announcement"}</h3>
-          <button className="close-btn" onClick={onClose}>
+          <h3>{initialData ? "Edit Announcement" : "Add New Announcement"}</h3>
+          <button onClick={onClose} className="close-btn">
             <X size={20} />
           </button>
         </div>
-        <form className="modal-form" onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="announcement-form">
           <div className="form-group">
-            <label>Upload Media (max 10MB, image/video)</label>
-            <input
-              type="file"
-              accept="image/*,video/*"
-              onChange={handleFileChange}     
-            />
-            {mediaPreview && (
-              <div style={{ marginTop: 12 }}>
-                {media && media.type && media.type.startsWith('video') ? (
-                  <video src={mediaPreview} controls style={previewStyle} />
-                ) : (
-                  <img src={mediaPreview} alt="Preview" style={previewStyle} />
-                )}
-                {media && (
-                  <div style={{ textAlign: "center", marginTop: 8, fontSize: 13, color: "#374151" }}>
-                    {media.name}
-                  </div>
-                )}
-              </div>
-            )}
-            {error && (
-              <div style={{ color: "#dc2626", marginTop: 8, fontSize: 13 }}>{error}</div>
-            )}
-          </div>
-          <div className="form-group">
-            <label>Announcement Title *</label>
+            <label>Title</label>
             <input
               type="text"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              required
+              value={formData.title}
+              onChange={e => setFormData({ ...formData, title: e.target.value })}
               placeholder="Enter announcement title"
+              required
             />
           </div>
           <div className="form-group">
-            <label>Date Display (Range)</label>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <label>
+              File 
+              {initialData && (
+                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 'normal' }}>
+                  {' '}(Optional - leave empty to keep current file)
+                </span>
+              )}
+            </label>
+            <input
+              type="file"
+              onChange={e => setFormData({ ...formData, file: e.target.files[0] })}
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              required={!initialData}
+            />
+            {initialData && (
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                Current file will be preserved if no new file is selected
+              </div>
+            )}
+          </div>
+          <div className="form-group">
+            <label>Date Range</label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <input
                 type="date"
-                value={dateRange.start}
-                onChange={e => setDateRange({ ...dateRange, start: e.target.value })}
+                value={formData.dateRange.start}
+                onChange={e => setFormData({ 
+                  ...formData, 
+                  dateRange: { ...formData.dateRange, start: e.target.value }
+                })}
                 required
               />
-              <span style={{ alignSelf: 'center' }}>to</span>
+              <span style={{ color: '#6b7280', fontSize: '14px' }}>to</span>
               <input
                 type="date"
-                value={dateRange.end}
-                onChange={e => setDateRange({ ...dateRange, end: e.target.value })}
+                value={formData.dateRange.end}
+                onChange={e => setFormData({ 
+                  ...formData, 
+                  dateRange: { ...formData.dateRange, end: e.target.value }
+                })}
                 required
               />
             </div>
           </div>
           <div className="modal-actions">
-            <button type="button" onClick={onClose} className="cancel-btn">Cancel</button>
-            <button type="submit" className="save-btn">{initialData ? "Save Changes" : "Add Announcement"}</button>
+            <button type="button" onClick={onClose} className="cancel-btn">
+              Cancel
+            </button>
+            <button type="submit" className="save-btn">
+              {initialData ? "Save Changes" : "Add Announcement"}
+            </button>
           </div>
         </form>
       </div>
@@ -197,36 +185,62 @@ export default function AdminDashboard() {
   const [announcements, setAnnouncements] = useState([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
 
-  // utility to compute “Time Left” display
-  const calculateTimeLeft = (endTs) => {
-    const diff = endTs - Date.now();
-    if (diff <= 0) return 'Expired';
-    const hrs = Math.floor(diff / 3600000);
-    const mins = Math.floor((diff % 3600000) / 60000);
-    return `${hrs}h ${mins}m`;
+  // Utility to format date display
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'Not set';
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
+  // Utility to format date range display
+  const formatDateRange = (startDate, endDate) => {
+    const start = formatDate(startDate * 1000); // Convert from seconds to milliseconds
+    const end = formatDate(endDate * 1000);
+    return `${start} - ${end}`;
+  };
+
+  // Fixed: Remove announcementsLoading from dependency array to prevent infinite loop
   const loadAnnouncements = useCallback(async () => {
+    // Prevent multiple concurrent calls using current state value
+    if (announcementsLoading) {
+        console.log('Announcements already loading, skipping duplicate call');
+        return;
+    }
+    
     setAnnouncementsLoading(true);
     try {
-      const res = await authFetch("/api/admin/get-announcements");
-      if (!res.ok) throw new Error("Failed to load announcements");
-      const data = await res.json();
-      const items = data.map(item => ({
-        ...item,
-        timeLeft: calculateTimeLeft(item.endDate),
-        id: item.ipfsHash,
-      }));
-      setAnnouncements(items);
+        const res = await authFetch("/api/admin/get-announcements");
+        if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(errorText || "Failed to load announcements");
+        }
+        const data = await res.json();
+        
+        // Process announcement data for display
+        const items = data.map(item => ({
+            ...item,
+            dateRange: formatDateRange(item.startDate, item.endDate),
+            id: item.ipfsHash,
+        }));
+        setAnnouncements(items);
     } catch (err) {
-      console.error("Error loading announcements:", err);
-      setToast({ msg: err.message, type: "error" });
+        console.error("Error loading announcements:", err);
+        if (err.message.includes("No Announcement found")) {
+            setAnnouncements([]);
+            setToast({ msg: "No announcements available", type: "info" });
+        } else {
+            setToast({ msg: err.message, type: "error" });
+        }
     } finally {
-      setAnnouncementsLoading(false);
+        setAnnouncementsLoading(false);
     }
-  }, []);
+  }, []); // Empty dependency array to prevent infinite loops
 
-  // Load all announcements from backend, always use authFetch
+  // Load all announcements from backend on component mount
   useEffect(() => {
     loadAnnouncements();
   }, [loadAnnouncements]);
@@ -243,8 +257,29 @@ export default function AdminDashboard() {
     { type: 'booking', message: 'Booking Approved (System)', status: 'success' },
   ]);
 
-  const handleDeleteAnnouncement = (id) => {
-    setAnnouncements(announcements.filter(ann => ann.id !== id));
+  const handleDeleteAnnouncement = async (id) => {
+    if (!confirm('Are you sure you want to delete this announcement?')) {
+      return;
+    }
+
+    try {
+      const res = await authFetch(`/api/admin/delete-announcement?ipfsHash=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Failed to delete announcement");
+      }
+      
+      const { message } = await res.json();
+      setAnnouncements(announcements.filter(ann => ann.id !== id));
+      setToast({ msg: message, type: "success" });
+      
+    } catch (err) {
+      console.error("Delete announcement failed:", err);
+      setToast({ msg: err.message, type: "error" });
+    }
   };
 
   const handleRejectBooking = (id) => {
@@ -298,10 +333,36 @@ export default function AdminDashboard() {
     setEditAnnouncement(announcement);
   };
 
-  const handleSaveEditAnnouncement = (data) => {
-    // TODO: Update announcement in backend/blockchain
-    setEditAnnouncement(null);
-    setToast({ msg: "Announcement updated!", type: "success" });
+  const handleSaveEditAnnouncement = async (formData) => {
+    try {
+      // Debug log to check FormData contents
+      console.log('Submitting form data:');
+      for (let [key, value] of formData.entries()) {
+        console.log(key, ':', value);
+      }
+
+      const res = await authFetch("/api/admin/update-announcement", {
+        method: "PUT",
+        body: formData,
+        // Don't set Content-Type header for FormData - let browser set it
+      });
+      
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('Update response error:', errText);
+        throw new Error(errText || "Update failed");
+      }
+      
+      const response = await res.json();
+      console.log('Update response:', response);
+      
+      setEditAnnouncement(null);
+      setToast({ msg: response.message, type: "success" });
+      await loadAnnouncements();
+    } catch (err) {
+      console.error("Edit announcement failed:", err);
+      setToast({ msg: err.message, type: "error" });
+    }
   };
 
   return (
@@ -316,13 +377,13 @@ export default function AdminDashboard() {
               <button
                 className="icon-link-btn"
                 onClick={() => navigate("/logs")}
-                aria-label="Go to System Logs"
+                aria-label="Go to Logs"
                 style={{ background: "none", border: "none", cursor: "pointer" }}
               >
                 <ExternalLink size={16} />
               </button>
             </div>
-            <div className="logs-list">
+            <div className="logs-container">
               {systemLogs.map((log, index) => (
                 <div key={index} className={`log-item ${getLogStatusClass(log.status)}`}>
                   <span className="log-icon">{getLogIcon(log.type)}</span>
@@ -335,19 +396,22 @@ export default function AdminDashboard() {
           {/* Announcements Section */}
           <div className="announcements-section">
             <div className="section-header">
-              <h3>Announcement</h3>
-              <button
-                className="add-new-btn"
-                onClick={() => setShowAddAnnouncementModal(true)}
-              >
-                <Plus size={16} />
-                Add New
-              </button>
+              <h3>Announcements</h3>
+              <div className="header-actions">
+                <span className="announcements-count">{announcements.length} total</span>
+                <button
+                  className="add-btn"
+                  onClick={() => setShowAddAnnouncementModal(true)}
+                >
+                  <Plus size={16} />
+                  Add New
+                </button>
+              </div>
             </div>
-            <div className="announcements-table">
+            <div className="table-container">
               <div className="table-header">
                 <span>Title</span>
-                <span>Time Left</span>
+                <span>Date Range</span>
                 <span>Action</span>
               </div>
               {announcementsLoading ? (
@@ -370,7 +434,7 @@ export default function AdminDashboard() {
                   announcements.map(announcement => (
                     <div key={announcement.id} className="table-row">
                       <span>{announcement.title}</span>
-                      <span>{announcement.timeLeft}</span>
+                      <span>{announcement.dateRange}</span>
                       <div className="action-buttons">
                         <button
                           className="edit-btn"
@@ -415,31 +479,28 @@ export default function AdminDashboard() {
               </button>
             </div>
           </div>
-          <div className="bookings-table">
+          <div className="table-container">
             <div className="table-header">
-              <span>ID</span>
-              <span>User</span>
+              <span>Booking ID</span>
+              <span>User ID</span>
               <span>Court</span>
               <span>Time</span>
               <span>Sport</span>
-              <span>Actions</span>
+              <span>Action</span>
             </div>
             {bookings.map(booking => (
               <div key={booking.id} className="table-row">
                 <span>{booking.id}</span>
                 <span>{booking.user}</span>
                 <span>{booking.court}</span>
-                <span className="time-cell">{booking.time}</span>
+                <span style={{ whiteSpace: 'pre-line' }}>{booking.time}</span>
                 <span>{booking.sport}</span>
                 <div className="action-buttons">
                   <button
                     className="reject-btn"
                     onClick={() => handleRejectBooking(booking.id)}
-                    disabled={
-                      booking.status &&
-                      booking.status.toLowerCase() === "rejected"
-                    }
                   >
+                    <X size={14} />
                     Reject
                   </button>
                 </div>

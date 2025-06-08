@@ -205,14 +205,15 @@ contract Management {
         emit announcementDeleted(msg.sender, ipfsHash, block.timestamp);
     }
 
-    function getAnnouncements() external isAdmin returns(Announcement[] memory anns_) {
+    function getAnnouncements() external isAdmin view returns(Announcement[] memory anns_) {
         require(announcements_.length > 0, "No Announcement found in blockchain");
 
-        Announcement[] memory anns = new Announcement[](announcements_.length);
-        for(uint256 i=0; i<announcements_.length; i++) {
-            anns[i] = announcements_[i];
-            emit announcementRequested(msg.sender, announcements_[i].ipfsHash, block.timestamp);
-        }
-        return anns;
+        // Announcement[] memory anns = new Announcement[](announcements_.length);
+        // for(uint256 i=0; i<announcements_.length; i++) {
+        //     anns[i] = announcements_[i];
+        //     emit announcementRequested(msg.sender, announcements_[i].ipfsHash, block.timestamp);
+        // }
+        // return anns;
+        return announcements_;
     }
 }
