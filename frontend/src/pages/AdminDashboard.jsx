@@ -13,16 +13,18 @@ import { authFetch } from "@utils/authFetch";
 
 const MAX_MEDIA_SIZE_MB = 10;
 
-// Helper function to format date for input field - declared at module level
-const formatDateForInput = (timestamp) => {
-  if (!timestamp) return '';
-  const date = new Date(timestamp);
-  return date.toISOString().split('T')[0];
+// Utility functions for date conversion
+const convertDateToTimestamp = (dateString) => {
+  // Convert date string to timestamp for Malaysian timezone
+  const date = new Date(dateString + 'T00:00:00+08:00'); // Add Malaysian timezone offset
+  return Math.floor(date.getTime() / 1000);
 };
 
-// Convert date to timestamp for backend
-const convertDateToTimestamp = (dateString) => {
-  return Math.floor(new Date(dateString).getTime() / 1000);
+const formatDateForInput = (timestamp) => {
+  // Format timestamp for date input in Malaysian timezone
+  const date = new Date(timestamp);
+  const malaysianDate = new Date(date.getTime() + (8 * 60 * 60 * 1000)); // Add 8 hours for MYT
+  return malaysianDate.toISOString().split('T')[0];
 };
 
 const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
