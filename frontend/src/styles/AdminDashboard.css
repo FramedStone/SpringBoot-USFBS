@@ -239,11 +239,12 @@
   font-size: 1rem;
 }
 
-.add-new-btn {
+.add-new-btn,
+.add-btn {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background-color: #4f46e5;
+  background-color: #007BFF;
   color: white;
   border: none;
   padding: 0.5rem 1rem;
@@ -254,8 +255,16 @@
   transition: background-color 0.2s ease;
 }
 
-.add-new-btn:hover {
-  background-color: #4338ca;
+.add-new-btn:hover,
+.add-btn:hover {
+  background-color: #0056B3;
+}
+
+.add-new-btn:disabled,
+.add-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .announcements-table,
@@ -337,6 +346,13 @@
   background-color: #fee2e2;
 }
 
+.delete-btn:disabled {
+  background-color: #fef2f2;
+  border-color: #fecaca;
+  color: #ef4444;
+  opacity: 0.6;
+}
+
 .reject-btn {
   background-color: #dc2626;
   border-color: #dc2626;
@@ -346,6 +362,14 @@
 
 .reject-btn:hover {
   background-color: #b91c1c;
+}
+
+.reject-btn:disabled {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .header-actions {
@@ -441,6 +465,13 @@
   color: #1e293b;
 }
 
+.close-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background-color: #f1f5f9;
+  color: #9ca3af;
+}
+
 .announcement-form {
   padding: 24px;
 }
@@ -473,6 +504,14 @@
   outline: none;
   border-color: #4f46e5;
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.form-group input:disabled,
+.form-group select:disabled {
+  background-color: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+  border-color: #d1d5db;
 }
 
 .modal-actions {
@@ -512,6 +551,15 @@
 
 .save-btn:hover {
   background-color: #4338ca;
+}
+
+.save-btn:disabled {
+  background-color: #9ca3af;
+}
+
+.cancel-btn:disabled {
+  background-color: #e5e7eb;
+  color: #9ca3af;
 }
 
 @media (max-width: 1024px) {

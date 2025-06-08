@@ -37,6 +37,8 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
     }
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -80,12 +82,17 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
       submitData.append('file', formData.file);
     }
 
-    onSave(submitData);
+    setIsSubmitting(true);
+    try {
+      await onSave(submitData);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Handle overlay click to close modal
   const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget) {
+    if (e.target === e.currentTarget && !isSubmitting) {
       onClose();
     }
   };
@@ -95,7 +102,11 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{initialData ? "Edit Announcement" : "Add New Announcement"}</h3>
-          <button onClick={onClose} className="close-btn">
+          <button 
+            onClick={onClose} 
+            className="close-btn"
+            disabled={isSubmitting}
+          >
             <X size={20} />
           </button>
         </div>
@@ -108,6 +119,7 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
               onChange={e => setFormData({ ...formData, title: e.target.value })}
               placeholder="Enter announcement title"
               required
+              disabled={isSubmitting}
             />
           </div>
           <div className="form-group">
@@ -124,6 +136,7 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
               onChange={e => setFormData({ ...formData, file: e.target.files[0] })}
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
               required={!initialData}
+              disabled={isSubmitting}
             />
             {initialData && (
               <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
@@ -142,6 +155,7 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
                   dateRange: { ...formData.dateRange, start: e.target.value }
                 })}
                 required
+                disabled={isSubmitting}
               />
               <span style={{ color: '#6b7280', fontSize: '14px' }}>to</span>
               <input
@@ -152,15 +166,31 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
                   dateRange: { ...formData.dateRange, end: e.target.value }
                 })}
                 required
+                disabled={isSubmitting}
               />
             </div>
           </div>
           <div className="modal-actions">
-            <button type="button" onClick={onClose} className="cancel-btn">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="cancel-btn"
+              disabled={isSubmitting}
+            >
               Cancel
             </button>
-            <button type="submit" className="save-btn">
-              {initialData ? "Save Changes" : "Add Announcement"}
+            <button 
+              type="submit" 
+              className="save-btn"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  {initialData ? "Saving..." : "Adding..."}
+                </>
+              ) : (
+                initialData ? "Save Changes" : "Add Announcement"
+              )}
             </button>
           </div>
         </form>
@@ -186,6 +216,7 @@ export default function AdminDashboard() {
 
   const [announcements, setAnnouncements] = useState([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [deletingAnnouncementId, setDeletingAnnouncementId] = useState(null);
 
   // Utility to format date display
   const formatDate = (timestamp) => {
@@ -264,6 +295,7 @@ export default function AdminDashboard() {
       return;
     }
 
+    setDeletingAnnouncementId(id);
     try {
       const res = await authFetch(`/api/admin/delete-announcement?ipfsHash=${encodeURIComponent(id)}`, {
         method: "DELETE",
@@ -281,6 +313,8 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error("Delete announcement failed:", err);
       setToast({ msg: err.message, type: "error" });
+    } finally {
+      setDeletingAnnouncementId(null);
     }
   };
 
@@ -404,6 +438,7 @@ export default function AdminDashboard() {
                 <button
                   className="add-btn"
                   onClick={() => setShowAddAnnouncementModal(true)}
+                  disabled={announcementsLoading}
                 >
                   <Plus size={16} />
                   Add New
@@ -441,6 +476,7 @@ export default function AdminDashboard() {
                         <button
                           className="edit-btn"
                           onClick={() => handleEditAnnouncement(announcement)}
+                          disabled={deletingAnnouncementId === announcement.id}
                         >
                           <Edit size={14} />
                           Edit
@@ -448,9 +484,18 @@ export default function AdminDashboard() {
                         <button 
                           className="delete-btn"
                           onClick={() => handleDeleteAnnouncement(announcement.id)}
+                          disabled={deletingAnnouncementId === announcement.id}
                         >
-                          <Trash2 size={14} />
-                          Delete
+                          {deletingAnnouncementId === announcement.id ? (
+                            <>
+                              Deleting...
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 size={14} />
+                              Delete
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>

@@ -57,8 +57,9 @@ public class AdminService {
             "fileCid", fileCid
         );
 
-        // Pin the JSON manifest to get its CID
-        String metaCid = pinataUtil.uploadJsonToIPFS(manifest, "announcement-manifest.json");
+        // Pin the JSON manifest to get its CID with announcement title
+        String manifestFileName = sanitizeFileName(title) + "-manifest.json";
+        String metaCid = pinataUtil.uploadJsonToIPFS(manifest, manifestFileName);
 
         // Store the manifest CID on-chain
         TransactionReceipt receipt = managementContract.addAnnouncement(
@@ -92,8 +93,9 @@ public class AdminService {
                 "fileCid", newFileCid
             );
 
-            // Pin the new JSON manifest to get its CID
-            String newMetaCid = pinataUtil.uploadJsonToIPFS(newManifest, "announcement-manifest.json");
+            // Pin the new JSON manifest to get its CID with new title
+            String manifestFileName = sanitizeFileName(newTitle) + "-manifest.json";
+            String newMetaCid = pinataUtil.uploadJsonToIPFS(newManifest, manifestFileName);
 
             // Update IPFS hash in blockchain using Management contract function
             TransactionReceipt ipfsReceipt = managementContract.updateAnnouncementIpfsHash(
@@ -141,8 +143,9 @@ public class AdminService {
                 "fileCid", existingManifest.getFileCid() // Keep existing file
             );
 
-            // Pin the updated JSON manifest to get its new CID
-            String updatedMetaCid = pinataUtil.uploadJsonToIPFS(updatedManifest, "announcement-manifest.json");
+            // Pin the updated JSON manifest to get its new CID with new title
+            String manifestFileName = sanitizeFileName(newTitle) + "-manifest.json";
+            String updatedMetaCid = pinataUtil.uploadJsonToIPFS(updatedManifest, manifestFileName);
 
             // Update IPFS hash in blockchain
             TransactionReceipt ipfsReceipt = managementContract.updateAnnouncementIpfsHash(
@@ -357,5 +360,33 @@ public class AdminService {
 
     public PinataManifest parseManifest(String manifestJson) throws Exception {
         return pinataUtil.parseManifest(manifestJson);
+    }
+
+    /**
+     * Sanitizes announcement title for use as filename
+     * @param title The announcement title
+     * @return Sanitized filename string
+     */
+    private String sanitizeFileName(String title) {
+        if (title == null || title.trim().isEmpty()) {
+            return "untitled-announcement";
+        }
+        
+        // Replace invalid filename characters with hyphens
+        String sanitized = title.trim()
+            .replaceAll("[^a-zA-Z0-9\\s\\-_]", "")  // Remove special chars
+            .replaceAll("\\s+", "-")                // Replace spaces with hyphens
+            .toLowerCase()                          
+            .replaceAll("-+", "-");                 // Replace multiple hyphens with single
+        
+        // Ensure filename isn't too long (max 50 chars before extension)
+        if (sanitized.length() > 50) {
+            sanitized = sanitized.substring(0, 50);
+        }
+        
+        // Remove trailing hyphens
+        sanitized = sanitized.replaceAll("-+$", "");
+        
+        return sanitized.isEmpty() ? "untitled-announcement" : sanitized;
     }
 }
