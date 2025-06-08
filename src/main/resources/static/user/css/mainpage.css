@@ -1,0 +1,167 @@
+/* Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: #B3E5FB;
+    min-height: 100vh;
+}
+
+header {
+  background-color: #61DDFF;
+  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.3);
+  padding: 10px 20px;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.logo {
+  height:80px;
+}
+
+h1 {
+  font-family: "Jersey 10", sans-serif;
+  font-size: 2.5rem;
+  text-align: center;
+  flex-grow: 1;
+}
+
+.nav-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.user-id {
+  font-size: 14px;
+}
+
+nav ul {
+  display: flex;
+  list-style: none;
+  gap: 20px;
+  align-items: center;
+}
+
+nav li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+}
+
+.title {
+    font-size: clamp(2rem, 5vw, 3.75rem);
+    font-family: 'Jersey 10', sans-serif;
+    text-align: center;
+    margin: 0 auto;
+}
+
+.nav-menu {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.nav-item:hover {
+    transform: translateY(-2px);
+}
+
+.nav-icon {
+    width: 30px;
+    height: 30px;
+}
+
+
+/* Hero */
+.hero img {
+  width: 100%;
+  height: auto;
+  margin: 1rem 0;
+  border-radius: 10px;
+}
+
+/* Sports Grid */
+.sports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  padding: 2rem 0;
+}
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  text-align: center;
+}
+.card img {
+  border-radius: 50%;
+  width: 100px;
+  height: 100px;
+  margin-bottom: 1rem;
+}
+.card h3 {
+  margin: 0.5rem 0;
+}
+.card .label {
+  font-size: 0.8rem;
+  color: #888;
+}
+.card button {
+  margin-top: 1rem;
+  padding: 0.6rem 1.2rem;
+  background: #444;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+.card button:hover {
+  background: #000;
+}
+
+/* Footer */
+.main-footer {
+  background: #000;
+  color: #ccc;
+  text-align: center;
+  padding: 1rem;
+  margin-top: 2rem;
+}
+
+/* Responsive Nav */
+@media (max-width: 768px) {
+  .main-header .container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .main-header h1 {
+    text-align: left;
+    font-size: 1.5rem;
+    margin: 0.5rem 0;
+  }
+  nav {
+    flex-wrap: wrap;
+  }
+}
