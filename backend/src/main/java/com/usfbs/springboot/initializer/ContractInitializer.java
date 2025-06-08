@@ -188,21 +188,6 @@ public class ContractInitializer implements CommandLineRunner {
                 error.printStackTrace();
             });
 
-            bookingContract.timeSlotRequestedEventFlowable(
-                DefaultBlockParameterName.EARLIEST,
-                DefaultBlockParameterName.LATEST
-            ).subscribe(event -> {
-                System.out.println(">>> [timeSlotRequested] event received:");
-                System.out.println("    from           = " + event.from);
-                System.out.println("    facilityName   = " + event.facilityName);
-                System.out.println("    courtName      = " + event.courtName);
-                System.out.println("    timestamp      = " + event.timestamp);
-                System.out.println();
-            }, error -> {
-                System.err.println("Error in timeSlotRequested subscription: " + error.getMessage());
-                error.printStackTrace();
-            });
-
             // subscribe to SportFacility.sol events
             sportFacilityContract.sportFacilityAddedEventFlowable(
                 DefaultBlockParameterName.EARLIEST,
