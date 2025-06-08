@@ -43,6 +43,9 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
   const [newFilePreviewUrl, setNewFilePreviewUrl] = useState(null);
   const [newFileType, setNewFileType] = useState(null);
   const [zoomedMedia, setZoomedMedia] = useState(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [tempDateRange, setTempDateRange] = useState({ start: '', end: '' });
+  const [selectingEnd, setSelectingEnd] = useState(false);
 
   // Fetch current media when editing
   useEffect(() => {
@@ -111,6 +114,216 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
     };
   }, [newFilePreviewUrl]);
 
+  // Enhanced date range handlers with timezone fix
+  const handleDateRangeClick = () => {
+    setTempDateRange(formData.dateRange);
+    setSelectingEnd(false);
+    setIsDatePickerOpen(true);
+  };
+
+  const handleDateSelect = (selectedDate) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+    
+    if (!selectingEnd) {
+      // Selecting start date - must be today or later
+      if (selectedDateObj < today) {
+        return; // Prevent selection of past dates
+      }
+      setTempDateRange({ start: selectedDate, end: '' });
+      setSelectingEnd(true);
+    } else {
+      // Selecting end date - must be same day or after start date
+      const startDateObj = new Date(tempDateRange.start + 'T00:00:00');
+      
+      if (selectedDateObj < startDateObj) {
+        // If end date is before start date, reset to select start again
+        if (selectedDateObj >= today) {
+          setTempDateRange({ start: selectedDate, end: '' });
+          setSelectingEnd(true);
+        }
+        return;
+      }
+      
+      setTempDateRange({ ...tempDateRange, end: selectedDate });
+      // Auto-confirm after selecting end date
+      setFormData({ 
+        ...formData, 
+        dateRange: { start: tempDateRange.start, end: selectedDate }
+      });
+      setIsDatePickerOpen(false);
+      setSelectingEnd(false);
+    }
+  };
+
+  const confirmDateRange = () => {
+    if (tempDateRange.start && tempDateRange.end) {
+      setFormData({ ...formData, dateRange: tempDateRange });
+      setIsDatePickerOpen(false);
+      setSelectingEnd(false);
+    }
+  };
+
+  const cancelDateSelection = () => {
+    setIsDatePickerOpen(false);
+    setSelectingEnd(false);
+    setTempDateRange({ start: '', end: '' });
+  };
+
+  // Fixed date generation with proper timezone handling
+  const generateCalendarDates = () => {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+    
+    const dates = [];
+    const current = new Date(startDate);
+    
+    for (let i = 0; i < 42; i++) {
+      dates.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    
+    return dates;
+  };
+
+  // Fixed date formatting to prevent timezone issues
+  const formatDateString = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatDateForDisplay = (dateString) => {
+    if (!dateString) return '';
+    // Fix: Parse date without timezone conversion
+    const dateParts = dateString.split('-');
+    const date = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const renderDateRangePicker = () => {
+    if (!isDatePickerOpen) return null;
+
+    const dates = generateCalendarDates();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    return (
+      <div className="date-picker-overlay" onClick={cancelDateSelection}>
+        <div className="date-picker-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="date-picker-header">
+            <h4>Select Date Range</h4>
+            <div className="date-picker-status">
+              {!selectingEnd ? (
+                <span className="status-text">Select start date (today or later)</span>
+              ) : (
+                <span className="status-text">
+                  From: <strong>{formatDateForDisplay(tempDateRange.start)}</strong> - Select end date
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div className="calendar-container">
+            <div className="calendar-month-header">
+              {new Date(currentYear, currentMonth).toLocaleDateString('en-US', {
+                month: 'long',
+                year: 'numeric'
+              })}
+            </div>
+            
+            <div className="calendar-weekdays">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                <div key={day} className="weekday">{day}</div>
+              ))}
+            </div>
+            
+            <div className="calendar-dates">
+              {dates.map((date, index) => {
+                // Fix: Use proper date string formatting
+                const dateString = formatDateString(date);
+                const isCurrentMonth = date.getMonth() === currentMonth;
+                const isToday = date.toDateString() === today.toDateString();
+                const isPast = date < today;
+                const isSelected = dateString === tempDateRange.start || dateString === tempDateRange.end;
+                const isInRange = tempDateRange.start && tempDateRange.end && 
+                  dateString >= tempDateRange.start && dateString <= tempDateRange.end;
+                
+                // Enhanced validation logic
+                let isDisabled = isPast || isSubmitting;
+                
+                // If selecting end date, disable dates before start date
+                if (selectingEnd && tempDateRange.start) {
+                  const startDateObj = new Date(tempDateRange.start + 'T00:00:00');
+                  const currentDateObj = new Date(dateString + 'T00:00:00');
+                  isDisabled = isDisabled || currentDateObj < startDateObj;
+                }
+                
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    className={`calendar-date ${!isCurrentMonth ? 'other-month' : ''} 
+                      ${isToday ? 'today' : ''} 
+                      ${isPast ? 'past' : ''} 
+                      ${isSelected ? 'selected' : ''} 
+                      ${isInRange ? 'in-range' : ''}
+                      ${isDisabled ? 'disabled' : ''}`}
+                    onClick={() => !isDisabled && handleDateSelect(dateString)}
+                    disabled={isDisabled}
+                    title={
+                      isPast ? 'Past dates are not allowed' :
+                      (selectingEnd && tempDateRange.start && new Date(dateString + 'T00:00:00') < new Date(tempDateRange.start + 'T00:00:00')) ? 
+                      'End date must be after start date' : ''
+                    }
+                  >
+                    {date.getDate()}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          
+          <div className="date-picker-actions">
+            <button 
+              type="button" 
+              onClick={cancelDateSelection}
+              className="cancel-date-btn"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            {tempDateRange.start && tempDateRange.end && (
+              <button 
+                type="button" 
+                onClick={confirmDateRange}
+                className="confirm-date-btn"
+                disabled={isSubmitting}
+              >
+                Confirm Range
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Enhanced form validation with timezone fix
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -129,13 +342,24 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
       return;
     }
 
-    const startTimestamp = convertDateToTimestamp(formData.dateRange.start);
-    const endTimestamp = convertDateToTimestamp(formData.dateRange.end);
+    // Enhanced date validation with timezone fix
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDate = new Date(formData.dateRange.start + 'T00:00:00');
+    const endDate = new Date(formData.dateRange.end + 'T00:00:00');
 
-    if (startTimestamp >= endTimestamp) {
+    if (startDate < today) {
+      alert('Start date cannot be in the past');
+      return;
+    }
+
+    if (endDate < startDate) {
       alert('End date must be after start date');
       return;
     }
+
+    const startTimestamp = convertDateToTimestamp(formData.dateRange.start);
+    const endTimestamp = convertDateToTimestamp(formData.dateRange.end);
 
     const submitData = new FormData();
     submitData.append('title', formData.title);
@@ -143,7 +367,6 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
     submitData.append('endDate', endTimestamp);
     
     if (initialData) {
-      // For editing existing announcement
       submitData.append('oldIpfsHash', initialData.ipfsHash);
       // Only append file if one is selected
       if (formData.file) {
@@ -547,30 +770,24 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
             
             <div className="form-group">
               <label>Date Range</label>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  type="date"
-                  value={formData.dateRange.start}
-                  onChange={e => setFormData({ 
-                    ...formData, 
-                    dateRange: { ...formData.dateRange, start: e.target.value }
-                  })}
-                  required
+              <div className="date-range-input-container">
+                <button
+                  type="button"
+                  className="date-range-input"
+                  onClick={handleDateRangeClick}
                   disabled={isSubmitting}
-                />
-                <span style={{ color: '#6b7280', fontSize: '14px' }}>to</span>
-                <input
-                  type="date"
-                  value={formData.dateRange.end}
-                  onChange={e => setFormData({ 
-                    ...formData, 
-                    dateRange: { ...formData.dateRange, end: e.target.value }
-                  })}
-                  required
-                  disabled={isSubmitting}
-                />
+                >
+                  {formData.dateRange.start && formData.dateRange.end ? (
+                    <span>
+                      {formatDateForDisplay(formData.dateRange.start)} - {formatDateForDisplay(formData.dateRange.end)}
+                    </span>
+                  ) : (
+                    <span className="placeholder">Click to select date range</span>
+                  )}
+                </button>
               </div>
             </div>
+            
             <div className="modal-actions">
               <button 
                 type="button" 
@@ -597,6 +814,9 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
           </form>
         </div>
       </div>
+      
+      {/* Render date picker modal */}
+      {renderDateRangePicker()}
       
       {/* Render zoom modal */}
       {renderZoomModal()}
