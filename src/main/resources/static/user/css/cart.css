@@ -1,0 +1,148 @@
+@import url('https://fonts.googleapis.com/css2?family=Jersey+10&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: #fff;
+  color: #000;
+}
+
+header {
+  background-color: #61DDFF;
+  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.3);
+  padding: 10px 20px;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.logo {
+  height: 80px;
+}
+
+h1 {
+  font-family: "Jersey 10", sans-serif;
+  font-size: 2.5rem;
+  text-align: center;
+  flex-grow: 1;
+}
+
+.nav-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.user-id {
+  font-size: 14px;
+}
+
+nav ul {
+  display: flex;
+  list-style: none;
+  gap: 20px;
+  align-items: center;
+}
+
+nav li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+}
+
+.sub-header {
+  background-color: #7B7B7B;
+  color: white;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.sub-header h2 {
+  font-size: 2rem;
+}
+
+main {
+  padding: 30px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 30px;
+}
+
+th, td {
+  padding: 15px;
+  text-align: center;
+  font-size: 1.2rem;
+  border: 1px solid #B9B9B9;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: 600;
+}
+
+.remove-btn {
+  background: none;
+  color: #0F53FF;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.checkout-container {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.checkout-btn {
+  background-color: #0F53FF;
+  color: white;
+  padding: 12px 30px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .top-bar {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  nav ul {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  table th, table td {
+    font-size: 1rem;
+    padding: 10px;
+  }
+
+  .checkout-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
