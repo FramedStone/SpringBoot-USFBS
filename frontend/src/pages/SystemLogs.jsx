@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
+import { authFetch } from '@utils/authFetch';
 import '@styles/SystemLogs.css';
 
 const abbreviate = (value) => {
@@ -11,43 +13,79 @@ const SystemLogs = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedActions, setSelectedActions] = useState({
-    'Form Received': true,
-    'Rejected Booking': true,
-    'Approved Booking': true,
-    'Added Announcement': true
+    'Booking Created': true,
+    'Booking Updated': true,
+    'Booking Deleted': true,
+    'Announcement Added': true,
+    'Announcement Deleted': true,
+    'Announcement Modified': true,
+    'Announcement Time Modified': true,
+    'Announcement Requested': true,
+    'User Added': true,
+    'User Banned': true,
+    'User Unbanned': true,
+    'Sport Facility Added': true,
+    'Sport Facility Modified': true,
+    'Sport Facility Deleted': true,
+    'Court Added': true,
+    'Court Modified': true,
+    'Court Deleted': true,
+    'Facility Details Requested': true,
+    'Court Details Requested': true
   });
+  const [sortBy, setSortBy] = useState({
+    field: 'dateAdded',
+    order: 'desc'
+  });
+  const [logsData, setLogsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState(null);
 
-  // Sample data with email addresses and IPFS CIDs
-  const logsData = [
-    {
-      id: 'QmX7vQJ8KfGxRtN2pL9wYzHm5Fq3Bs4CvDnE8A1rT6kM',
-      action: 'Form Received',
-      email: 'user1@mmu.com',
-      timestamp: '2025-04-29 14:32',
-      note: 'Complaint'
-    },
-    {
-      id: 'QmY8wRK9LgHyStO3qM0xZnI6Gr4Ct5DwEnF9B2sU7lN',
-      action: 'Rejected Booking',
-      email: 'user2@mmu.com',
-      timestamp: '2025-04-29 14:40',
-      note: 'Booking #100 Rejected'
-    },
-    {
-      id: 'QmZ9xSL0MhIzTuP4rN1yAoJ7Hs5Du6ExFoG0C3tV8mO',
-      action: 'Approved Booking',
-      email: 'user3@mmu.com',
-      timestamp: '2025-04-29 15:00',
-      note: 'Booking #101 Approved'
-    },
-    {
-      id: 'QmA0yTM1NiJ0UvQ5sO2zBpK8It6Ev7FyGpH1D4uW9nP',
-      action: 'Added Announcement',
-      email: 'user4@mmu.com',
-      timestamp: '2025-04-29 15:30',
-      note: 'Basketball Tournament'
-    }
-  ];
+  // Fetch event logs from backend
+  useEffect(() => {
+    const fetchEventLogs = async () => {
+      try {
+        setLoading(true);
+        const response = await authFetch(`${import.meta.env.VITE_BACKEND_URL}/logs`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Transform backend data to frontend format
+        const transformedData = data.map(log => ({
+          id: log.ipfsHash || `event-${Date.now()}-${Math.random()}`,
+          action: log.action,
+          email: log.fromAddress,
+          timestamp: log.timestamp,
+          originalOutput: log.originalOutput,
+          dateAdded: new Date(log.dateAdded),
+          eventType: log.eventType
+        }));
+        
+        setLogsData(transformedData);
+        setError(null);
+        setLastUpdate(new Date());
+        
+        console.log(`Fetched ${transformedData.length} event logs from backend`);
+      } catch (err) {
+        console.error('Error fetching event logs:', err);
+        setError('Failed to fetch event logs from blockchain');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEventLogs();
+    
+    // Set up polling for real-time updates - TODO: Consider WebSocket implementation
+    const interval = setInterval(fetchEventLogs, 10000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const handleActionChange = (action) => {
     setSelectedActions(prev => ({
@@ -56,20 +94,46 @@ const SystemLogs = () => {
     }));
   };
 
+  const handleSortChange = () => {
+    setSortBy(prev => ({
+      ...prev,
+      order: prev.order === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
   const clearFilters = () => {
     setSearchTerm('');
     setStartDate('');
     setEndDate('');
     setSelectedActions({
-      'Form Received': true,
-      'Rejected Booking': true,
-      'Approved Booking': true,
-      'Added Announcement': true
+      'Booking Created': true,
+      'Booking Updated': true,
+      'Booking Deleted': true,
+      'Announcement Added': true,
+      'Announcement Deleted': true,
+      'Announcement Modified': true,
+      'Announcement Time Modified': true,
+      'Announcement Requested': true,
+      'User Added': true,
+      'User Banned': true,
+      'User Unbanned': true,
+      'Sport Facility Added': true,
+      'Sport Facility Modified': true,
+      'Sport Facility Deleted': true,
+      'Court Added': true,
+      'Court Modified': true,
+      'Court Deleted': true,
+      'Facility Details Requested': true,
+      'Court Details Requested': true
+    });
+    setSortBy({
+      field: 'dateAdded',
+      order: 'desc'
     });
   };
 
-  const filteredLogs = useMemo(() => {
-    return logsData.filter(log => {
+  const filteredAndSortedLogs = useMemo(() => {
+    const filtered = logsData.filter(log => {
       // Search filter
       const matchesSearch = searchTerm === '' ||
         log.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -89,22 +153,86 @@ const SystemLogs = () => {
 
       return matchesSearch && matchesAction && matchesDate;
     });
-  }, [searchTerm, selectedActions, startDate, endDate]);
+
+    return filtered.sort((a, b) => {
+      if (sortBy.field === 'dateAdded') {
+        const dateA = a.dateAdded;
+        const dateB = b.dateAdded;
+        
+        if (sortBy.order === 'asc') {
+          return dateA - dateB;
+        } else {
+          return dateB - dateA;
+        }
+      }
+      return 0;
+    });
+  }, [logsData, searchTerm, selectedActions, startDate, endDate, sortBy]);
+
+  if (loading && logsData.length === 0) {
+    return (
+      <div className="system-logs">
+        <h1 className="page-title">System Logs</h1>
+        <div className="loading-container">
+          <p>Loading blockchain event logs...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && logsData.length === 0) {
+    return (
+      <div className="system-logs">
+        <h1 className="page-title">System Logs</h1>
+        <div className="error-container">
+          <p>Error: {error}</p>
+          <button onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="system-logs">
       <h1 className="page-title">System Logs</h1>
+      
+      {lastUpdate && (
+        <div className="status-bar">
+          <span className="status-text">
+            Last updated: {lastUpdate.toLocaleTimeString()} | 
+            Total events: {logsData.length} | 
+            Filtered: {filteredAndSortedLogs.length}
+          </span>
+        </div>
+      )}
 
       <div className="filters-container">
         {/* Search Bar */}
         <div className="search-section">
           <input
             type="text"
-            placeholder="Search logs..."
+            placeholder="Search logs by IPFS CID, action, address, or note..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
           />
+        </div>
+
+        {/* Sort By Section */}
+        <div className="filter-section">
+          <h3>Sort By</h3>
+          <div className="sort-controls">
+            <button
+              onClick={handleSortChange}
+              className={`sort-btn ${sortBy.field === 'dateAdded' ? 'active' : ''}`}
+              type="button"
+            >
+              Date Added
+              {sortBy.field === 'dateAdded' && (
+                sortBy.order === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Timestamp Filter */}
@@ -160,34 +288,43 @@ const SystemLogs = () => {
         <table className="logs-table">
           <thead>
             <tr>
-              <th>IPFS CID</th>
+              <th>IPFS CID / Event ID</th>
               <th>Action</th>
-              <th>Email Address</th>
+              <th>From Address</th>
               <th>Timestamp</th>
               <th>Note</th>
             </tr>
           </thead>
           <tbody>
-            {filteredLogs.length > 0 ? (
-              filteredLogs.map((log) => (
-                <tr key={log.id}>
+            {filteredAndSortedLogs.length > 0 ? (
+              filteredAndSortedLogs.map((log) => (
+                <tr key={`${log.id}-${log.dateAdded.getTime()}`}>
                   <td className="cid-cell">
                     <span className="cid-desktop">{log.id}</span>
                     <span className="cid-mobile">{abbreviate(log.id)}</span>
                   </td>
-                  <td>{log.action}</td>
+                  <td>
+                    <span className={`action-badge ${log.eventType?.toLowerCase()}`}>
+                      {log.action}
+                    </span>
+                  </td>
                   <td className="email-cell">
                     <span className="email-desktop">{log.email}</span>
                     <span className="email-mobile">{abbreviate(log.email)}</span>
                   </td>
                   <td>{log.timestamp}</td>
-                  <td>{log.note}</td>
+                  <td className="original-output-cell">
+                    <details>
+                      <summary>View Details</summary>
+                      <pre className="original-output">{log.originalOutput}</pre>
+                    </details>
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
                 <td colSpan="5" className="no-results">
-                  No logs found matching your criteria
+                  No blockchain events found matching your criteria
                 </td>
               </tr>
             )}
