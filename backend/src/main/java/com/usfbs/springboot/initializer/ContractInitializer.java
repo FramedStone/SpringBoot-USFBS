@@ -211,13 +211,12 @@ public class ContractInitializer implements CommandLineRunner {
                 
                 System.out.println(originalOutput);
                 
-                // Add to EventLogService with original output format
                 eventLogService.addEventLog(
                     event.ipfsHash,
                     "Booking Created",
                     event.from,
                     event.timestamp,
-                    originalOutput,
+                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
                     "BOOKING"
                 );
             }, error -> {
@@ -238,13 +237,12 @@ public class ContractInitializer implements CommandLineRunner {
                 System.out.println("    timestamp      = " + safeFormatTimestamp(event.timestamp));
                 System.out.println();
                 
-                // Add to EventLogService
                 eventLogService.addEventLog(
                     "",
                     "Booking Updated",
                     event.from,
                     event.timestamp,
-                    "Booking #" + event.bookingId + " updated - " + event.note,
+                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
                     "BOOKING"
                 );
             }, error -> {
@@ -265,13 +263,12 @@ public class ContractInitializer implements CommandLineRunner {
                 System.out.println("    timestamp      = " + safeFormatTimestamp(event.timestamp));
                 System.out.println();
                 
-                // Add to EventLogService
                 eventLogService.addEventLog(
                     event.ipfsHash,
                     "Booking Deleted",
                     event.from,
                     event.timestamp,
-                    "Booking #" + event.bookingId + " deleted - " + event.note,
+                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
                     "BOOKING"
                 );
             }, error -> {
@@ -293,41 +290,16 @@ public class ContractInitializer implements CommandLineRunner {
                 
                 System.out.println(originalOutput);
                 
-                // Add to EventLogService with original output format
                 eventLogService.addEventLog(
                     event.ipfsHash,
                     "Announcement Added",
                     event.from,
                     event.timestamp,
-                    originalOutput,
+                    "",
                     "MANAGEMENT"
                 );
             }, error -> {
                 System.err.println("Error in announcementAdded subscription: " + error.getMessage());
-                error.printStackTrace();
-            });
-
-            managementContract.announcementDeletedEventFlowable(
-                DefaultBlockParameterName.EARLIEST,
-                DefaultBlockParameterName.LATEST
-            ).subscribe(event -> {
-                System.out.println(">>> [announcementDeleted] event received:");
-                System.out.println("    from           = " + event.from);
-                System.out.println("    ipfsHash       = " + event.ipfsHash);
-                System.out.println("    timestamp      = " + safeFormatTimestamp(event.timestamp));
-                System.out.println();
-                
-                // Add to EventLogService
-                eventLogService.addEventLog(
-                    event.ipfsHash,
-                    "Announcement Deleted",
-                    event.from,
-                    event.timestamp,
-                    "Announcement removed",
-                    "MANAGEMENT"
-                );
-            }, error -> {
-                System.err.println("Error in announcementDeleted subscription: " + error.getMessage());
                 error.printStackTrace();
             });
 
@@ -343,13 +315,12 @@ public class ContractInitializer implements CommandLineRunner {
                 
                 System.out.println(originalOutput);
                 
-                // Add to EventLogService with original output format
                 eventLogService.addEventLog(
                     "",
                     "User Banned",
                     event.from,
                     event.timestamp,
-                    originalOutput,
+                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
                     "MANAGEMENT"
                 );
             }, error -> {
@@ -369,13 +340,12 @@ public class ContractInitializer implements CommandLineRunner {
                 
                 System.out.println(originalOutput);
                 
-                // Add to EventLogService with original output format
                 eventLogService.addEventLog(
                     "",
                     "User Unbanned",
                     event.from,
                     event.timestamp,
-                    originalOutput,
+                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
                     "MANAGEMENT"
                 );
             }, error -> {
@@ -425,13 +395,12 @@ public class ContractInitializer implements CommandLineRunner {
                 
                 System.out.println(originalOutput);
                 
-                // Add to EventLogService with original output format
                 eventLogService.addEventLog(
                     "",
                     "Sport Facility Modified",
                     event.from,
                     event.timestamp,
-                    originalOutput,
+                    "",
                     "FACILITY"
                 );
             }, error -> {
@@ -536,13 +505,12 @@ public class ContractInitializer implements CommandLineRunner {
                 
                 System.out.println(originalOutput);
                 
-                // Add to EventLogService with original output format
                 eventLogService.addEventLog(
                     "",
                     "Facility Details Requested",
                     event.from,
                     event.timestamp,
-                    originalOutput,
+                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
                     "FACILITY"
                 );
             }, error -> {
@@ -564,13 +532,12 @@ public class ContractInitializer implements CommandLineRunner {
                 
                 System.out.println(originalOutput);
                 
-                // Add to EventLogService with original output format
                 eventLogService.addEventLog(
                     "",
                     "Court Details Requested",
                     event.from,
                     event.timestamp,
-                    originalOutput,
+                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
                     "FACILITY"
                 );
             }, error -> {
@@ -590,13 +557,12 @@ public class ContractInitializer implements CommandLineRunner {
                 
                 System.out.println(originalOutput);
                 
-                // Add to EventLogService with original output format
                 eventLogService.addEventLog(
                     "",
                     "User Added",
                     event.from,
                     event.timestamp,
-                    originalOutput,
+                    "",
                     "MANAGEMENT"
                 );
             }, error -> {
@@ -616,17 +582,169 @@ public class ContractInitializer implements CommandLineRunner {
                 
                 System.out.println(originalOutput);
                 
-                // Add to EventLogService with original output format
                 eventLogService.addEventLog(
                     event.ipfsHash,
                     "Announcement Requested",
                     event.from,
                     event.timestamp,
-                    originalOutput,
+                    "",
                     "MANAGEMENT"
                 );
             }, error -> {
                 System.err.println("Error in announcementRequested subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            managementContract.announcementDeletedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [announcementDeleted] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    ipfsHash       = " + event.ipfsHash + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    event.ipfsHash,
+                    "Announcement Deleted",
+                    event.from,
+                    event.timestamp,
+                    "",
+                    "MANAGEMENT"
+                );
+            }, error -> {
+                System.err.println("Error in announcementDeleted subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            managementContract.announcementIpfsHashModifiedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [announcementIpfsHashModified] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    oldIpfsHash    = " + event.ipfsHash_ + "\n" +
+                                       "    newIpfsHash    = " + event.ipfsHash + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    event.ipfsHash,
+                    "Announcement IPFS Hash Modified",
+                    event.from,
+                    event.timestamp,
+                    "",
+                    "MANAGEMENT"
+                );
+            }, error -> {
+                System.err.println("Error in announcementIpfsHashModified subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            managementContract.announcementTimeModifiedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [announcementTimeModified] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    ipfsHash       = " + event.ipfsHash + "\n" +
+                                       "    oldStartTime   = " + safeFormatTimestamp(event.startTime_) + "\n" +
+                                       "    oldEndTime     = " + safeFormatTimestamp(event.endTime_) + "\n" +
+                                       "    newStartTime   = " + safeFormatTimestamp(event.startTime) + "\n" +
+                                       "    newEndTime     = " + safeFormatTimestamp(event.endTime) + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    event.ipfsHash,
+                    "Announcement Time Modified",
+                    event.from,
+                    event.timestamp,
+                    "",
+                    "MANAGEMENT"
+                );
+            }, error -> {
+                System.err.println("Error in announcementTimeModified subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            sportFacilityContract.courtAddedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [courtAdded] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    courtName      = " + event.courtName + "\n" +
+                                       "    earliestTime   = " + safeFormatBookingTime(event.earliestTime) + "\n" +
+                                       "    latestTime     = " + safeFormatBookingTime(event.latestTime) + "\n" +
+                                       "    status         = " + event.status + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    "",
+                    "Court Added",
+                    event.from,
+                    event.timestamp,
+                    "",
+                    "FACILITY"
+                );
+            }, error -> {
+                System.err.println("Error in courtAdded subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            sportFacilityContract.courtDeletedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [courtDeleted] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    courtName      = " + event.courtName + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    "",
+                    "Court Deleted",
+                    event.from,
+                    event.timestamp,
+                    "",
+                    "FACILITY"
+                );
+            }, error -> {
+                System.err.println("Error in courtDeleted subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            // Add missing Booking event subscription
+            bookingContract.bookingRequestedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [bookingRequested] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    bookingId      = " + event.bookingId + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    "",
+                    "Booking Requested",
+                    event.from,
+                    event.timestamp,
+                    "",
+                    "BOOKING"
+                );
+            }, error -> {
+                System.err.println("Error in bookingRequested subscription: " + error.getMessage());
                 error.printStackTrace();
             });
 

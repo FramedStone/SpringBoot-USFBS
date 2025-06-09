@@ -134,12 +134,11 @@ const SystemLogs = () => {
 
   const filteredAndSortedLogs = useMemo(() => {
     const filtered = logsData.filter(log => {
-      // Search filter
       const matchesSearch = searchTerm === '' ||
         log.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.note.toLowerCase().includes(searchTerm.toLowerCase());
+        (log.originalOutput && log.originalOutput.toLowerCase().includes(searchTerm.toLowerCase()));
 
       // Action filter
       const matchesAction = selectedActions[log.action];
@@ -313,11 +312,8 @@ const SystemLogs = () => {
                     <span className="email-mobile">{abbreviate(log.email)}</span>
                   </td>
                   <td>{log.timestamp}</td>
-                  <td className="original-output-cell">
-                    <details>
-                      <summary>View Details</summary>
-                      <pre className="original-output">{log.originalOutput}</pre>
-                    </details>
+                  <td className="note-cell">
+                    {log.originalOutput || '-'}
                   </td>
                 </tr>
               ))
