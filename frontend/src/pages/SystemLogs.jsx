@@ -20,7 +20,7 @@ const SystemLogs = () => {
     'Announcement Added': true,
     'Announcement Deleted': true,
     'Announcement Modified': true,
-    'Announcement IPFS Hash Modified': true, // Added missing event
+    'Announcement IPFS Hash Modified': true, 
     'Announcement Time Modified': true,
     'Announcement Requested': true,
     'User Added': true,
@@ -134,6 +134,34 @@ const SystemLogs = () => {
       field: 'dateAdded',
       order: 'desc'
     });
+  };
+
+  const getActionCategory = (action) => {
+    const actionLower = action.toLowerCase();
+    
+    // Create operations - Green
+    if (actionLower.includes('created') || actionLower.includes('added')) {
+      return 'create';
+    }
+    
+    // Update operations - Blue  
+    if (actionLower.includes('updated') || actionLower.includes('modified') || 
+        actionLower.includes('banned') || actionLower.includes('unbanned')) {
+      return 'update';
+    }
+    
+    // Delete operations - Red
+    if (actionLower.includes('deleted') || actionLower.includes('removed')) {
+      return 'delete';
+    }
+    
+    // Read operations - Yellow (backend API calls)
+    if (actionLower.includes('requested') || actionLower.includes('details')) {
+      return 'read';
+    }
+    
+    // Fallback
+    return 'read';
   };
 
   const filteredAndSortedLogs = useMemo(() => {
@@ -307,7 +335,7 @@ const SystemLogs = () => {
                     <span className="cid-mobile">{abbreviate(log.id)}</span>
                   </td>
                   <td>
-                    <span className={`action-badge ${log.eventType?.toLowerCase()}`}>
+                    <span className={`action-badge ${getActionCategory(log.action)}`}>
                       {log.action}
                     </span>
                   </td>
