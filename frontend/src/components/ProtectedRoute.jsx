@@ -44,13 +44,24 @@ function ProtectedRoute({ children, setToast, allowedRoles, resetAppState }) {
           if (resetAppState) resetAppState();
         }
       } catch (err) {
+        // Handle 401 and other auth errors
         setIsAuth(false);
-        if (setToast)
+
+        // Clear all storage and reset state
+        localStorage.clear();
+        sessionStorage.clear();
+
+        if (setToast) {
+          const isUnauthorized = err.message === "Unauthorized";
           setToast({
-            msg: "Session expired. Please login again.",
+            msg: isUnauthorized
+              ? "Session expired. Please login again."
+              : "Authentication failed. Please login again.",
             type: "error",
             autoDismiss: true,
           });
+        }
+
         if (resetAppState) resetAppState();
       }
     }

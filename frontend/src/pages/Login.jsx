@@ -25,6 +25,21 @@ export default function Login() {
   const [ethAddress, setEthAddress] = useState("");
   const [ethPrivateKey, setEthPrivateKey] = useState("");
 
+  // Reset all states and storage when component mounts
+  useEffect(() => {
+    const resetLoginState = () => {
+      localStorage.clear();
+      sessionStorage.clear();
+      setLocalUser(null);
+      setEmail("");
+      setEthAddress("");
+      setEthPrivateKey("");
+      setToast({ msg: "", type: "error" });
+    };
+    
+    resetLoginState();
+  }, []);
+
   useEffect(() => {
     async function checkRoleRedirect() {
       try {
@@ -42,7 +57,8 @@ export default function Login() {
           }
         }
       } catch (err) {
-        // Not logged in, stay on login
+        // Not logged in or 401, stay on login - storage already cleared by authFetch
+        console.log("Not authenticated");
       }
     }
     checkRoleRedirect();

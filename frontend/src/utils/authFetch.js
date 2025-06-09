@@ -14,7 +14,21 @@ export async function authFetch(url, options = {}) {
     body,
   })
 
-  // bubble up 401 so ProtectedRoute.catch() can set isAuth=false
-  if (res.status === 401) throw new Error("Unauthorized")
+  // Handle 401 by clearing all storage and resetting state
+  if (res.status === 401) {
+    // Clear all storage
+    localStorage.clear()
+    sessionStorage.clear()
+    
+    // Clear any cached authentication data
+    if (typeof window !== 'undefined') {
+      // Clear any authentication cookies by setting them to expire
+      document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+      document.cookie = "refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+    }
+    
+    throw new Error("Unauthorized")
+  }
+  
   return res
 }
