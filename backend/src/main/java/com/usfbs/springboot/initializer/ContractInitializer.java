@@ -295,7 +295,7 @@ public class ContractInitializer implements CommandLineRunner {
                     "Announcement Added",
                     event.from,
                     event.timestamp,
-                    "",
+                    originalOutput, // No note field in this event
                     "MANAGEMENT"
                 );
             }, error -> {
@@ -320,7 +320,7 @@ public class ContractInitializer implements CommandLineRunner {
                     "User Banned",
                     event.from,
                     event.timestamp,
-                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
+                    originalOutput, // Store full event details including note
                     "MANAGEMENT"
                 );
             }, error -> {
@@ -345,7 +345,7 @@ public class ContractInitializer implements CommandLineRunner {
                     "User Unbanned",
                     event.from,
                     event.timestamp,
-                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
+                    originalOutput, // Store full event details including note
                     "MANAGEMENT"
                 );
             }, error -> {
@@ -636,7 +636,7 @@ public class ContractInitializer implements CommandLineRunner {
                     "Announcement IPFS Hash Modified",
                     event.from,
                     event.timestamp,
-                    "",
+                    originalOutput, // Pass the detailed output instead of empty string
                     "MANAGEMENT"
                 );
             }, error -> {
@@ -664,7 +664,7 @@ public class ContractInitializer implements CommandLineRunner {
                     "Announcement Time Modified",
                     event.from,
                     event.timestamp,
-                    "",
+                    originalOutput, // Store detailed output for better extraction
                     "MANAGEMENT"
                 );
             }, error -> {

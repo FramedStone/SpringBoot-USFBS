@@ -147,20 +147,16 @@ public class AdminService {
             String manifestFileName = sanitizeFileName(newTitle) + "-manifest.json";
             String updatedMetaCid = pinataUtil.uploadJsonToIPFS(updatedManifest, manifestFileName);
 
-            // Update IPFS hash in blockchain
+            // Only update IPFS hash in blockchain - this will trigger announcementIpfsHashModified event
             TransactionReceipt ipfsReceipt = managementContract.updateAnnouncementIpfsHash(
                 ipfsHash,
                 updatedMetaCid
             ).send();
 
-            // Update time in blockchain using the new manifest CID
-            TransactionReceipt timeReceipt = managementContract.updateAnnouncementTime(
-                updatedMetaCid,
-                BigInteger.valueOf(newStartDate),
-                BigInteger.valueOf(newEndDate)
-            ).send();
-
-            // Cleanup old manifest after successful blockchain updates
+            // Remove the time update call since we're only updating metadata, not time
+            // The time values in the new manifest are the same as before
+            
+            // Cleanup old manifest after successful blockchain update
             try {
                 pinataUtil.unpinFromIPFS(ipfsHash); // Unpin old manifest only
                 System.out.println("Successfully cleaned up old manifest: " + ipfsHash);

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink } from 'lucide-react';
 import { authFetch } from '@utils/authFetch';
+import Toast from '@components/Toast';
 import '@styles/SystemLogs.css';
 
 const abbreviate = (value) => {
@@ -8,10 +9,87 @@ const abbreviate = (value) => {
   return value.length > 16 ? value.slice(0, 6) + '...' + value.slice(-4) : value;
 };
 
+// Component for IPFS hash display with copy and gateway link
+const IpfsHashCell = ({ hash, isOld = false, onCopy }) => {
+  const [copied, setCopied] = useState(false);
+  
+  const handleCopy = async (e) => {
+    e.stopPropagation();
+    if (!hash || hash === '-') return;
+    
+    try {
+      await navigator.clipboard.writeText(hash);
+      setCopied(true);
+      onCopy('IPFS hash copied to clipboard!', 'success');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      onCopy('Failed to copy IPFS hash', 'error');
+    }
+  };
+
+  const handleGatewayOpen = (e) => {
+    e.stopPropagation();
+    if (!hash || hash === '-') return;
+    
+    const gatewayUrl = `https://gateway.pinata.cloud/ipfs/${hash}`;
+    window.open(gatewayUrl, '_blank', 'noopener,noreferrer');
+    onCopy('Opening IPFS content in new tab', 'success');
+  };
+
+  if (!hash || hash === '-') {
+    return <span className="ipfs-hash-empty">-</span>;
+  }
+
+  return (
+    <div className={`ipfs-hash-container ${isOld ? 'old-hash' : 'new-hash'}`}>
+      <span className="ipfs-hash-desktop">
+        <span className="hash-text">{hash}</span>
+        <div className="hash-actions visible">
+          <button 
+            className={`copy-btn ${copied ? 'copied' : ''}`}
+            onClick={handleCopy}
+            title={copied ? 'Copied!' : 'Copy hash'}
+          >
+            <Copy size={12} />
+          </button>
+          <button 
+            className="gateway-btn"
+            onClick={handleGatewayOpen}
+            title="Open in Pinata Gateway"
+          >
+            <ExternalLink size={12} />
+          </button>
+        </div>
+      </span>
+      <span className="ipfs-hash-mobile">
+        <span className="hash-text">{abbreviate(hash)}</span>
+        <div className="hash-actions visible">
+          <button 
+            className={`copy-btn ${copied ? 'copied' : ''}`}
+            onClick={handleCopy}
+            title={copied ? 'Copied!' : 'Copy hash'}
+          >
+            <Copy size={10} />
+          </button>
+          <button 
+            className="gateway-btn"
+            onClick={handleGatewayOpen}
+            title="Open in Pinata Gateway"
+          >
+            <ExternalLink size={10} />
+          </button>
+        </div>
+      </span>
+    </div>
+  );
+};
+
 const SystemLogs = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [toast, setToast] = useState({ msg: "", type: "success" });
   const [selectedActions, setSelectedActions] = useState({
     'Booking Created': true,
     'Booking Updated': true,
@@ -46,6 +124,10 @@ const SystemLogs = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
+  const handleToastMessage = (message, type) => {
+    setToast({ msg: message, type });
+  };
+
   // Fetch event logs from backend
   useEffect(() => {
     const fetchEventLogs = async () => {
@@ -67,13 +149,16 @@ const SystemLogs = () => {
           timestamp: log.timestamp,
           originalOutput: log.originalOutput,
           dateAdded: new Date(log.dateAdded),
-          eventType: log.eventType
+          eventType: log.eventType,
+          oldIpfsHash: extractOldIpfsHash(log.originalOutput, log.action),
+          newIpfsHash: extractNewIpfsHash(log.originalOutput, log.action, log.ipfsHash),
+          note: extractNoteFromEvent(log.originalOutput, log.action)
         }));
         
         setLogsData(transformedData);
         setError(null);
         setLastUpdate(new Date());
-        setCurrentPage(1); // Reset to first page when data updates
+        setCurrentPage(1);
         
         console.log(`Fetched ${transformedData.length} event logs from backend`);
       } catch (err) {
@@ -85,12 +170,114 @@ const SystemLogs = () => {
     };
 
     fetchEventLogs();
-    
-    // Set up polling for real-time updates - TODO: Consider WebSocket implementation
     const interval = setInterval(fetchEventLogs, 10000);
-    
     return () => clearInterval(interval);
   }, []);
+
+  // Helper function to extract old IPFS hash from originalOutput
+  const extractOldIpfsHash = (originalOutput, action) => {
+    if (!originalOutput) return '-';
+    
+    // For IPFS hash modification events, extract the old hash parameter
+    if (action.includes('IPFS Hash Modified')) {
+      // Look for ipfsHash_ pattern (the old hash parameter)
+      const oldHashMatch = originalOutput.match(/ipfsHash_\s*=\s*([^\s\n,]+)/);
+      if (oldHashMatch) return oldHashMatch[1];
+      
+      // Fallback: look for oldIpfsHash pattern
+      const oldHashMatch2 = originalOutput.match(/oldIpfsHash\s*=\s*([^\s\n,]+)/);
+      if (oldHashMatch2) return oldHashMatch2[1];
+    }
+    
+    // For booking events, extract old IPFS hash from booking update events
+    if (action.includes('Booking Updated')) {
+      // Look for old data pattern in booking updates
+      const oldDataMatch = originalOutput.match(/oldData\s*=\s*([^\s\n,]+)/);
+      if (oldDataMatch) return oldDataMatch[1];
+    }
+    
+    // For other events that might have IPFS hash, return main hash
+    const ipfsHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)/);
+    return ipfsHashMatch ? ipfsHashMatch[1] : '-';
+  };
+
+  // Helper function to extract new IPFS hash from originalOutput
+  const extractNewIpfsHash = (originalOutput, action, fallbackHash) => {
+    if (!originalOutput) return fallbackHash || '-';
+    
+    // For IPFS hash modification events, extract the new hash
+    if (action.includes('IPFS Hash Modified')) {
+      // Look for the new ipfsHash parameter (second parameter)
+      const newHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)(?!_)/);
+      if (newHashMatch) return newHashMatch[1];
+      
+      // Fallback: look for newIpfsHash pattern
+      const newHashMatch2 = originalOutput.match(/newIpfsHash\s*=\s*([^\s\n,]+)/);
+      if (newHashMatch2) return newHashMatch2[1];
+      
+      // Use fallback if available
+      if (fallbackHash) return fallbackHash;
+    }
+    
+    // For booking events, extract new IPFS hash from booking update events
+    if (action.includes('Booking Updated')) {
+      // Look for new data pattern in booking updates
+      const newDataMatch = originalOutput.match(/newData\s*=\s*([^\s\n,]+)/);
+      if (newDataMatch) return newDataMatch[1];
+    }
+    
+    // For other events, return the main IPFS hash or fallback
+    const ipfsHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)/);
+    return ipfsHashMatch ? ipfsHashMatch[1] : fallbackHash || '-';
+  };
+
+  // Helper function to extract note from originalOutput based on event type
+  const extractNoteFromEvent = (originalOutput, action) => {
+    if (!originalOutput) return '';
+    
+    // Events that emit notes based on your ContractInitializer.java
+    
+    // User management events with notes
+    if (action === 'User Banned') {
+      const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
+      return noteMatch ? noteMatch[1].trim() : 'User banned by admin';
+    }
+    
+    if (action === 'User Unbanned') {
+      const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
+      return noteMatch ? noteMatch[1].trim() : 'User unbanned by admin';
+    }
+    
+    // Booking events with notes
+    if (action === 'Booking Created') {
+      const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
+      return noteMatch ? noteMatch[1].trim() : '';
+    }
+    
+    if (action === 'Booking Updated') {
+      const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
+      return noteMatch ? noteMatch[1].trim() : '';
+    }
+    
+    if (action === 'Booking Deleted') {
+      const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
+      return noteMatch ? noteMatch[1].trim() : '';
+    }
+    
+    // Facility events with notes  
+    if (action === 'Facility Details Requested') {
+      const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
+      return noteMatch ? noteMatch[1].trim() : '';
+    }
+    
+    if (action === 'Court Details Requested') {
+      const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
+      return noteMatch ? noteMatch[1].trim() : '';
+    }
+    
+    // All other events don't emit notes
+    return '';
+  };
 
   const handleActionChange = (action) => {
     setSelectedActions(prev => ({
@@ -178,19 +365,18 @@ const SystemLogs = () => {
   const filteredAndSortedLogs = useMemo(() => {
     const filtered = logsData.filter(log => {
       const matchesSearch = searchTerm === '' ||
-        log.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.oldIpfsHash.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.newIpfsHash.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.note.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (log.originalOutput && log.originalOutput.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      // Action filter
       const matchesAction = selectedActions[log.action];
 
-      // Date filter
       const logDate = new Date(log.timestamp);
       const start = startDate ? new Date(startDate) : null;
       const end = endDate ? new Date(endDate) : null;
-
       const matchesDate = (!start || logDate >= start) && (!end || logDate <= end);
 
       return matchesSearch && matchesAction && matchesDate;
@@ -287,7 +473,7 @@ const SystemLogs = () => {
 
   return (
     <div className="system-logs">
-      <h1 className="page-title">System Logs</h1>
+      <h1 className="page-title">System Event Logs</h1>
       
       {lastUpdate && (
         <div className="status-bar">
@@ -305,7 +491,7 @@ const SystemLogs = () => {
         <div className="search-section">
           <input
             type="text"
-            placeholder="Search logs by IPFS CID, action, address, or note..."
+            placeholder="Search logs by old/new IPFS CID, action, address, or note..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
@@ -382,7 +568,8 @@ const SystemLogs = () => {
         <table className="logs-table">
           <thead>
             <tr>
-              <th>IPFS CID / Event ID</th>
+              <th>Old IPFS CID</th>
+              <th>New IPFS CID</th>
               <th>Action</th>
               <th>From Address</th>
               <th>Timestamp</th>
@@ -394,8 +581,18 @@ const SystemLogs = () => {
               paginatedLogs.map((log) => (
                 <tr key={`${log.id}-${log.dateAdded.getTime()}`}>
                   <td className="cid-cell">
-                    <span className="cid-desktop">{log.id}</span>
-                    <span className="cid-mobile">{abbreviate(log.id)}</span>
+                    <IpfsHashCell 
+                      hash={log.oldIpfsHash} 
+                      isOld={true} 
+                      onCopy={handleToastMessage}
+                    />
+                  </td>
+                  <td className="cid-cell">
+                    <IpfsHashCell 
+                      hash={log.newIpfsHash} 
+                      isOld={false} 
+                      onCopy={handleToastMessage}
+                    />
                   </td>
                   <td>
                     <span className={`action-badge ${getActionCategory(log.action)}`}>
@@ -408,13 +605,13 @@ const SystemLogs = () => {
                   </td>
                   <td>{log.timestamp}</td>
                   <td className="note-cell">
-                    {log.originalOutput || '-'}
+                    {log.note || '-'}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="5" className="no-results">
+                <td colSpan="6" className="no-results">
                   No blockchain events found matching your criteria
                 </td>
               </tr>
@@ -468,6 +665,12 @@ const SystemLogs = () => {
           </div>
         </div>
       )}
+
+      <Toast
+        message={toast.msg}
+        type={toast.type}
+        onClose={() => setToast({ msg: "", type: "success" })}
+      />
     </div>
   );
 };
