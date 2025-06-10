@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { authFetch } from '@utils/authFetch';
 import '@styles/SystemLogs.css';
 
@@ -43,6 +43,8 @@ const SystemLogs = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // Fetch event logs from backend
   useEffect(() => {
@@ -71,6 +73,7 @@ const SystemLogs = () => {
         setLogsData(transformedData);
         setError(null);
         setLastUpdate(new Date());
+        setCurrentPage(1); // Reset to first page when data updates
         
         console.log(`Fetched ${transformedData.length} event logs from backend`);
       } catch (err) {
@@ -94,6 +97,7 @@ const SystemLogs = () => {
       ...prev,
       [action]: !prev[action]
     }));
+    setCurrentPage(1); // Reset to first page when filters change
   };
 
   const handleSortChange = () => {
@@ -101,6 +105,7 @@ const SystemLogs = () => {
       ...prev,
       order: prev.order === 'asc' ? 'desc' : 'asc'
     }));
+    setCurrentPage(1); // Reset to first page when sorting changes
   };
 
   const clearFilters = () => {
@@ -134,7 +139,13 @@ const SystemLogs = () => {
       field: 'dateAdded',
       order: 'desc'
     });
+    setCurrentPage(1); // Reset to first page when clearing filters
   };
+
+  // Reset page when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, startDate, endDate]);
 
   const getActionCategory = (action) => {
     const actionLower = action.toLowerCase();
@@ -200,6 +211,57 @@ const SystemLogs = () => {
     });
   }, [logsData, searchTerm, selectedActions, startDate, endDate, sortBy]);
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredAndSortedLogs.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedLogs = filteredAndSortedLogs.slice(startIndex, endIndex);
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      const halfVisible = Math.floor(maxVisiblePages / 2);
+      let startPage = Math.max(1, currentPage - halfVisible);
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      if (startPage > 1) {
+        pageNumbers.push(1);
+        if (startPage > 2) {
+          pageNumbers.push('...');
+        }
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        pageNumbers.push(i);
+      }
+      
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          pageNumbers.push('...');
+        }
+        pageNumbers.push(totalPages);
+      }
+    }
+    
+    return pageNumbers;
+  };
+
   if (loading && logsData.length === 0) {
     return (
       <div className="system-logs">
@@ -232,7 +294,8 @@ const SystemLogs = () => {
           <span className="status-text">
             Last updated: {lastUpdate.toLocaleTimeString()} | 
             Total events: {logsData.length} | 
-            Filtered: {filteredAndSortedLogs.length}
+            Filtered: {filteredAndSortedLogs.length} |
+            Page: {currentPage} of {totalPages}
           </span>
         </div>
       )}
@@ -327,8 +390,8 @@ const SystemLogs = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredAndSortedLogs.length > 0 ? (
-              filteredAndSortedLogs.map((log) => (
+            {paginatedLogs.length > 0 ? (
+              paginatedLogs.map((log) => (
                 <tr key={`${log.id}-${log.dateAdded.getTime()}`}>
                   <td className="cid-cell">
                     <span className="cid-desktop">{log.id}</span>
@@ -359,6 +422,52 @@ const SystemLogs = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            Showing {startIndex + 1}-{Math.min(endIndex, filteredAndSortedLogs.length)} of {filteredAndSortedLogs.length} results
+          </div>
+          
+          <div className="pagination-controls">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="pagination-btn pagination-prev"
+              title="Previous page"
+            >
+              <ChevronLeft size={16} />
+              Previous
+            </button>
+            
+            <div className="pagination-numbers">
+              {getPageNumbers().map((pageNumber, index) => (
+                <button
+                  key={index}
+                  onClick={() => typeof pageNumber === 'number' && handlePageChange(pageNumber)}
+                  className={`pagination-number ${
+                    pageNumber === currentPage ? 'active' : ''
+                  } ${typeof pageNumber !== 'number' ? 'ellipsis' : ''}`}
+                  disabled={typeof pageNumber !== 'number'}
+                >
+                  {pageNumber}
+                </button>
+              ))}
+            </div>
+            
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="pagination-btn pagination-next"
+              title="Next page"
+            >
+              Next
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
