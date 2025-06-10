@@ -128,10 +128,21 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
     const selectedDateObj = new Date(selectedDate + 'T00:00:00');
     
     if (!selectingEnd) {
-      // Selecting start date - must be today or later
-      if (selectedDateObj < today) {
-        return; // Prevent selection of past dates
+      // Selecting start date
+      let allowPastDate = false;
+      
+      // For editing: Check if original announcement had past dates
+      if (initialData) {
+        const originalStartDate = new Date(initialData.startDate * 1000);
+        originalStartDate.setHours(0, 0, 0, 0);
+        allowPastDate = originalStartDate < today;
       }
+      
+      // Prevent selection of past dates unless editing announcement with original past dates
+      if (selectedDateObj < today && !allowPastDate) {
+        return;
+      }
+      
       setTempDateRange({ start: selectedDate, end: '' });
       setSelectingEnd(true);
     } else {
@@ -140,7 +151,15 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
       
       if (selectedDateObj < startDateObj) {
         // If end date is before start date, reset to select start again
-        if (selectedDateObj >= today) {
+        let allowPastDate = false;
+        
+        if (initialData) {
+          const originalStartDate = new Date(initialData.startDate * 1000);
+          originalStartDate.setHours(0, 0, 0, 0);
+          allowPastDate = originalStartDate < today;
+        }
+        
+        if (selectedDateObj >= today || allowPastDate) {
           setTempDateRange({ start: selectedDate, end: '' });
           setSelectingEnd(true);
         }
@@ -263,8 +282,21 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
                 const isInRange = tempDateRange.start && tempDateRange.end && 
                   dateString >= tempDateRange.start && dateString <= tempDateRange.end;
                 
-                // Enhanced validation logic
-                let isDisabled = isPast || isSubmitting;
+                // Enhanced validation logic for editing
+                let isDisabled = isSubmitting;
+                let allowPastDate = false;
+                
+                // For editing: Check if original announcement had past dates
+                if (initialData) {
+                  const originalStartDate = new Date(initialData.startDate * 1000);
+                  originalStartDate.setHours(0, 0, 0, 0);
+                  allowPastDate = originalStartDate < today;
+                }
+                
+                // Disable past dates unless editing announcement with original past dates
+                if (isPast && !allowPastDate) {
+                  isDisabled = true;
+                }
                 
                 // If selecting end date, disable dates before start date
                 if (selectingEnd && tempDateRange.start) {
@@ -286,7 +318,8 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
                     onClick={() => !isDisabled && handleDateSelect(dateString)}
                     disabled={isDisabled}
                     title={
-                      isPast ? 'Past dates are not allowed' :
+                      isPast && !allowPastDate ? 'Past dates are not allowed for new announcements' :
+                      (isPast && allowPastDate ? 'Past date allowed - original announcement was scheduled in the past' : '') ||
                       (selectingEnd && tempDateRange.start && new Date(dateString + 'T00:00:00') < new Date(tempDateRange.start + 'T00:00:00')) ? 
                       'End date must be after start date' : ''
                     }
@@ -342,17 +375,37 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
       return;
     }
 
-    // Enhanced date validation with timezone fix
+    // Enhanced date validation with announcement creation date consideration
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    
     const startDate = new Date(formData.dateRange.start + 'T00:00:00');
     const endDate = new Date(formData.dateRange.end + 'T00:00:00');
 
-    if (startDate < today) {
-      alert('Start date cannot be in the past');
-      return;
+    // For editing: Allow past dates if the announcement was originally created with past dates
+    if (initialData) {
+      const originalStartDate = new Date(initialData.startDate * 1000);
+      originalStartDate.setHours(0, 0, 0, 0);
+      
+      // If original start date was in the past, allow editing with past dates
+      if (originalStartDate < today) {
+        console.log('Allowing past date editing for announcement originally created with past dates');
+      } else {
+        // If original was future date, still enforce no past dates for new dates
+        if (startDate < today) {
+          alert('Start date cannot be in the past for announcements originally scheduled for future dates');
+          return;
+        }
+      }
+    } else {
+      // For new announcements: Start date must be today or later
+      if (startDate < today) {
+        alert('Start date cannot be in the past');
+        return;
+      }
     }
 
+    // End date validation remains the same
     if (endDate < startDate) {
       alert('End date must be after start date');
       return;
