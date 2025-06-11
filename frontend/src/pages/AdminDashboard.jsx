@@ -885,16 +885,20 @@ export default function AdminDashboard() {
   const [toast, setToast] = useState({ msg: "", type: "success" });
   const [activeTab, setActiveTab] = useState('dashboard');
 
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [deletingAnnouncementId, setDeletingAnnouncementId] = useState(null);
+
+  // Add system logs state
+  const [systemLogs, setSystemLogs] = useState([]);
+  const [systemLogsLoading, setSystemLogsLoading] = useState(false);
+
   useEffect(() => {
     if (!web3Auth) return;
     web3Auth.getUserInfo()
       .then(info => setUserEmail(info.email))
       // .catch(err => console.error "Failed to fetch user info:", err);
   }, [web3Auth]);
-
-  const [announcements, setAnnouncements] = useState([]);
-  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
-  const [deletingAnnouncementId, setDeletingAnnouncementId] = useState(null);
 
   // Utility to format date display
   const formatDate = (timestamp) => {
@@ -956,10 +960,165 @@ export default function AdminDashboard() {
     loadAnnouncements();
   }, [loadAnnouncements]);
 
-  const [bookings] = useState([
-  ]);
+  // Load system logs from backend with improved error handling and refresh
+  const loadSystemLogs = useCallback(async (forceRefresh = false) => {
+    // Skip if already loading unless it's a forced refresh
+    if (systemLogsLoading && !forceRefresh) {
+      console.log('System logs already loading, skipping duplicate call');
+      return;
+    }
+    
+    setSystemLogsLoading(true);
+    try {
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      const res = await authFetch(`${import.meta.env.VITE_BACKEND_URL}/logs?t=${timestamp}`);
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      
+      // Sort by timestamp descending to get latest first
+      const sortedData = data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      
+      // Transform logs for dashboard display (show only latest 4 for clean UI)
+      const transformedLogs = sortedData.slice(0, 4).map((log, index) => ({
+        id: log.ipfsHash || `event-${log.timestamp}-${index}`,
+        message: formatLogMessage(log),
+        type: getLogTypeFromAction(log.action),
+        status: getLogStatusFromAction(log.action),
+        timestamp: log.timestamp,
+        action: log.action,
+        originalLog: log,
+        isNew: false // Track new logs for animation
+      }));
+      
+      // Check for new logs compared to current state
+      const existingIds = systemLogs.map(log => log.id);
+      const newLogsIds = transformedLogs.map(log => log.id);
+      const hasNewLogs = !existingIds.every(id => newLogsIds.includes(id)) || 
+                         !newLogsIds.every(id => existingIds.includes(id));
+      
+      if (hasNewLogs) {
+        // Mark new logs for animation
+        transformedLogs.forEach(log => {
+          log.isNew = !existingIds.includes(log.id);
+        });
+      }
+      
+      setSystemLogs(transformedLogs);
+      console.log(`Updated system logs: ${transformedLogs.length} entries at ${new Date().toLocaleTimeString()}`);
+      
+    } catch (err) {
+      console.error('Error loading system logs:', err);
+      if (systemLogs.length === 0) {
+        setSystemLogs([]);
+      }
+      setToast({ msg: 'Failed to load latest system logs', type: 'warning' });
+    } finally {
+      setSystemLogsLoading(false);
+    }
+  }, [systemLogs]); // Include systemLogs for comparison
 
-  const [systemLogs] = useState([
+  // Enhanced system logs loading with animation support
+  useEffect(() => {
+    // Initial load
+    loadSystemLogs(true);
+    
+    // Set up more frequent polling for real-time updates
+    const interval = setInterval(() => {
+      loadSystemLogs(true); // Force refresh on interval
+    }, 15000); // Update every 15 seconds for more real-time feel
+    
+    return () => clearInterval(interval);
+  }, []); // Empty dependency to run once
+
+  // Enhanced format log message with better time formatting
+  const formatLogMessage = (log) => {
+    const timeAgo = getTimeAgo(log.timestamp);
+    const userInfo = log.email && log.email !== '-' ? ` by ${log.email.split('@')[0]}` : '';
+    const roleInfo = log.role && log.role !== '-' ? ` (${log.role})` : '';
+    
+    return `${log.action}${userInfo}${roleInfo} • ${timeAgo}`;
+  };
+
+  // Enhanced time ago calculation with more precision
+  const getTimeAgo = (timestamp) => {
+    const now = new Date();
+    const logTime = new Date(timestamp);
+    const diffMs = now - logTime;
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffSecs < 30) return 'just now';
+    if (diffSecs < 60) return `${diffSecs}s ago`;
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  // Determine log type from action
+  const getLogTypeFromAction = (action) => {
+    const actionLower = action.toLowerCase();
+    
+    if (actionLower.includes('booking')) return 'booking';
+    if (actionLower.includes('announcement')) return 'admin';
+    if (actionLower.includes('user') || actionLower.includes('banned')) return 'admin';
+    if (actionLower.includes('facility') || actionLower.includes('court')) return 'admin';
+    if (actionLower.includes('requested') || actionLower.includes('details')) return 'form';
+    
+    return 'admin';
+  };
+
+  // Determine log status from action to match SystemLogs action categories
+  const getLogStatusFromAction = (action) => {
+    const actionLower = action.toLowerCase();
+    
+    if (actionLower.includes('created') || actionLower.includes('added')) {
+      return 'create';
+    }
+    
+    if (actionLower.includes('updated') || actionLower.includes('modified') || 
+        actionLower.includes('banned') || actionLower.includes('unbanned')) {
+      return 'update';
+    }
+    
+    if (actionLower.includes('deleted') || actionLower.includes('removed')) {
+      return 'delete';
+    }
+    
+    if (actionLower.includes('requested') || actionLower.includes('details')) {
+      return 'read';
+    }
+    
+    return 'read';
+  };
+
+  // Updated status class mapping to match SystemLogs
+  const getLogStatusClass = (status) => {
+    switch(status) {
+      case 'delete': return 'log-delete';
+      case 'update': return 'log-update';
+      case 'create': return 'log-create';
+      case 'read': return 'log-read';
+      default: return 'log-read';
+    }
+  };
+
+  // Load system logs on component mount
+  useEffect(() => {
+    loadSystemLogs();
+    
+    // Set up polling for real-time updates
+    const interval = setInterval(loadSystemLogs, 30000); // Update every 30 seconds
+    return () => clearInterval(interval);
+  }, [loadSystemLogs]);
+
+  const [bookings] = useState([
   ]);
 
   const handleDeleteAnnouncement = async (id) => {
@@ -992,24 +1151,6 @@ export default function AdminDashboard() {
 
   const handleRejectBooking = (id) => {
     console.log('Rejecting booking:', id);
-  };
-
-  const getLogIcon = (type) => {
-    switch(type) {
-      case 'form': return '📋';
-      case 'admin': return '⚙️';
-      case 'booking': return '✅';
-      default: return '📝';
-    }
-  };
-
-  const getLogStatusClass = (status) => {
-    switch(status) {
-      case 'error': return 'log-error';
-      case 'warning': return 'log-warning';
-      case 'success': return 'log-success';
-      default: return '';
-    }
   };
 
   const [showAddAnnouncementModal, setShowAddAnnouncementModal] = useState(false);
@@ -1082,27 +1223,99 @@ export default function AdminDashboard() {
           {/* System Logs Section */}
           <div className="system-logs-section">
             <div className="section-header">
-              <h3>System Logs</h3>
-              <button
-                className="icon-link-btn"
-                onClick={() => navigate("/logs")}
-                aria-label="Go to Logs"
-                style={{ background: "none", border: "none", cursor: "pointer" }}
-              >
-                <ExternalLink size={16} />
-              </button>
+              <h3>Recent System Events</h3>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button
+                  className="icon-link-btn"
+                  onClick={() => navigate("/logs")}
+                  aria-label="Go to Logs"
+                  style={{ background: "none", border: "none", cursor: "pointer" }}
+                >
+                  <ExternalLink size={16} />
+                </button>
+              </div>
             </div>
+            
             <div className="logs-container">
-              {systemLogs.map((log, index) => (
-                <div key={index} className={`log-item ${getLogStatusClass(log.status)}`}>
-                  <span className="log-icon">{getLogIcon(log.type)}</span>
-                  <span className="log-message">{log.message}</span>
+              {systemLogs.length === 0 ? (
+                <div style={{ 
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  minHeight: "160px",
+                  color: "#888",
+                  fontStyle: "italic"
+                }}>
+                  {systemLogsLoading ? (
+                    <>
+                      <Spinner />
+                      <div style={{ marginTop: '12px', fontSize: '14px' }}>
+                        Loading system events...
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '16px', marginBottom: '8px' }}>
+                        No recent events
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                        System events will appear here automatically
+                      </div>
+                    </>
+                  )}
                 </div>
-              ))}
+              ) : (
+                <div className="logs-list">
+                  {systemLogs.map((log, index) => (
+                    <div 
+                      key={log.id} 
+                      className={`log-item ${getLogStatusClass(log.status)} ${log.isNew ? 'entering' : ''}`}
+                      style={{
+                        animationDelay: `${index * 0.1}s`,
+                        opacity: log.isNew ? 0 : 1,
+                        transform: log.isNew ? 'translateY(-10px)' : 'translateY(0)',
+                        animation: log.isNew ? 'slideIn 0.4s ease-out forwards' : 'none'
+                      }}
+                    >
+                      <div className="log-content">
+                        <span className="log-message">{log.message}</span>
+                        {log.isNew && (
+                          <div style={{ 
+                            fontSize: '10px', 
+                            color: '#dc2626',
+                            fontWeight: '600',
+                            marginLeft: '8px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                            padding: '2px 6px',
+                            borderRadius: '12px'
+                          }}>
+                            NEW
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Fixed footer with last update time */}
+                  <div style={{
+                    textAlign: 'center',
+                    fontSize: '11px',
+                    color: '#9ca3af',
+                    padding: '12px 8px 8px 8px',
+                    borderTop: '1px solid #f3f4f6',
+                    marginTop: 'auto',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Announcements Section */}
+          {/* Announcements Section - unchanged */}
           <div className="announcements-section">
             <div className="section-header">
               <h3>Announcements</h3>
@@ -1184,7 +1397,7 @@ export default function AdminDashboard() {
           <div className="section-header">
             <h3>System Approved Bookings</h3>
             <div className="header-actions">
-              <span className="requests-count">3 requests</span>
+              <span className="requests-count">0 requests</span>
               <button className="export-btn">
                 <Download size={16} />
                 Export Report
@@ -1199,7 +1412,7 @@ export default function AdminDashboard() {
               </button>
             </div>
           </div>
-          <div className="table-container">
+          <div className="table-container bookings-table">
             <div className="table-header">
               <span>Booking ID</span>
               <span>User ID</span>
@@ -1208,24 +1421,35 @@ export default function AdminDashboard() {
               <span>Sport</span>
               <span>Action</span>
             </div>
-            {bookings.map(booking => (
-              <div key={booking.id} className="table-row">
-                <span>{booking.id}</span>
-                <span>{booking.user}</span>
-                <span>{booking.court}</span>
-                <span style={{ whiteSpace: 'pre-line' }}>{booking.time}</span>
-                <span>{booking.sport}</span>
-                <div className="action-buttons">
-                  <button
-                    className="reject-btn"
-                    onClick={() => handleRejectBooking(booking.id)}
-                  >
-                    <X size={14} />
-                    Reject
-                  </button>
-                </div>
+            {bookings.length === 0 ? (
+              <div style={{ 
+                textAlign: "center", 
+                padding: "2rem", 
+                color: "#888",
+                gridColumn: "1 / -1"
+              }}>
+                No approved bookings found
               </div>
-            ))}
+            ) : (
+              bookings.map(booking => (
+                <div key={booking.id} className="table-row">
+                  <span>{booking.id}</span>
+                  <span>{booking.user}</span>
+                  <span>{booking.court}</span>
+                  <span style={{ whiteSpace: 'pre-line' }}>{booking.time}</span>
+                  <span>{booking.sport}</span>
+                  <div className="action-buttons">
+                    <button
+                      className="reject-btn"
+                      onClick={() => handleRejectBooking(booking.id)}
+                    >
+                      <X size={14} />
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

@@ -201,42 +201,137 @@
   border: 1px solid #e5e7eb;
 }
 
+.logs-container {
+  min-height: 200px;
+  max-height: none; /* Remove max-height to prevent scrolling */
+  overflow: hidden; /* Hide overflow instead of scroll */
+  display: flex;
+  flex-direction: column;
+}
+
 .logs-list {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  flex: 1;
 }
 
 .log-item {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
   padding: 0.75rem;
   border-radius: 6px;
   font-size: 0.875rem;
   font-weight: 500;
+  line-height: 1.4;
+  transition: all 0.3s ease;
+  opacity: 1;
+  transform: translateY(0);
+  min-height: 44px;
+  text-align: center;
 }
 
-.log-error {
-  background-color: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+.log-item.entering {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 
-.log-warning {
-  background-color: #fffbeb;
-  color: #d97706;
-  border: 1px solid #fde68a;
+.log-item.exiting {
+  opacity: 0;
+  transform: translateY(10px);
 }
 
-.log-success {
-  background-color: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
+.log-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.log-icon {
-  font-size: 1rem;
+/* Match Action Type colors from SystemLogs.css */
+.log-error,
+.log-item.log-delete {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #f44336;
+}
+
+.log-error:hover,
+.log-item.log-delete:hover {
+  background-color: #ffcdd2;
+  box-shadow: 0 2px 4px rgba(244, 67, 54, 0.2);
+}
+
+.log-warning,
+.log-item.log-update {
+  background-color: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #2196f3;
+}
+
+.log-warning:hover,
+.log-item.log-update:hover {
+  background-color: #bbdefb;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
+}
+
+.log-success,
+.log-item.log-create {
+  background-color: #e8f5e8;
+  color: #2e7d32;
+  border: 1px solid #4caf50;
+}
+
+.log-success:hover,
+.log-item.log-create:hover {
+  background-color: #c8e6c9;
+  box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2);
+}
+
+.log-item.log-read {
+  background-color: #fff8e1;
+  color: #ef6c00;
+  border: 1px solid #ff9800;
+}
+
+.log-item.log-read:hover {
+  background-color: #ffecb3;
+  box-shadow: 0 2px 4px rgba(255, 152, 0, 0.2);
+}
+
+.log-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+
+.log-message {
+  flex: 1;
+  word-break: break-word;
+  text-align: center;
+}
+
+/* Add smooth animations for dynamic log updates */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .add-new-btn,
@@ -285,7 +380,10 @@
 }
 
 .bookings-table .table-header {
-  grid-template-columns: 0.8fr 1.2fr 0.8fr 1.2fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 0.8fr 1.2fr 0.8fr 1fr;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .table-row {
@@ -298,7 +396,8 @@
 }
 
 .bookings-table .table-row {
-  grid-template-columns: 0.8fr 1.2fr 0.8fr 1.2fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 0.8fr 1.2fr 0.8fr 1fr;
+  font-size: 0.85rem;
 }
 
 .time-cell {
