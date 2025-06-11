@@ -110,6 +110,7 @@ const SystemLogs = () => {
     'Announcement Modified': true,
     'Announcement IPFS Hash Modified': true, 
     'Announcement Time Modified': true,
+    'Announcement Title Modified': true,
     'Announcement Requested': true,
     'User Added': true,
     'User Banned': true,
@@ -190,7 +191,8 @@ const SystemLogs = () => {
   const extractOldIpfsHash = (originalOutput, action) => {
     if (!originalOutput) return '-';
     
-    if (action.includes('IPFS Hash Modified')) {
+    // Only IPFS Hash Modified events have actual old IPFS hashes
+    if (action === 'Announcement IPFS Hash Modified') {
       const oldHashMatch = originalOutput.match(/ipfsHash_\s*=\s*([^\s\n,]+)/);
       if (oldHashMatch) return oldHashMatch[1];
       
@@ -203,6 +205,13 @@ const SystemLogs = () => {
       if (oldDataMatch) return oldDataMatch[1];
     }
     
+    // For title/time modified events, show the current IPFS hash in old column
+    if (action === 'Announcement Title Modified' || action === 'Announcement Time Modified') {
+      const ipfsHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)/);
+      return ipfsHashMatch ? ipfsHashMatch[1] : '-';
+    }
+    
+    // For other announcement events, try to extract IPFS hash
     const ipfsHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)/);
     return ipfsHashMatch ? ipfsHashMatch[1] : '-';
   };
@@ -211,7 +220,8 @@ const SystemLogs = () => {
   const extractNewIpfsHash = (originalOutput, action, fallbackHash) => {
     if (!originalOutput) return fallbackHash || '-';
     
-    if (action.includes('IPFS Hash Modified')) {
+    // Only IPFS Hash Modified events have actual new IPFS hashes
+    if (action === 'Announcement IPFS Hash Modified') {
       const newHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)(?!_)/);
       if (newHashMatch) return newHashMatch[1];
       
@@ -226,12 +236,69 @@ const SystemLogs = () => {
       if (newDataMatch) return newDataMatch[1];
     }
     
+    // For title/time modified events, there's no new IPFS hash - show dash
+    if (action === 'Announcement Title Modified' || action === 'Announcement Time Modified') {
+      return '-';
+    }
+    
+    // For other events, use fallback or extracted hash
     return fallbackHash || '-';
   };
 
   // Helper function to extract note from originalOutput based on event type
   const extractNoteFromEvent = (originalOutput, action) => {
     if (!originalOutput) return '';
+    
+    if (action === 'Announcement Title Modified') {
+      const oldTitleMatch = originalOutput.match(/oldTitle\s*=\s*([^\n]+)/);
+      const newTitleMatch = originalOutput.match(/newTitle\s*=\s*([^\n]+)/);
+      
+      if (oldTitleMatch && newTitleMatch) {
+        const oldTitle = oldTitleMatch[1].trim();
+        const newTitle = newTitleMatch[1].trim();
+        return `${oldTitle} → ${newTitle}`;
+      }
+      return 'Title updated';
+    }
+    
+    if (action === 'Announcement Time Modified') {
+      const oldStartMatch = originalOutput.match(/oldStartTime\s*=\s*([^\n]+)/);
+      const oldEndMatch = originalOutput.match(/oldEndTime\s*=\s*([^\n]+)/);
+      const newStartMatch = originalOutput.match(/newStartTime\s*=\s*([^\n]+)/);
+      const newEndMatch = originalOutput.match(/newEndTime\s*=\s*([^\n]+)/);
+      
+      if (oldStartMatch && oldEndMatch && newStartMatch && newEndMatch) {
+        const formatDateOnly = (dateTimeString) => {
+          if (!dateTimeString) return 'Invalid Date';
+          
+          // Extract just the date part (YYYY-MM-DD) from various formats
+          const dateMatch = dateTimeString.match(/(\d{4}-\d{2}-\d{2})/);
+          if (dateMatch) {
+            return dateMatch[1];
+          }
+          
+          // Try to parse as full date and extract date part
+          try {
+            const date = new Date(dateTimeString.trim());
+            if (!isNaN(date.getTime())) {
+              return date.toISOString().split('T')[0];
+            }
+          } catch (e) {
+            console.warn('Failed to parse date:', dateTimeString);
+          }
+          
+          return dateTimeString.trim();
+        };
+        
+        const oldStart = formatDateOnly(oldStartMatch[1]);
+        const oldEnd = formatDateOnly(oldEndMatch[1]);
+        const newStart = formatDateOnly(newStartMatch[1]);
+        const newEnd = formatDateOnly(newEndMatch[1]);
+        
+        return `Old: ${oldStart} to ${oldEnd} → New: ${newStart} to ${newEnd}`;
+      }
+      return 'Time updated';
+    }
     
     if (action === 'User Banned') {
       const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
@@ -301,6 +368,7 @@ const SystemLogs = () => {
       'Announcement Modified': true,
       'Announcement IPFS Hash Modified': true, 
       'Announcement Time Modified': true,
+      'Announcement Title Modified': true,
       'Announcement Requested': true,
       'User Added': true,
       'User Banned': true,
@@ -371,14 +439,18 @@ const SystemLogs = () => {
     });
 
     return filtered.sort((a, b) => {
-      if (sortBy.field === 'dateAdded') {
-        const diff = a.dateAdded - b.dateAdded;
-        return sortBy.order === 'asc' ? diff : -diff;
-      }
       if (sortBy.field === 'timestamp') {
-        const ta = new Date(a.timestamp).getTime();
-        const tb = new Date(b.timestamp).getTime();
-        return sortBy.order === 'asc' ? ta - tb : tb - ta;
+        // Ensure consistent timestamp comparison
+        const timestampA = new Date(a.timestamp).getTime();
+        const timestampB = new Date(b.timestamp).getTime();
+        
+        // Handle invalid dates
+        if (isNaN(timestampA) && isNaN(timestampB)) return 0;
+        if (isNaN(timestampA)) return 1;
+        if (isNaN(timestampB)) return -1;
+        
+        const diff = timestampA - timestampB;
+        return sortBy.order === 'asc' ? diff : -diff;
       }
       return 0;
     });
@@ -490,8 +562,9 @@ const SystemLogs = () => {
               onClick={handleSortChange}
               className={`sort-btn ${sortBy.field === 'timestamp' ? 'active' : ''}`}
               type="button"
+              title={`Sort by timestamp ${sortBy.order === 'asc' ? 'ascending' : 'descending'}`}
             >
-              Date Added
+              Timestamp
               {sortBy.field === 'timestamp' && (
                 sortBy.order === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />
               )}
@@ -593,9 +666,25 @@ const SystemLogs = () => {
                     </div>
                   </td>
                   <td className="timestamp-cell">
-                    <span className="timestamp-desktop">{log.timestamp}</span>
+                    <span className="timestamp-desktop">
+                      {new Date(log.timestamp).toLocaleString('en-CA', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                      }).replace(',', '')}
+                    </span>
                     <span className="timestamp-mobile" title={log.timestamp}>
-                      {new Date(log.timestamp).toLocaleDateString()}
+                      {new Date(log.timestamp).toLocaleString('en-CA', {
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                      }).replace(',', '')}
                     </span>
                   </td>
                   <td className="note-cell">
