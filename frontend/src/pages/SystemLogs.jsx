@@ -4,7 +4,6 @@ import { authFetch } from '@utils/authFetch';
 import Toast from '@components/Toast';
 import '@styles/SystemLogs.css';
 
-// IPFS utility functions
 const abbreviateCid = (cid, prefixLength = 6, suffixLength = 4) => {
   if (!cid || typeof cid !== 'string') return '';
   
@@ -19,7 +18,6 @@ const getGatewayUrl = (cid, gateway = 'https://gateway.pinata.cloud') => {
   return `${gateway}/ipfs/${cid}`;
 };
 
-// Component for IPFS hash display with copy and gateway link
 const IpfsHashCell = ({ hash, isOld = false, onCopy }) => {
   const [copied, setCopied] = useState(false);
   
@@ -133,13 +131,13 @@ const SystemLogs = () => {
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isActionFilterExpanded, setIsActionFilterExpanded] = useState(false);
   const ITEMS_PER_PAGE = 10;
 
   const handleToastMessage = (message, type) => {
     setToast({ msg: message, type });
   };
 
-  // Fetch event logs from backend with enhanced user context
   useEffect(() => {
     const fetchEventLogs = async () => {
       try {
@@ -152,7 +150,6 @@ const SystemLogs = () => {
         
         const data = await response.json();
         
-        // Transform backend data to frontend format
         const transformedData = data.map(log => ({
           id: log.ipfsHash || `event-${Date.now()}-${Math.random()}`,
           action: log.action,
@@ -187,11 +184,9 @@ const SystemLogs = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Helper function to extract old IPFS hash from originalOutput
   const extractOldIpfsHash = (originalOutput, action) => {
     if (!originalOutput) return '-';
     
-    // Only IPFS Hash Modified events have actual old IPFS hashes
     if (action === 'Announcement IPFS Hash Modified') {
       const oldHashMatch = originalOutput.match(/ipfsHash_\s*=\s*([^\s\n,]+)/);
       if (oldHashMatch) return oldHashMatch[1];
@@ -205,22 +200,18 @@ const SystemLogs = () => {
       if (oldDataMatch) return oldDataMatch[1];
     }
     
-    // For title/time modified events, show the current IPFS hash in old column
     if (action === 'Announcement Title Modified' || action === 'Announcement Time Modified') {
       const ipfsHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)/);
       return ipfsHashMatch ? ipfsHashMatch[1] : '-';
     }
     
-    // For other announcement events, try to extract IPFS hash
     const ipfsHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)/);
     return ipfsHashMatch ? ipfsHashMatch[1] : '-';
   };
 
-  // Helper function to extract new IPFS hash from originalOutput
   const extractNewIpfsHash = (originalOutput, action, fallbackHash) => {
     if (!originalOutput) return fallbackHash || '-';
     
-    // Only IPFS Hash Modified events have actual new IPFS hashes
     if (action === 'Announcement IPFS Hash Modified') {
       const newHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)(?!_)/);
       if (newHashMatch) return newHashMatch[1];
@@ -236,16 +227,13 @@ const SystemLogs = () => {
       if (newDataMatch) return newDataMatch[1];
     }
     
-    // For title/time modified events, there's no new IPFS hash - show dash
     if (action === 'Announcement Title Modified' || action === 'Announcement Time Modified') {
       return '-';
     }
     
-    // For other events, use fallback or extracted hash
     return fallbackHash || '-';
   };
 
-  // Helper function to extract note from originalOutput based on event type
   const extractNoteFromEvent = (originalOutput, action) => {
     if (!originalOutput) return '';
     
@@ -268,71 +256,24 @@ const SystemLogs = () => {
       const newEndMatch = originalOutput.match(/newEndTime\s*=\s*([^\n]+)/);
       
       if (oldStartMatch && oldEndMatch && newStartMatch && newEndMatch) {
-        const formatDateOnly = (dateTimeString) => {
-          if (!dateTimeString) return 'Invalid Date';
-          
-          // Extract just the date part (YYYY-MM-DD) from various formats
-          const dateMatch = dateTimeString.match(/(\d{4}-\d{2}-\d{2})/);
-          if (dateMatch) {
-            return dateMatch[1];
-          }
-          
-          // Try to parse as full date and extract date part
-          try {
-            const date = new Date(dateTimeString.trim());
-            if (!isNaN(date.getTime())) {
-              return date.toISOString().split('T')[0];
-            }
-          } catch (e) {
-            console.warn('Failed to parse date:', dateTimeString);
-          }
-          
-          return dateTimeString.trim();
-        };
+        const oldStart = new Date(oldStartMatch[1]);
+        const oldEnd = new Date(oldEndMatch[1]);
+        const newStart = new Date(newStartMatch[1]);
+        const newEnd = new Date(newEndMatch[1]);
         
-        const oldStart = formatDateOnly(oldStartMatch[1]);
-        const oldEnd = formatDateOnly(oldEndMatch[1]);
-        const newStart = formatDateOnly(newStartMatch[1]);
-        const newEnd = formatDateOnly(newEndMatch[1]);
-        
-        return `Old: ${oldStart} to ${oldEnd} → New: ${newStart} to ${newEnd}`;
+        return `Old: ${oldStart.toLocaleDateString()} to ${oldEnd.toLocaleDateString()} → New: ${newStart.toLocaleDateString()} to ${newEnd.toLocaleDateString()}`;
       }
       return 'Time updated';
     }
     
-    if (action === 'User Banned') {
-      const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
-      return noteMatch ? noteMatch[1].trim() : 'User banned by admin';
-    }
+    const noteActions = [
+      'User Banned', 'User Unbanned', 'Booking Created', 'Booking Updated', 
+      'Booking Deleted', 'Facility Details Requested', 'Court Details Requested'
+    ];
     
-    if (action === 'User Unbanned') {
+    if (noteActions.includes(action)) {
       const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
-      return noteMatch ? noteMatch[1].trim() : 'User unbanned by admin';
-    }
-    
-    if (action === 'Booking Created') {
-      const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
-      return noteMatch ? noteMatch[1].trim() : '';
-    }
-    
-    if (action === 'Booking Updated') {
-      const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
-      return noteMatch ? noteMatch[1].trim() : '';
-    }
-    
-    if (action === 'Booking Deleted') {
-      const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
-      return noteMatch ? noteMatch[1].trim() : '';
-    }
-    
-    if (action === 'Facility Details Requested') {
-      const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
-      return noteMatch ? noteMatch[1].trim() : '';
-    }
-    
-    if (action === 'Court Details Requested') {
-      const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
-      return noteMatch ? noteMatch[1].trim() : '';
+      return noteMatch ? noteMatch[1].trim() : (action.includes('banned') ? `User ${action.toLowerCase()} by admin` : '');
     }
     
     return '';
@@ -346,12 +287,19 @@ const SystemLogs = () => {
     setCurrentPage(1);
   };
 
-  const handleSortChange = () => {
+  const handleColumnSort = (field) => {
+    if (field !== 'timestamp') return;
+    
     setSortBy(prev => ({
-      ...prev,
-      order: prev.order === 'asc' ? 'desc' : 'asc'
+      field,
+      order: prev.field === field && prev.order === 'asc' ? 'desc' : 'asc'
     }));
     setCurrentPage(1);
+  };
+
+  const getSortIndicator = (field) => {
+    if (sortBy.field !== field || field !== 'timestamp') return null;
+    return sortBy.order === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />;
   };
 
   const clearFilters = () => {
@@ -439,20 +387,13 @@ const SystemLogs = () => {
     });
 
     return filtered.sort((a, b) => {
-      if (sortBy.field === 'timestamp') {
-        // Ensure consistent timestamp comparison
-        const timestampA = new Date(a.timestamp).getTime();
-        const timestampB = new Date(b.timestamp).getTime();
-        
-        // Handle invalid dates
-        if (isNaN(timestampA) && isNaN(timestampB)) return 0;
-        if (isNaN(timestampA)) return 1;
-        if (isNaN(timestampB)) return -1;
-        
-        const diff = timestampA - timestampB;
-        return sortBy.order === 'asc' ? diff : -diff;
-      }
-      return 0;
+      const timestampA = new Date(a.timestamp).getTime();
+      const timestampB = new Date(b.timestamp).getTime();
+      
+      if (isNaN(timestampA) && isNaN(timestampB)) return 0;
+      else if (isNaN(timestampA)) return 1;
+      else if (isNaN(timestampB)) return -1;
+      else return sortBy.order === 'asc' ? timestampA - timestampB : timestampB - timestampA;
     });
   }, [logsData, searchTerm, selectedActions, startDate, endDate, sortBy]);
 
@@ -545,76 +486,137 @@ const SystemLogs = () => {
       )}
 
       <div className="filters-container">
-        <div className="search-section">
-          <input
-            type="text"
-            placeholder="Search logs by old/new IPFS CID, action, email, role, or note..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
+        <div className="filters-top-row">
+          <div className="search-section">
+            <input
+              type="text"
+              placeholder="Search logs by old/new IPFS CID, action, email, role, or note..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+          </div>
+
+          <div className="timestamp-controls">
+            <div className="filter-section">
+              <div className="date-inputs">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="date-input"
+                  placeholder="Start Date"
+                />
+                <span className="date-separator">to</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="date-input"
+                  placeholder="End Date"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="filter-section">
-          <h3>Sort By</h3>
-          <div className="sort-controls">
-            <button
-              onClick={handleSortChange}
-              className={`sort-btn ${sortBy.field === 'timestamp' ? 'active' : ''}`}
-              type="button"
-              title={`Sort by timestamp ${sortBy.order === 'asc' ? 'ascending' : 'descending'}`}
-            >
-              Timestamp
-              {sortBy.field === 'timestamp' && (
-                sortBy.order === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />
-              )}
+          <div className="action-type-separator"></div>
+          <div 
+            className="collapsible-header"
+            onClick={() => setIsActionFilterExpanded(!isActionFilterExpanded)}
+          >
+            <h3>Action Type</h3>
+            <button className="collapse-toggle" type="button">
+              {isActionFilterExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
           </div>
-        </div>
+          <div className={`collapsible-content ${isActionFilterExpanded ? 'expanded' : 'collapsed'}`}>
+            <div className="action-groups">
+              <div className="action-group">
+                <h4 className="action-group-title">Booking</h4>
+                <div className="checkbox-group">
+                  {['Booking Created', 'Booking Updated', 'Booking Deleted', 'Booking Requested'].map(action => (
+                    <label key={action} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={selectedActions[action]}
+                        onChange={() => handleActionChange(action)}
+                        className="checkbox-input"
+                      />
+                      <span className="checkbox-text">{action}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
 
-        <div className="filter-section">
-          <h3>Timestamp Range</h3>
-          <div className="date-inputs">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="date-input"
-              placeholder="Start Date"
-            />
-            <span className="date-separator">to</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="date-input"
-              placeholder="End Date"
-            />
+              <div className="action-group">
+                <h4 className="action-group-title">Sport Facility/Court</h4>
+                <div className="checkbox-group">
+                  {[
+                    'Sport Facility Added', 'Sport Facility Modified', 'Sport Facility Deleted',
+                    'Court Added', 'Court Modified', 'Court Deleted',
+                    'Facility Details Requested', 'Court Details Requested'
+                  ].map(action => (
+                    <label key={action} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={selectedActions[action]}
+                        onChange={() => handleActionChange(action)}
+                        className="checkbox-input"
+                      />
+                      <span className="checkbox-text">{action}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="action-group">
+                <h4 className="action-group-title">Announcement</h4>
+                <div className="checkbox-group">
+                  {[
+                    'Announcement Added', 'Announcement Deleted', 'Announcement Modified',
+                    'Announcement IPFS Hash Modified', 'Announcement Time Modified', 
+                    'Announcement Title Modified', 'Announcement Requested'
+                  ].map(action => (
+                    <label key={action} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={selectedActions[action]}
+                        onChange={() => handleActionChange(action)}
+                        className="checkbox-input"
+                      />
+                      <span className="checkbox-text">{action}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="action-group">
+                <h4 className="action-group-title">User Management</h4>
+                <div className="checkbox-group">
+                  {['User Added', 'User Banned', 'User Unbanned'].map(action => (
+                    <label key={action} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={selectedActions[action]}
+                        onChange={() => handleActionChange(action)}
+                        className="checkbox-input"
+                      />
+                      <span className="checkbox-text">{action}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="filter-section">
-          <h3>Action Type</h3>
-          <div className="checkbox-group">
-            {Object.keys(selectedActions).map(action => (
-              <label key={action} className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={selectedActions[action]}
-                  onChange={() => handleActionChange(action)}
-                  className="checkbox-input"
-                />
-                <span className="checkbox-text">{action}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="clear-filter-section">
+        {/* <div className="clear-filter-section">
           <button onClick={clearFilters} className="clear-filters-btn">
             Clear All Filters
           </button>
-        </div>
+        </div> */}
       </div>
 
       <div className="table-container">
@@ -626,7 +628,16 @@ const SystemLogs = () => {
               <th>Action</th>
               <th>Email</th>
               <th>Role</th>
-              <th>Timestamp</th>
+              <th 
+                className={`sortable ${sortBy.field === 'timestamp' ? 'active' : ''}`}
+                onClick={() => handleColumnSort('timestamp')}
+                title="Sort by Timestamp"
+              >
+                Timestamp
+                <span className="sort-indicator">
+                  {getSortIndicator('timestamp')}
+                </span>
+              </th>
               <th>Note</th>
             </tr>
           </thead>

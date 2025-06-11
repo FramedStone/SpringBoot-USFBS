@@ -210,8 +210,7 @@ public class EventLogService {
             
             // Enhanced logging with real data tracking
             String dataSource = determineDataSource(entry.getEmail(), entry.getRole(), fromAddress);
-            System.out.println(">>> EventLogService: Added " + action + " from " + fromAddress + 
-                              " (Email: " + entry.getEmail() + ", Role: " + entry.getRole() + " [" + dataSource + "])");
+            System.out.println(">>> EventLogService: Added " + action + " from " + fromAddress);
         } catch (Exception e) {
             System.err.println("Failed to add event log: " + e.getMessage());
         }
@@ -243,7 +242,7 @@ public class EventLogService {
         }
         
         String dataSource = determineDataSource(entry.getEmail(), entry.getRole(), fromAddress);
-        System.out.println(">>> EventLogService: Added " + action + " from " + fromAddress + " (Email: " + entry.getEmail() + ", Role: " + entry.getRole() + " [" + dataSource + "])");
+        System.out.println(">>> EventLogService: Added " + action + " from " + fromAddress);
     }
     
     public void addEventLogWithUserContext(String ipfsHash, String action, String fromAddress, 
@@ -268,7 +267,7 @@ public class EventLogService {
         }
         
         String dataSource = determineDataSource(entry.getEmail(), entry.getRole(), fromAddress);
-        System.out.println(">>> EventLogService: Added " + action + " from " + fromAddress + " (Email: " + entry.getEmail() + ", Role: " + entry.getRole() + " [" + dataSource + "])");
+        System.out.println(">>> EventLogService: Added " + action + " from " + fromAddress);
     }
     
     public List<EventLogEntry> getAllEventLogs() {
