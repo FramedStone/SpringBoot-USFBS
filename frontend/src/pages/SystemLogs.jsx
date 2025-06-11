@@ -4,9 +4,19 @@ import { authFetch } from '@utils/authFetch';
 import Toast from '@components/Toast';
 import '@styles/SystemLogs.css';
 
-const abbreviate = (value) => {
-  if (!value) return '';
-  return value.length > 16 ? value.slice(0, 6) + '...' + value.slice(-4) : value;
+// IPFS utility functions
+const abbreviateCid = (cid, prefixLength = 6, suffixLength = 4) => {
+  if (!cid || typeof cid !== 'string') return '';
+  
+  const minLength = prefixLength + suffixLength + 3;
+  if (cid.length <= minLength) return cid;
+  
+  return `${cid.slice(0, prefixLength)}...${cid.slice(-suffixLength)}`;
+};
+
+const getGatewayUrl = (cid, gateway = 'https://gateway.pinata.cloud') => {
+  if (!cid) return '';
+  return `${gateway}/ipfs/${cid}`;
 };
 
 // Component for IPFS hash display with copy and gateway link
@@ -32,7 +42,7 @@ const IpfsHashCell = ({ hash, isOld = false, onCopy }) => {
     e.stopPropagation();
     if (!hash || hash === '-') return;
     
-    const gatewayUrl = `https://gateway.pinata.cloud/ipfs/${hash}`;
+    const gatewayUrl = getGatewayUrl(hash);
     window.open(gatewayUrl, '_blank', 'noopener,noreferrer');
     onCopy('Opening IPFS content in new tab', 'success');
   };
@@ -44,12 +54,12 @@ const IpfsHashCell = ({ hash, isOld = false, onCopy }) => {
   return (
     <div className={`ipfs-hash-container ${isOld ? 'old-hash' : 'new-hash'}`}>
       <span className="ipfs-hash-desktop">
-        <span className="hash-text">{hash}</span>
+        <span className="hash-text" title={hash}>{abbreviateCid(hash, 8, 4)}</span>
         <div className="hash-actions visible">
           <button 
             className={`copy-btn ${copied ? 'copied' : ''}`}
             onClick={handleCopy}
-            title={copied ? 'Copied!' : 'Copy hash'}
+            title={copied ? 'Copied!' : 'Copy full hash'}
           >
             <Copy size={12} />
           </button>
@@ -63,12 +73,12 @@ const IpfsHashCell = ({ hash, isOld = false, onCopy }) => {
         </div>
       </span>
       <span className="ipfs-hash-mobile">
-        <span className="hash-text">{abbreviate(hash)}</span>
+        <span className="hash-text" title={hash}>{abbreviateCid(hash, 4, 3)}</span>
         <div className="hash-actions visible">
           <button 
             className={`copy-btn ${copied ? 'copied' : ''}`}
             onClick={handleCopy}
-            title={copied ? 'Copied!' : 'Copy hash'}
+            title={copied ? 'Copied!' : 'Copy full hash'}
           >
             <Copy size={10} />
           </button>
@@ -114,7 +124,7 @@ const SystemLogs = () => {
     'Court Details Requested': true
   });
   const [sortBy, setSortBy] = useState({
-    field: 'dateAdded',
+    field: 'timestamp',   
     order: 'desc'
   });
   const [logsData, setLogsData] = useState([]);
@@ -128,7 +138,7 @@ const SystemLogs = () => {
     setToast({ msg: message, type });
   };
 
-  // Fetch event logs from backend
+  // Fetch event logs from backend with enhanced user context
   useEffect(() => {
     const fetchEventLogs = async () => {
       try {
@@ -145,7 +155,9 @@ const SystemLogs = () => {
         const transformedData = data.map(log => ({
           id: log.ipfsHash || `event-${Date.now()}-${Math.random()}`,
           action: log.action,
-          email: log.fromAddress,
+          fromAddress: log.fromAddress,
+          email: log.email || '-',
+          role: log.role || '-',
           timestamp: log.timestamp,
           originalOutput: log.originalOutput,
           dateAdded: new Date(log.dateAdded),
@@ -160,7 +172,7 @@ const SystemLogs = () => {
         setLastUpdate(new Date());
         setCurrentPage(1);
         
-        console.log(`Fetched ${transformedData.length} event logs from backend`);
+        console.log(`Fetched ${transformedData.length} event logs with enhanced user context`);
       } catch (err) {
         console.error('Error fetching event logs:', err);
         setError('Failed to fetch event logs from blockchain');
@@ -178,25 +190,19 @@ const SystemLogs = () => {
   const extractOldIpfsHash = (originalOutput, action) => {
     if (!originalOutput) return '-';
     
-    // For IPFS hash modification events, extract the old hash parameter
     if (action.includes('IPFS Hash Modified')) {
-      // Look for ipfsHash_ pattern (the old hash parameter)
       const oldHashMatch = originalOutput.match(/ipfsHash_\s*=\s*([^\s\n,]+)/);
       if (oldHashMatch) return oldHashMatch[1];
       
-      // Fallback: look for oldIpfsHash pattern
       const oldHashMatch2 = originalOutput.match(/oldIpfsHash\s*=\s*([^\s\n,]+)/);
       if (oldHashMatch2) return oldHashMatch2[1];
     }
     
-    // For booking events, extract old IPFS hash from booking update events
     if (action.includes('Booking Updated')) {
-      // Look for old data pattern in booking updates
       const oldDataMatch = originalOutput.match(/oldData\s*=\s*([^\s\n,]+)/);
       if (oldDataMatch) return oldDataMatch[1];
     }
     
-    // For other events that might have IPFS hash, return main hash
     const ipfsHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)/);
     return ipfsHashMatch ? ipfsHashMatch[1] : '-';
   };
@@ -205,39 +211,28 @@ const SystemLogs = () => {
   const extractNewIpfsHash = (originalOutput, action, fallbackHash) => {
     if (!originalOutput) return fallbackHash || '-';
     
-    // For IPFS hash modification events, extract the new hash
     if (action.includes('IPFS Hash Modified')) {
-      // Look for the new ipfsHash parameter (second parameter)
       const newHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)(?!_)/);
       if (newHashMatch) return newHashMatch[1];
       
-      // Fallback: look for newIpfsHash pattern
       const newHashMatch2 = originalOutput.match(/newIpfsHash\s*=\s*([^\s\n,]+)/);
       if (newHashMatch2) return newHashMatch2[1];
       
-      // Use fallback if available
       if (fallbackHash) return fallbackHash;
     }
     
-    // For booking events, extract new IPFS hash from booking update events
     if (action.includes('Booking Updated')) {
-      // Look for new data pattern in booking updates
       const newDataMatch = originalOutput.match(/newData\s*=\s*([^\s\n,]+)/);
       if (newDataMatch) return newDataMatch[1];
     }
     
-    // For other events, return the main IPFS hash or fallback
-    const ipfsHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)/);
-    return ipfsHashMatch ? ipfsHashMatch[1] : fallbackHash || '-';
+    return fallbackHash || '-';
   };
 
   // Helper function to extract note from originalOutput based on event type
   const extractNoteFromEvent = (originalOutput, action) => {
     if (!originalOutput) return '';
     
-    // Events that emit notes based on your ContractInitializer.java
-    
-    // User management events with notes
     if (action === 'User Banned') {
       const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
       return noteMatch ? noteMatch[1].trim() : 'User banned by admin';
@@ -248,7 +243,6 @@ const SystemLogs = () => {
       return noteMatch ? noteMatch[1].trim() : 'User unbanned by admin';
     }
     
-    // Booking events with notes
     if (action === 'Booking Created') {
       const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
       return noteMatch ? noteMatch[1].trim() : '';
@@ -264,7 +258,6 @@ const SystemLogs = () => {
       return noteMatch ? noteMatch[1].trim() : '';
     }
     
-    // Facility events with notes  
     if (action === 'Facility Details Requested') {
       const noteMatch = originalOutput.match(/note\s*=\s*([^\n]+)/);
       return noteMatch ? noteMatch[1].trim() : '';
@@ -275,7 +268,6 @@ const SystemLogs = () => {
       return noteMatch ? noteMatch[1].trim() : '';
     }
     
-    // All other events don't emit notes
     return '';
   };
 
@@ -284,7 +276,7 @@ const SystemLogs = () => {
       ...prev,
       [action]: !prev[action]
     }));
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   const handleSortChange = () => {
@@ -292,7 +284,7 @@ const SystemLogs = () => {
       ...prev,
       order: prev.order === 'asc' ? 'desc' : 'asc'
     }));
-    setCurrentPage(1); // Reset to first page when sorting changes
+    setCurrentPage(1);
   };
 
   const clearFilters = () => {
@@ -323,13 +315,12 @@ const SystemLogs = () => {
       'Court Details Requested': true
     });
     setSortBy({
-      field: 'dateAdded',
+      field: 'timestamp',   
       order: 'desc'
     });
-    setCurrentPage(1); // Reset to first page when clearing filters
+    setCurrentPage(1);
   };
 
-  // Reset page when search term changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, startDate, endDate]);
@@ -337,28 +328,23 @@ const SystemLogs = () => {
   const getActionCategory = (action) => {
     const actionLower = action.toLowerCase();
     
-    // Create operations - Green
     if (actionLower.includes('created') || actionLower.includes('added')) {
       return 'create';
     }
     
-    // Update operations - Blue  
     if (actionLower.includes('updated') || actionLower.includes('modified') || 
         actionLower.includes('banned') || actionLower.includes('unbanned')) {
       return 'update';
     }
     
-    // Delete operations - Red
     if (actionLower.includes('deleted') || actionLower.includes('removed')) {
       return 'delete';
     }
     
-    // Read operations - Yellow (backend API calls)
     if (actionLower.includes('requested') || actionLower.includes('details')) {
       return 'read';
     }
     
-    // Fallback
     return 'read';
   };
 
@@ -369,6 +355,8 @@ const SystemLogs = () => {
         log.newIpfsHash.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.fromAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.note.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (log.originalOutput && log.originalOutput.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -384,20 +372,18 @@ const SystemLogs = () => {
 
     return filtered.sort((a, b) => {
       if (sortBy.field === 'dateAdded') {
-        const dateA = a.dateAdded;
-        const dateB = b.dateAdded;
-        
-        if (sortBy.order === 'asc') {
-          return dateA - dateB;
-        } else {
-          return dateB - dateA;
-        }
+        const diff = a.dateAdded - b.dateAdded;
+        return sortBy.order === 'asc' ? diff : -diff;
+      }
+      if (sortBy.field === 'timestamp') {
+        const ta = new Date(a.timestamp).getTime();
+        const tb = new Date(b.timestamp).getTime();
+        return sortBy.order === 'asc' ? ta - tb : tb - ta;
       }
       return 0;
     });
   }, [logsData, searchTerm, selectedActions, startDate, endDate, sortBy]);
 
-  // Pagination calculations
   const totalPages = Math.ceil(filteredAndSortedLogs.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
@@ -487,18 +473,16 @@ const SystemLogs = () => {
       )}
 
       <div className="filters-container">
-        {/* Search Bar */}
         <div className="search-section">
           <input
             type="text"
-            placeholder="Search logs by old/new IPFS CID, action, address, or note..."
+            placeholder="Search logs by old/new IPFS CID, action, email, role, or note..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
           />
         </div>
 
-        {/* Sort By Section */}
         <div className="filter-section">
           <h3>Sort By</h3>
           <div className="sort-controls">
@@ -515,7 +499,6 @@ const SystemLogs = () => {
           </div>
         </div>
 
-        {/* Timestamp Filter */}
         <div className="filter-section">
           <h3>Timestamp Range</h3>
           <div className="date-inputs">
@@ -537,7 +520,6 @@ const SystemLogs = () => {
           </div>
         </div>
 
-        {/* Action Filter */}
         <div className="filter-section">
           <h3>Action Type</h3>
           <div className="checkbox-group">
@@ -555,7 +537,6 @@ const SystemLogs = () => {
           </div>
         </div>
 
-        {/* Clear Filters Button */}
         <div className="clear-filter-section">
           <button onClick={clearFilters} className="clear-filters-btn">
             Clear All Filters
@@ -563,7 +544,6 @@ const SystemLogs = () => {
         </div>
       </div>
 
-      {/* Logs Table */}
       <div className="table-container">
         <table className="logs-table">
           <thead>
@@ -571,7 +551,8 @@ const SystemLogs = () => {
               <th>Old IPFS CID</th>
               <th>New IPFS CID</th>
               <th>Action</th>
-              <th>From Address</th>
+              <th>Email</th>
+              <th>Role</th>
               <th>Timestamp</th>
               <th>Note</th>
             </tr>
@@ -594,16 +575,29 @@ const SystemLogs = () => {
                       onCopy={handleToastMessage}
                     />
                   </td>
-                  <td>
+                  <td className="action-cell">
                     <span className={`action-badge ${getActionCategory(log.action)}`}>
                       {log.action}
                     </span>
                   </td>
                   <td className="email-cell">
-                    <span className="email-desktop">{log.email}</span>
-                    <span className="email-mobile">{abbreviate(log.email)}</span>
+                    <span className={`email-text ${log.email === '-' ? 'empty' : ''}`}>
+                      {log.email}
+                    </span>
                   </td>
-                  <td>{log.timestamp}</td>
+                  <td className="role-cell">
+                    <div className="role-cell-content">
+                      <span className={`role-badge role-${log.role === '-' ? 'empty' : log.role.toLowerCase()}`}>
+                        {log.role}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="timestamp-cell">
+                    <span className="timestamp-desktop">{log.timestamp}</span>
+                    <span className="timestamp-mobile" title={log.timestamp}>
+                      {new Date(log.timestamp).toLocaleDateString()}
+                    </span>
+                  </td>
                   <td className="note-cell">
                     {log.note || '-'}
                   </td>
@@ -611,7 +605,7 @@ const SystemLogs = () => {
               ))
             ) : (
               <tr>
-                <td colSpan="6" className="no-results">
+                <td colSpan="7" className="no-results">
                   No blockchain events found matching your criteria
                 </td>
               </tr>
@@ -620,7 +614,6 @@ const SystemLogs = () => {
         </table>
       </div>
 
-      {/* Pagination Controls */}
       {totalPages > 1 && (
         <div className="pagination-container">
           <div className="pagination-info">

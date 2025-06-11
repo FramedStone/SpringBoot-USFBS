@@ -42,6 +42,9 @@ public class AuthService {
     private final Set<String> revokedAccess = ConcurrentHashMap.newKeySet();
     private final Set<String> revokedRefresh = ConcurrentHashMap.newKeySet();
 
+    // TODO: Add user address to email mapping cache
+    private final Map<String, String> addressToEmailCache = new ConcurrentHashMap<>();
+
     @Autowired
     public AuthService(
         Management managementContract,
@@ -171,5 +174,70 @@ public class AuthService {
     }
     public boolean isRefreshTokenRevoked(String t) {
         return t != null && revokedRefresh.contains(t);
+    }
+
+    /**
+     * Get user email by blockchain address
+     * Enhanced to only return real emails from Web3Auth login
+     */
+    public String getUserEmailByAddress(String address) {
+        // Check cache first (populated during login with real Web3Auth email)
+        String cachedEmail = addressToEmailCache.get(address.toLowerCase());
+        if (cachedEmail != null && !cachedEmail.trim().isEmpty() && cachedEmail.contains("@")) {
+            return cachedEmail;
+        }
+        
+        // Return unknown if no real email found - no placeholder emails
+        return "Unknown";
+    }
+
+    /**
+     * Get cached email specifically (returns null if not found)
+     */
+    public String getCachedEmailByAddress(String address) {
+        String email = addressToEmailCache.get(address.toLowerCase());
+        if (email != null && !email.trim().isEmpty() && email.contains("@")) {
+            return email;
+        }
+        return null;
+    }
+
+    /**
+     * Check if user has cached email mapping
+     */
+    public boolean hasEmailMapping(String address) {
+        String email = addressToEmailCache.get(address.toLowerCase());
+        return email != null && !email.trim().isEmpty() && email.contains("@");
+    }
+
+    /**
+     * Update user email mapping when user logs in
+     * Only accept real email addresses
+     */
+    public void updateUserEmailMapping(String address, String email) {
+        if (email != null && !email.trim().isEmpty() && email.contains("@") && !email.contains("placeholder")) {
+            addressToEmailCache.put(address.toLowerCase(), email);
+            System.out.println(">>> AuthService: Updated email mapping for " + address + " -> " + email);
+            System.out.println(">>> AuthService: Cache now contains " + addressToEmailCache.size() + " real email mappings");
+        } else {
+            System.out.println(">>> AuthService: Rejected invalid email for " + address + ": " + email);
+        }
+    }
+
+    /**
+     * Clear user mapping on logout
+     */
+    public void clearUserMapping(String address) {
+        String removed = addressToEmailCache.remove(address.toLowerCase());
+        System.out.println(">>> AuthService: Cleared email mapping for " + address + " (was: " + removed + ")");
+    }
+
+    /**
+     * Debug method to show current cache contents
+     */
+    public void logCurrentMappings() {
+        System.out.println(">>> AuthService: Current email mappings:");
+        addressToEmailCache.forEach((addr, email) -> 
+            System.out.println("  " + addr + " -> " + email));
     }
 }

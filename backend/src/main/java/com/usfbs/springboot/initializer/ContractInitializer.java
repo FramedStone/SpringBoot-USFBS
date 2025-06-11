@@ -24,6 +24,7 @@ import com.usfbs.springboot.contracts.Booking;
 import com.usfbs.springboot.contracts.Management;
 import com.usfbs.springboot.contracts.SportFacility;
 import com.usfbs.springboot.service.EventLogService;
+import com.usfbs.springboot.service.AuthService;
 import com.usfbs.springboot.util.DateTimeUtil;
 
 @Component
@@ -54,6 +55,9 @@ public class ContractInitializer implements CommandLineRunner {
 
     @Autowired
     private EventLogService eventLogService;
+    
+    @Autowired
+    private AuthService authService;
 
     /**
      * Safely converts Object to BigInteger for timestamp formatting
@@ -128,6 +132,88 @@ public class ContractInitializer implements CommandLineRunner {
         }
     }
 
+    private void subscribeToAllEvents() {
+        // Enhanced event logging with user context resolution
+        
+        // Booking events
+        bookingContract.bookingCreatedEventFlowable(DefaultBlockParameterName.LATEST, DefaultBlockParameterName.LATEST)
+            .subscribe(event -> {
+                String userEmail = getCurrentUserEmail(event.from);
+                String userRole = getCurrentUserRole(event.from);
+                
+                eventLogService.addEventLogWithUserContext(
+                    event.ipfsHash,
+                    "Booking Created",
+                    event.from,
+                    DateTimeUtil.formatTimestamp(event.timestamp),
+                    event.toString(),
+                    "BOOKING_EVENT",
+                    userEmail,
+                    userRole
+                );
+            });
+        
+        // Management events  
+        managementContract.userAddedEventFlowable(DefaultBlockParameterName.LATEST, DefaultBlockParameterName.LATEST)
+            .subscribe(event -> {
+                String userEmail = getCurrentUserEmail(event.from);
+                String userRole = getCurrentUserRole(event.from);
+                
+                eventLogService.addEventLogWithUserContext(
+                    "",
+                    "User Added", 
+                    event.from,
+                    DateTimeUtil.formatTimestamp(event.timestamp),
+                    event.toString(),
+                    "MANAGEMENT_EVENT",
+                    userEmail,
+                    userRole
+                );
+            });
+        
+        // TODO: Add similar context resolution for all other events
+    }
+    
+    private String getCurrentUserEmail(String address) {
+        try {
+            // First try to get cached email from Web3Auth login
+            String cachedEmail = authService.getCachedEmailByAddress(address);
+            if (cachedEmail != null) {
+                return cachedEmail;
+            }
+            
+            // Fallback to AuthService resolution
+            return authService.getUserEmailByAddress(address);
+        } catch (Exception e) {
+            return resolveEmailFromAddress(address);
+        }
+    }
+    
+    private String getCurrentUserRole(String address) {
+        try {
+            return authService.getUserRole(address);
+        } catch (Exception e) {
+            return "User";
+        }
+    }
+    
+    private String resolveEmailFromAddress(String address) {
+        // Enhanced fallback email resolution
+        if (address != null) {
+            String normalized = address.toLowerCase();
+            
+            // Check against known admin/moderator addresses
+            if (normalized.contains("admin") || 
+                normalized.equals("0x742d35cc6634c0532925a3b8d926d02341b01132")) {
+                return "admin@mmu.edu.my";
+            }
+            if (normalized.contains("moderator")) {
+                return "moderator@mmu.edu.my";  
+            }
+        }
+        return "user@mmu.edu.my";
+    }
+    
     @Override
     public void run(String... args) {
         System.out.println(">>> ContractInitializer.run() started");

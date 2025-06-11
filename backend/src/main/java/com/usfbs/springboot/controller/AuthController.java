@@ -49,41 +49,50 @@ public class AuthController {
         String role;
         try {
             role = authService.getUserRole(userAddress);
+            
+            // Update email mapping for event logging
+            authService.updateUserEmailMapping(userAddress, email);
+            
         } catch (RuntimeException e) {
             return ResponseEntity.status(500).body(e.getMessage());
         }
 
         List<String> permissions = authService.getPermissions(role);
+        
+        // Generate tokens
         String accessToken = authService.generateAccessToken(email, role, userAddress);
         String refreshToken = authService.generateRefreshToken(email, role, userAddress);
 
+        // Set secure cookies
+        ResponseCookie accessCookie = ResponseCookie.from("accessToken", accessToken)
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(authService.getAccessExpiry())
+                .sameSite("Lax")
+                .build();
+
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(authService.getRefreshExpiry())
+                .sameSite("Lax")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+
         Map<String, Object> responseBody = new HashMap<>();
-        responseBody.put("accessToken", accessToken);
-        responseBody.put("refreshToken", refreshToken);
+        responseBody.put("message", "Login successful");
+        responseBody.put("email", email);
         responseBody.put("role", role);
         responseBody.put("address", userAddress);
         responseBody.put("permissions", permissions);
+        responseBody.put("accessToken", accessToken);
+        responseBody.put("refreshToken", refreshToken);
 
-        Cookie accessCookie = new Cookie("accessToken", accessToken);
-        accessCookie.setHttpOnly(true);
-        // accessCookie.setSecure(true); // Comment this out for localhost
-        accessCookie.setPath("/");
-        accessCookie.setMaxAge(authService.getAccessExpiry());
-
-        Cookie refreshCookie = new Cookie("refreshToken", refreshToken);
-        refreshCookie.setHttpOnly(true);
-        // refreshCookie.setSecure(true); // Comment this out for localhost
-        refreshCookie.setPath("/");
-        refreshCookie.setMaxAge(authService.getRefreshExpiry());
-
-        response.addCookie(accessCookie);
-        response.addCookie(refreshCookie);
-
-        // return role/permissions for frontend UI
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("role", role);
-        resp.put("permissions", permissions);
-        return ResponseEntity.ok(resp);
+        return ResponseEntity.ok(responseBody);
     }
 
     private String extractToken(HttpServletRequest req, String name) {
@@ -160,23 +169,49 @@ public class AuthController {
      */
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletRequest req, HttpServletResponse res) {
-        authService.revokeAccessToken(extractToken(req, "accessToken"));
-        authService.revokeRefreshToken(extractToken(req, "refreshToken"));
+        try {
+            String accessToken = extractToken(req, "accessToken");
+            String refreshToken = extractToken(req, "refreshToken");
+            
+            // Extract user address from token before revoking
+            if (accessToken != null) {
+                try {
+                    Map<String, Claim> claims = authService.verifyToken(accessToken);
+                    String userAddress = claims.get("address").asString();
+                    
+                    // Clear user mapping on logout
+                    authService.clearUserMapping(userAddress);
+                } catch (Exception e) {
+                    System.err.println("Failed to extract user address from token during logout: " + e.getMessage());
+                }
+            }
 
-        Cookie clearA = new Cookie("accessToken", "");
-        clearA.setHttpOnly(true);
-        clearA.setSecure(false);    // false for localhost; set true in prod
-        clearA.setPath("/");
-        clearA.setMaxAge(0);
-        res.addCookie(clearA);
+            authService.revokeAccessToken(accessToken);
+            authService.revokeRefreshToken(refreshToken);
 
-        Cookie clearR = new Cookie("refreshToken", "");
-        clearR.setHttpOnly(true);
-        clearR.setSecure(false);
-        clearR.setPath("/");
-        clearR.setMaxAge(0);
-        res.addCookie(clearR);
+            // Clear cookies
+            ResponseCookie clearAccessCookie = ResponseCookie.from("accessToken", "")
+                    .httpOnly(true)
+                    .secure(false)
+                    .path("/")
+                    .maxAge(0)
+                    .sameSite("Lax")
+                    .build();
 
-        return ResponseEntity.noContent().build();
+            ResponseCookie clearRefreshCookie = ResponseCookie.from("refreshToken", "")
+                    .httpOnly(true)
+                    .secure(false)
+                    .path("/")
+                    .maxAge(0)
+                    .sameSite("Lax")
+                    .build();
+
+            res.addHeader(HttpHeaders.SET_COOKIE, clearAccessCookie.toString());
+            res.addHeader(HttpHeaders.SET_COOKIE, clearRefreshCookie.toString());
+
+            return ResponseEntity.ok(Map.of("message", "Logout successful"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Logout failed: " + e.getMessage());
+        }
     }
 }
