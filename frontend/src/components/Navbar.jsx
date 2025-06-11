@@ -63,7 +63,6 @@ export default function Navbar({ activeTab, setActiveTab }) {
     <>
       <nav className="dashboard-nav">
         <div className="nav-brand" onClick={() => navigate("/admin/dashboard")} style={{ cursor: "pointer" }}>
-          <Settings size={24} />
           <span>Admin Panel</span>
         </div>
         <button

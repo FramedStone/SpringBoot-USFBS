@@ -57,6 +57,13 @@ contract Management {
         string ipfsHash,
         uint256 timestamp
     );
+    event announcementTitleModified(
+        address indexed from,
+        string ipfsHash,
+        string oldTitle,
+        string newTitle,
+        uint256 timestamp
+    );
     event announcementTimeModified(
         address indexed from,
         string ipfsHash,
@@ -174,6 +181,21 @@ contract Management {
         }
     }
 
+    function updateAnnouncementTitle(
+        string memory ipfsHash,
+        string memory oldTitle,
+        string memory newTitle
+    ) external isAdmin {
+        require(bytes(newTitle).length != 0, "newTitle not provided");
+        emit announcementTitleModified(
+            msg.sender,
+            ipfsHash,
+            oldTitle,
+            newTitle,
+            block.timestamp
+        );
+    }
+
     function updateAnnouncementTime(
         string memory ipfsHash,
         uint256 startTime,
@@ -208,12 +230,6 @@ contract Management {
     function getAnnouncements() external isAdmin view returns(Announcement[] memory anns_) {
         require(announcements_.length > 0, "No Announcement found in blockchain");
 
-        // Announcement[] memory anns = new Announcement[](announcements_.length);
-        // for(uint256 i=0; i<announcements_.length; i++) {
-        //     anns[i] = announcements_[i];
-        //     emit announcementRequested(msg.sender, announcements_[i].ipfsHash, block.timestamp);
-        // }
-        // return anns;
         return announcements_;
     }
 }
