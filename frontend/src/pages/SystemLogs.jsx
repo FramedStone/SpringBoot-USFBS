@@ -488,11 +488,11 @@ const SystemLogs = () => {
           <div className="sort-controls">
             <button
               onClick={handleSortChange}
-              className={`sort-btn ${sortBy.field === 'dateAdded' ? 'active' : ''}`}
+              className={`sort-btn ${sortBy.field === 'timestamp' ? 'active' : ''}`}
               type="button"
             >
               Date Added
-              {sortBy.field === 'dateAdded' && (
+              {sortBy.field === 'timestamp' && (
                 sortBy.order === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />
               )}
             </button>

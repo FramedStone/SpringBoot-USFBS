@@ -451,16 +451,19 @@
 .sort-btn:hover {
   background-color: #e9ecef;
   border-color: #3498db;
+  color: #3498db;
 }
 
 .sort-btn.active {
   background-color: #3498db;
   color: white;
   border-color: #3498db;
+  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
 }
 
 .sort-btn.active:hover {
   background-color: #2980b9;
+  border-color: #2980b9;
 }
 
 .status-bar {
@@ -731,11 +734,11 @@
 }
 
 .ipfs-hash-container.old-hash .hash-text {
-  color: #e74c3c;
+  color: inherit;
 }
 
 .ipfs-hash-container.new-hash .hash-text {
-  color: #27ae60;
+  color: inherit;
 }
 
 .ipfs-hash-empty {
