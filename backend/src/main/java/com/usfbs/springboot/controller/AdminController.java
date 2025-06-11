@@ -111,7 +111,8 @@ public class AdminController {
         @RequestParam(value = "file", required = false) MultipartFile newFile,
         @RequestParam("title") String newTitle,
         @RequestParam("startDate") long newStartDate,
-        @RequestParam("endDate") long newEndDate
+        @RequestParam("endDate") long newEndDate,
+        @RequestParam(value = "oldTitle", required = false) String oldTitle
     ) {
         try {
             // Validate input parameters
@@ -135,16 +136,16 @@ public class AdminController {
 
             String txHash;
             
-            // Check if file is provided for update
+            // Check if file is provided for full update
             if (newFile != null && !newFile.isEmpty()) {
                 // Full update with new file
                 txHash = adminService.updateAnnouncement(
                     oldIpfsHash, newFile, newTitle, newStartDate, newEndDate
                 );
             } else {
-                // Update only metadata (title and dates) without changing file
-                txHash = adminService.updateAnnouncementMetadata(
-                    oldIpfsHash, newTitle, newStartDate, newEndDate
+                // Determine what needs to be updated based on changes
+                txHash = adminService.updateAnnouncementSelectively(
+                    oldIpfsHash, oldTitle, newTitle, newStartDate, newEndDate
                 );
             }
             
@@ -235,6 +236,62 @@ public class AdminController {
             System.err.println("deleteAnnouncement error: " + e.getMessage());
             return ResponseEntity.status(500).body(
                 java.util.Map.of("error", "Deletion failed", "details", e.getMessage())
+            );
+        }
+    }
+
+    @PutMapping(
+        value = "/update-announcement-title",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> updateAnnouncementTitle(
+        @RequestParam("ipfsHash") String ipfsHash,
+        @RequestParam("oldTitle") String oldTitle,
+        @RequestParam("newTitle") String newTitle
+    ) {
+        try {
+            // Validate input parameters
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(
+                    java.util.Map.of("error", "IPFS hash cannot be empty")
+                );
+            }
+            
+            if (oldTitle == null || oldTitle.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(
+                    java.util.Map.of("error", "Old title cannot be empty")
+                );
+            }
+            
+            if (newTitle == null || newTitle.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(
+                    java.util.Map.of("error", "New title cannot be empty")
+                );
+            }
+
+            if (oldTitle.equals(newTitle)) {
+                return ResponseEntity.badRequest().body(
+                    java.util.Map.of("error", "New title must be different from old title")
+                );
+            }
+
+            String txHash = adminService.updateAnnouncementTitleOnly(
+                ipfsHash, oldTitle, newTitle
+            );
+            
+            return ResponseEntity.ok().body(
+                java.util.Map.of(
+                    "message", "Announcement title updated successfully",
+                    "txHash", txHash,
+                    "ipfsHash", ipfsHash,
+                    "oldTitle", oldTitle,
+                    "newTitle", newTitle
+                )
+            );
+        } catch (Exception e) {
+            System.err.println("updateAnnouncementTitle error: " + e.getMessage());
+            return ResponseEntity.status(500).body(
+                java.util.Map.of("error", "Title update failed", "details", e.getMessage())
             );
         }
     }

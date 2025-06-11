@@ -131,38 +131,51 @@ public class AdminService {
     public String updateAnnouncementMetadata(String ipfsHash, String newTitle, 
                                            long newStartDate, long newEndDate) throws Exception {
         try {
-            // Get existing manifest to preserve file CID
+            // Get existing manifest to preserve file CID and get old title
             String existingManifestJson = fetchManifestFromIPFS(ipfsHash);
             PinataManifest existingManifest = parseManifest(existingManifestJson);
+            String oldTitle = existingManifest.getTitle();
             
             // Build new metadata JSON manifest with existing file CID
             Map<String, Object> updatedManifest = Map.of(
                 "title", newTitle,
                 "startDate", newStartDate,
                 "endDate", newEndDate,
-                "fileCid", existingManifest.getFileCid() // Keep existing file
+                "fileCid", existingManifest.getFileCid()
             );
 
             // Pin the updated JSON manifest to get its new CID with new title
             String manifestFileName = sanitizeFileName(newTitle) + "-manifest.json";
             String updatedMetaCid = pinataUtil.uploadJsonToIPFS(updatedManifest, manifestFileName);
 
-            // Only update IPFS hash in blockchain - this will trigger announcementIpfsHashModified event
+            // Update IPFS hash in blockchain
             TransactionReceipt ipfsReceipt = managementContract.updateAnnouncementIpfsHash(
                 ipfsHash,
                 updatedMetaCid
             ).send();
 
-            // Remove the time update call since we're only updating metadata, not time
-            // The time values in the new manifest are the same as before
+            // Update title in blockchain if title changed
+            if (!oldTitle.equals(newTitle)) {
+                TransactionReceipt titleReceipt = managementContract.updateAnnouncementTitle(
+                    updatedMetaCid,
+                    oldTitle,
+                    newTitle
+                ).send();
+            }
+
+            // Update time in blockchain
+            TransactionReceipt timeReceipt = managementContract.updateAnnouncementTime(
+                updatedMetaCid,
+                BigInteger.valueOf(newStartDate),
+                BigInteger.valueOf(newEndDate)
+            ).send();
             
             // Cleanup old manifest after successful blockchain update
             try {
-                pinataUtil.unpinFromIPFS(ipfsHash); // Unpin old manifest only
+                pinataUtil.unpinFromIPFS(ipfsHash);
                 System.out.println("Successfully cleaned up old manifest: " + ipfsHash);
             } catch (Exception e) {
                 System.err.println("Warning: Failed to unpin old manifest: " + e.getMessage());
-                // Continue execution as blockchain update was successful
             }
 
             return ipfsReceipt.getTransactionHash();
@@ -384,5 +397,106 @@ public class AdminService {
         sanitized = sanitized.replaceAll("-+$", "");
         
         return sanitized.isEmpty() ? "untitled-announcement" : sanitized;
+    }
+
+    /**
+     * Updates only the title of an announcement without changing file or dates
+     * @param ipfsHash The IPFS hash of the announcement manifest
+     * @param oldTitle The current title (for blockchain event logging)
+     * @param newTitle The new title to update
+     * @return Transaction hash of the blockchain operation
+     * @throws Exception if update fails
+     */
+    public String updateAnnouncementTitleOnly(String ipfsHash, String oldTitle, String newTitle) throws Exception {
+        try {
+            // Get existing manifest to preserve file and dates
+            String existingManifestJson = fetchManifestFromIPFS(ipfsHash);
+            PinataManifest existingManifest = parseManifest(existingManifestJson);
+            
+            // Build updated metadata JSON manifest with new title but existing dates and file
+            Map<String, Object> updatedManifest = Map.of(
+                "title", newTitle,
+                "startDate", existingManifest.getStartDate(),
+                "endDate", existingManifest.getEndDate(),
+                "fileCid", existingManifest.getFileCid()
+            );
+
+            // Pin the updated JSON manifest to get its new CID
+            String manifestFileName = sanitizeFileName(newTitle) + "-manifest.json";
+            String updatedMetaCid = pinataUtil.uploadJsonToIPFS(updatedManifest, manifestFileName);
+
+            // Update IPFS hash in blockchain first
+            TransactionReceipt ipfsReceipt = managementContract.updateAnnouncementIpfsHash(
+                ipfsHash,
+                updatedMetaCid
+            ).send();
+
+            // Update title in blockchain using the new CID - this will emit announcementTitleModified event
+            TransactionReceipt titleReceipt = managementContract.updateAnnouncementTitle(
+                updatedMetaCid,
+                oldTitle,
+                newTitle
+            ).send();
+
+            // Cleanup old manifest after successful blockchain updates
+            try {
+                pinataUtil.unpinFromIPFS(ipfsHash);
+                System.out.println("Successfully cleaned up old manifest: " + ipfsHash);
+            } catch (Exception e) {
+                System.err.println("Warning: Failed to unpin old manifest: " + e.getMessage());
+            }
+
+            System.out.println("Successfully updated announcement title for IPFS hash: " + ipfsHash);
+            return titleReceipt.getTransactionHash();
+
+        } catch (Exception e) {
+            System.err.println("Failed to update announcement title: " + e.getMessage());
+            throw new Exception("Announcement title update failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Selectively updates announcement based on what has changed
+     * @param ipfsHash The IPFS hash of the announcement manifest
+     * @param oldTitle The current title
+     * @param newTitle The new title
+     * @param newStartDate The new start date
+     * @param newEndDate The new end date
+     * @return Transaction hash of the blockchain operation
+     * @throws Exception if update fails
+     */
+    public String updateAnnouncementSelectively(String ipfsHash, String oldTitle, String newTitle, 
+                                          long newStartDate, long newEndDate) throws Exception {
+        try {
+            // Get existing manifest to compare what needs updating
+            String existingManifestJson = fetchManifestFromIPFS(ipfsHash);
+            PinataManifest existingManifest = parseManifest(existingManifestJson);
+            
+            // Determine what has changed
+            boolean titleChanged = oldTitle != null && !oldTitle.equals(newTitle);
+            boolean timeChanged = existingManifest.getStartDate() != newStartDate || 
+                                existingManifest.getEndDate() != newEndDate;
+            
+            System.out.println("Selective update - Title changed: " + titleChanged + 
+                              ", Time changed: " + timeChanged);
+            
+            if (titleChanged && timeChanged) {
+                // Both title and time changed - update metadata
+                return updateAnnouncementMetadata(ipfsHash, newTitle, newStartDate, newEndDate);
+            } else if (titleChanged) {
+                // Only title changed
+                return updateAnnouncementTitleOnly(ipfsHash, oldTitle, newTitle);
+            } else if (timeChanged) {
+                // Only time changed
+                return updateAnnouncementTimeOnly(ipfsHash, newStartDate, newEndDate);
+            } else {
+                // Nothing changed
+                throw new Exception("No changes detected in announcement");
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Failed to update announcement selectively: " + e.getMessage());
+            throw new Exception("Selective announcement update failed: " + e.getMessage());
+        }
     }
 }

@@ -957,15 +957,9 @@ export default function AdminDashboard() {
   }, [loadAnnouncements]);
 
   const [bookings] = useState([
-    { id: 'BK001', user: '123120000', court: 'Court A', time: '2025-03-24\n10 AM - 12 PM', sport: 'Badminton' },
-    { id: 'BK002', user: '1231200001', court: 'Court B', time: '2025-03-25\n8 AM - 10 AM', sport: 'Volleyball' },
-    { id: 'BK003', user: '1231200002', court: 'Court C', time: '2025-03-25\n1 PM - 3 PM', sport: 'Basketball' }
   ]);
 
   const [systemLogs] = useState([
-    { type: 'form', message: 'Form Received', status: 'error' },
-    { type: 'admin', message: 'Admin Action', status: 'warning' },
-    { type: 'booking', message: 'Booking Approved (System)', status: 'success' },
   ]);
 
   const handleDeleteAnnouncement = async (id) => {
@@ -1055,23 +1049,24 @@ export default function AdminDashboard() {
         console.log(key, ':', value);
       }
 
+      // Add old title for comparison in backend
+      if (editAnnouncement && editAnnouncement.title) {
+        formData.append('oldTitle', editAnnouncement.title);
+      }
+
       const res = await authFetch("/api/admin/update-announcement", {
         method: "PUT",
         body: formData,
-        // Don't set Content-Type header for FormData - let browser set it
       });
-      
+
       if (!res.ok) {
         const errText = await res.text();
-        console.error('Update response error:', errText);
         throw new Error(errText || "Update failed");
       }
       
-      const response = await res.json();
-      console.log('Update response:', response);
-      
+      const { message } = await res.json();
       setEditAnnouncement(null);
-      setToast({ msg: response.message, type: "success" });
+      setToast({ msg: message, type: "success" });
       await loadAnnouncements();
     } catch (err) {
       console.error("Edit announcement failed:", err);

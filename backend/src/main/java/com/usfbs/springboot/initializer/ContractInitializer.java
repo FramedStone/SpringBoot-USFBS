@@ -758,6 +758,32 @@ public class ContractInitializer implements CommandLineRunner {
                 error.printStackTrace();
             });
 
+            managementContract.announcementTitleModifiedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [announcementTitleModified] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    ipfsHash       = " + event.ipfsHash + "\n" +
+                                       "    oldTitle       = " + event.oldTitle + "\n" +
+                                       "    newTitle       = " + event.newTitle + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    event.ipfsHash,
+                    "Announcement Title Modified",
+                    event.from,
+                    event.timestamp,
+                    originalOutput,
+                    "MANAGEMENT"
+                );
+            }, error -> {
+                System.err.println("Error in announcementTitleModified subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
             sportFacilityContract.courtAddedEventFlowable(
                 DefaultBlockParameterName.EARLIEST,
                 DefaultBlockParameterName.LATEST
