@@ -1249,9 +1249,6 @@ export default function AdminDashboard() {
                   {systemLogsLoading ? (
                     <>
                       <Spinner />
-                      <div style={{ marginTop: '12px', fontSize: '14px' }}>
-                        Loading system events...
-                      </div>
                     </>
                   ) : (
                     <>
@@ -1397,6 +1394,10 @@ export default function AdminDashboard() {
             <h3>System Approved Bookings</h3>
             <div className="header-actions">
               <span className="requests-count">0 requests</span>
+              <button className="create-booking-btn">
+                <Plus size={16} />
+                Create Booking
+              </button>
               <button className="export-btn">
                 <Download size={16} />
                 Export Report
