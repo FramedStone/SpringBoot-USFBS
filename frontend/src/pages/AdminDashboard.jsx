@@ -1038,10 +1038,9 @@ export default function AdminDashboard() {
   // Enhanced format log message with better time formatting
   const formatLogMessage = (log) => {
     const timeAgo = getTimeAgo(log.timestamp);
-    const userInfo = log.email && log.email !== '-' ? ` by ${log.email.split('@')[0]}` : '';
     const roleInfo = log.role && log.role !== '-' ? ` (${log.role})` : '';
     
-    return `${log.action}${userInfo}${roleInfo} • ${timeAgo}`;
+    return `${log.action}${roleInfo} • ${timeAgo}`;
   };
 
   // Enhanced time ago calculation with more precision
@@ -1315,7 +1314,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Announcements Section - unchanged */}
+          {/* Announcements Section */}
           <div className="announcements-section">
             <div className="section-header">
               <h3>Announcements</h3>
