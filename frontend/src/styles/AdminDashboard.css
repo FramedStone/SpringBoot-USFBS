@@ -362,6 +362,32 @@
   opacity: 0.6;
 }
 
+.create-booking-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #007bff; 
+  border: none;             
+  color: white;              
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  font-weight: 500;          
+  transition: background-color 0.2s ease;
+}
+
+.create-booking-btn:hover {
+  background-color: #0056b3;
+  border: none;
+}
+
+.create-booking-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .announcements-table,
 .bookings-table {
   display: flex;
@@ -1174,4 +1200,24 @@
     transform: scale(1);
     opacity: 1;
   }
+}
+
+.bookings-section .export-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #007bff !important; 
+  border: none;             
+  color: white;              
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  font-weight: 500;          
+  transition: background-color 0.2s ease;
+}
+
+.bookings-section .export-btn:hover {
+  background-color: #0056b3 !important;
+  border: none;
 }
