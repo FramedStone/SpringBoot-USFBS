@@ -1016,7 +1016,7 @@ export default function AdminDashboard() {
       if (systemLogs.length === 0) {
         setSystemLogs([]);
       }
-      setToast({ msg: 'Failed to load latest system logs', type: 'warning' });
+      setToast({ msg: 'Failed to load latest system logs', type: 'error' });
     } finally {
       setSystemLogsLoading(false);
     }
