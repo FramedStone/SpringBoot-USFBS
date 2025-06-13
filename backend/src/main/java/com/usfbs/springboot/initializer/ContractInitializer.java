@@ -578,60 +578,7 @@ public class ContractInitializer implements CommandLineRunner {
                 error.printStackTrace();
             });
 
-            // Add missing facilityDetailsRequested event with original output
-            sportFacilityContract.facilityDetailsRequestedEventFlowable(
-                DefaultBlockParameterName.EARLIEST,
-                DefaultBlockParameterName.LATEST
-            ).subscribe(event -> {
-                String originalOutput = ">>> [facilityDetailsRequested] event received:\n" +
-                                       "    from           = " + event.from + "\n" +
-                                       "    facilityName   = " + event.facilityName + "\n" +
-                                       "    note           = " + event.note + "\n" +
-                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
-                
-                System.out.println(originalOutput);
-                
-                eventLogService.addEventLog(
-                    "",
-                    "Facility Details Requested",
-                    event.from,
-                    event.timestamp,
-                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
-                    "FACILITY"
-                );
-            }, error -> {
-                System.err.println("Error in facilityDetailsRequested subscription: " + error.getMessage());
-                error.printStackTrace();
-            });
 
-            // Add missing courtDetailsRequested event with original output
-            sportFacilityContract.courtDetailsRequestedEventFlowable(
-                DefaultBlockParameterName.EARLIEST,
-                DefaultBlockParameterName.LATEST
-            ).subscribe(event -> {
-                String originalOutput = ">>> [courtDetailsRequested] event received:\n" +
-                                       "    from           = " + event.from + "\n" +
-                                       "    facilityName   = " + event.facilityName + "\n" +
-                                       "    courtName      = " + event.courtName + "\n" +
-                                       "    note           = " + event.note + "\n" +
-                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
-                
-                System.out.println(originalOutput);
-                
-                eventLogService.addEventLog(
-                    "",
-                    "Court Details Requested",
-                    event.from,
-                    event.timestamp,
-                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
-                    "FACILITY"
-                );
-            }, error -> {
-                System.err.println("Error in courtDetailsRequested subscription: " + error.getMessage());
-                error.printStackTrace();
-            });
-
-            // Add missing userAdded event with original output
             managementContract.userAddedEventFlowable(
                 DefaultBlockParameterName.EARLIEST,
                 DefaultBlockParameterName.LATEST
