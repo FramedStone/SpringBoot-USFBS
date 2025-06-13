@@ -1252,12 +1252,6 @@ export default function AdminDashboard() {
                     </>
                   ) : (
                     <>
-                      <div style={{ fontSize: '16px', marginBottom: '8px' }}>
-                        No recent events
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#9ca3af' }}>
-                        System events will appear here automatically
-                      </div>
                     </>
                   )}
                 </div>
