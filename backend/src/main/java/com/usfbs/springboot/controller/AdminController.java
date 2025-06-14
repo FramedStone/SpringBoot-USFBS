@@ -439,5 +439,53 @@ public class AdminController {
             ));
         }
     }
+
+    @GetMapping("/sport-facilities/{facilityName}/courts")
+    public ResponseEntity<?> getAllCourts(@PathVariable String facilityName) {
+        try {
+            List<SportFacility.court> courts = adminService.getAllCourts(facilityName);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", courts
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/sport-facilities/{facilityName}/courts/{courtName}")
+    public ResponseEntity<?> getCourt(@PathVariable String facilityName, @PathVariable String courtName) {
+        try {
+            SportFacility.court court = adminService.getCourt(facilityName, courtName);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", court
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/sport-facilities/{facilityName}/courts/{courtName}/time-range")
+    public ResponseEntity<?> getCourtTimeRange(@PathVariable String facilityName, @PathVariable String courtName) {
+        try {
+            Map<String, Object> timeRange = adminService.getCourtAvailableTimeRange(facilityName, courtName);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", timeRange
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
 }
 

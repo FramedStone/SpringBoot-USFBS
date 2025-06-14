@@ -14,12 +14,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.protocol.core.RemoteFunctionCall;
+import org.web3j.tuples.generated.Tuple2;
 import org.web3j.tuples.generated.Tuple3;
 import org.web3j.tuples.generated.Tuple4;
 import org.web3j.tx.RawTransactionManager;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -645,6 +647,71 @@ public class AdminService {
             logger.error("Error deleting sport facility: {}", e.getMessage());
             throw new RuntimeException("Failed to delete sport facility: " + e.getMessage());
         }
+    }
+
+    public List<SportFacility.court> getAllCourts(String facilityName) {
+        try {
+            List<SportFacility.court> courts = sportFacilityContract.getAllCourts(facilityName).send();
+            logger.info("Successfully retrieved {} courts for facility: {}", courts.size(), facilityName);
+            return courts;
+        } catch (Exception e) {
+            logger.error("Error getting courts for facility {}: {}", facilityName, e.getMessage());
+            throw new RuntimeException("Failed to get courts for facility: " + e.getMessage());
+        }
+    }
+
+    public SportFacility.court getCourt(String facilityName, String courtName) {
+        try {
+            SportFacility.court court = sportFacilityContract.getCourt(facilityName, courtName).send();
+            logger.info("Successfully retrieved court {} from facility: {}", courtName, facilityName);
+            return court;
+        } catch (Exception e) {
+            logger.error("Error getting court {} from facility {}: {}", courtName, facilityName, e.getMessage());
+            throw new RuntimeException("Failed to get court: " + e.getMessage());
+        }
+    }
+
+    public Map<String, Object> getCourtAvailableTimeRange(String facilityName, String courtName) throws Exception {
+        try {
+            // Get the admin address from the transaction manager
+            String adminAddress = rawTransactionManager.getFromAddress();
+            
+            // Call the contract function to get available time range
+            Tuple2<BigInteger, BigInteger> timeRange = sportFacilityContract
+                .getAvailableTimeRange_(facilityName, courtName, adminAddress)
+                .send();
+            
+            BigInteger earliestTime = timeRange.component1();
+            BigInteger latestTime = timeRange.component2();
+            
+            // Convert seconds to time format
+            String earliestTimeStr = secondsToTimeString(earliestTime.longValue());
+            String latestTimeStr = secondsToTimeString(latestTime.longValue());
+            
+            logger.info("Retrieved time range for court {} in facility {}: {} - {}", 
+                       courtName, facilityName, earliestTimeStr, latestTimeStr);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("facilityName", facilityName);
+            result.put("courtName", courtName);
+            result.put("earliestTime", earliestTime.longValue());
+            result.put("latestTime", latestTime.longValue());
+            result.put("earliestTimeStr", earliestTimeStr);
+            result.put("latestTimeStr", latestTimeStr);
+            
+            return result;
+            
+        } catch (Exception e) {
+            logger.error("Error getting available time range for court {} in facility {}: {}", 
+                        courtName, facilityName, e.getMessage());
+            throw new Exception("Failed to get available time range: " + e.getMessage());
+        }
+    }
+
+    private String secondsToTimeString(long seconds) {
+        long hours = seconds / 3600;
+        long minutes = (seconds % 3600) / 60;
+        return String.format("%02d:%02d", hours, minutes);
     }
 
     private String getStatusString(BigInteger status) {

@@ -4,6 +4,7 @@ import { X, Plus, Edit, Trash2, MapPin } from 'lucide-react';
 import { authFetch } from '@utils/authFetch';
 import Toast from '@components/Toast';
 import '@styles/SportAndCourtManagement.css';
+import Spinner from '@components/Spinner';
 
 const DEFAULT_EARLIEST = '08:00';
 const DEFAULT_LATEST = '23:00';
@@ -22,6 +23,7 @@ const SportAndCourtManagement = () => {
   const [selectedSportForEdit, setSelectedSportForEdit] = useState(null);
   const [courtSort, setCourtSort] = useState({ field: 'name', order: 'asc' });
   const [loading, setLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [toast, setToast] = useState({ msg: "", type: "success" });
 
   const [courtStatuses, setCourtStatuses] = useState({
@@ -30,10 +32,11 @@ const SportAndCourtManagement = () => {
     'C': { status: 'Maintenance', availability: Array(16).fill('Available') }
   });
 
-  const timeSlots = [
-    '8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00',
-    '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
-  ];
+  const [dynamicTimeSlots, setDynamicTimeSlots] = useState([]);
+  const [courtTimeRanges, setCourtTimeRanges] = useState({});
+
+  const [selectedSportCourts, setSelectedSportCourts] = useState([]);
+  const [courtsLoading, setCourtsLoading] = useState(false);
 
   useEffect(() => {
     loadSportFacilities();
@@ -49,28 +52,76 @@ const SportAndCourtManagement = () => {
       const data = await res.json();
       
       if (data.success) {
-        const transformedSports = data.data.map((facility, index) => ({
-          id: index + 1,
-          name: facility.name,
-          location: facility.location,
-          status: facility.status,
-          courts: facility.courts ? facility.courts.map(court => ({
-            name: court.name,
-            earliest: secondsToTime(court.earliestTime),
-            latest: secondsToTime(court.latestTime),
-            status: getStatusString(court.status)
-          })) : [],
-          timeRange: { earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-        }));
-        
-        setSports(transformedSports);
-        if (transformedSports.length > 0) {
-          setSelectedSport(transformedSports[0].name);
+        if (data.data && data.data.length > 0) {
+          const transformedSports = await Promise.all(
+            data.data.map(async (facility, index) => {
+              let courts = [];
+              
+              // Fetch courts for each facility
+              try {
+                const courtsRes = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(facility.name)}/courts`);
+                if (courtsRes.ok) {
+                  const courtsData = await courtsRes.json();
+                  if (courtsData.success) {
+                    courts = courtsData.data.map(court => ({
+                      name: court.name,
+                      earliest: secondsToTime(court.earliestTime),
+                      latest: secondsToTime(court.latestTime),
+                      status: getStatusString(court.status)
+                    }));
+                  }
+                }
+              } catch (err) {
+                console.error(`Error loading courts for facility ${facility.name}:`, err);
+              }
+              
+              return {
+                id: index + 1,
+                name: facility.name,
+                location: facility.location,
+                status: facility.status,
+                courts: courts,
+                timeRange: { earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
+              };
+            })
+          );
+          
+          setSports(transformedSports);
+          
+          // Only set selected sport if there are sports and no current selection
+          if (transformedSports.length > 0 && !selectedSport) {
+            setSelectedSport(transformedSports[0].name);
+          }
+        } else {
+          // Handle empty data case
+          setSports([]);
+          setSelectedSport('');
+          setSelectedSportCourts([]);
+          setCourtTimeRanges({});
+          setDynamicTimeSlots([]);
         }
+      } else {
+        // Handle unsuccessful response
+        setSports([]);
+        setSelectedSport('');
+        setSelectedSportCourts([]);
+        setCourtTimeRanges({});
+        setDynamicTimeSlots([]);
       }
     } catch (err) {
       console.error('Error loading sport facilities:', err);
-      setToast({ msg: err.message, type: "error" });
+      
+      // Only show error toast if it's not a "no data" situation
+      if (!err.message.includes('No data') && !err.message.includes('not found')) {
+        setToast({ msg: err.message, type: "error" });
+      }
+      
+      // Set empty state regardless of error
+      setSports([]);
+      setSelectedSport('');
+      setSelectedSportCourts([]);
+      setCourtTimeRanges({});
+      setDynamicTimeSlots([]);
     } finally {
       setLoading(false);
     }
@@ -167,7 +218,7 @@ const SportAndCourtManagement = () => {
   const handleDeleteSport = async () => {
     if (!selectedSportForEdit) return;
     
-    setLoading(true);
+    setDeleteLoading(true);
     try {
       const res = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(selectedSportForEdit.name)}`, {
         method: 'DELETE'
@@ -182,15 +233,134 @@ const SportAndCourtManagement = () => {
       setToast({ msg: result.message, type: "success" });
       setShowDeleteSportModal(false);
       setSelectedSportForEdit(null);
+      
+      // Clear selected sport and courts when deleting
+      setSelectedSport('');
+      setSelectedSportCourts([]);
+      setCourtTimeRanges({});
+      setDynamicTimeSlots([]);
+      
       await loadSportFacilities();
       
     } catch (err) {
       console.error('Error deleting sport facility:', err);
       setToast({ msg: err.message, type: "error" });
     } finally {
-      setLoading(false);
+      setDeleteLoading(false);
     }
   };
+
+  const generateTimeSlots = (earliestTime, latestTime) => {
+    const slots = [];
+    const start = Math.floor(earliestTime / 3600); // Convert seconds to hours
+    const end = Math.floor(latestTime / 3600);
+    
+    for (let hour = start; hour <= end; hour++) {
+      slots.push(`${hour.toString().padStart(2, '0')}:00`);
+    }
+    
+    return slots;
+  };
+
+  const loadCourtTimeRanges = async (facilityName, courts) => {
+    if (!facilityName || !courts.length) {
+      setCourtTimeRanges({});
+      setDynamicTimeSlots([]);
+      return;
+    }
+
+    try {
+      const timeRanges = {};
+      let allTimeSlots = new Set();
+      
+      // Fetch time range for each court
+      for (const court of courts) {
+        try {
+          const res = await authFetch(
+            `/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/courts/${encodeURIComponent(court.name)}/time-range`
+          );
+          
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+              timeRanges[court.name] = data.data;
+              
+              // Generate time slots for this court
+              const courtSlots = generateTimeSlots(data.data.earliestTime, data.data.latestTime);
+              courtSlots.forEach(slot => allTimeSlots.add(slot));
+            }
+          }
+        } catch (err) {
+          console.error(`Error loading time range for court ${court.name}:`, err);
+          // Use default time range if API fails
+          timeRanges[court.name] = {
+            earliestTime: timeToSeconds('08:00'),
+            latestTime: timeToSeconds('23:00'),
+            earliestTimeStr: '08:00',
+            latestTimeStr: '23:00'
+          };
+        }
+      }
+      
+      setCourtTimeRanges(timeRanges);
+      
+      // Sort and set dynamic time slots
+      const sortedSlots = Array.from(allTimeSlots).sort();
+      setDynamicTimeSlots(sortedSlots.length > 0 ? sortedSlots : [
+        '8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00',
+        '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
+      ]);
+      
+    } catch (err) {
+      console.error('Error loading court time ranges:', err);
+      setToast({ msg: 'Failed to load court time ranges', type: "error" });
+    }
+  };
+
+  const loadCourtsForSport = async (sportName) => {
+    if (!sportName) {
+      setSelectedSportCourts([]);
+      setCourtTimeRanges({});
+      setDynamicTimeSlots([]);
+      return;
+    }
+    
+    setCourtsLoading(true);
+    try {
+      const res = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(sportName)}/courts`);
+      if (!res.ok) {
+        throw new Error('Failed to load courts');
+      }
+      const data = await res.json();
+      
+      if (data.success) {
+        const transformedCourts = data.data.map(court => ({
+          name: court.name,
+          earliest: secondsToTime(court.earliestTime),
+          latest: secondsToTime(court.latestTime),
+          status: getStatusString(court.status)
+        }));
+        setSelectedSportCourts(transformedCourts);
+        
+        // Load time ranges for each court
+        await loadCourtTimeRanges(sportName, transformedCourts);
+      }
+    } catch (err) {
+      console.error('Error loading courts:', err);
+      setToast({ msg: err.message, type: "error" });
+      setSelectedSportCourts([]);
+      setCourtTimeRanges({});
+      setDynamicTimeSlots([]);
+    } finally {
+      setCourtsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedSport) {
+      loadCourtsForSport(selectedSport);
+    }
+  }, [selectedSport]);
 
   // Helper functions
   const getStatusValue = (statusString) => {
@@ -225,6 +395,7 @@ const SportAndCourtManagement = () => {
   };
 
   const selectedSportData = sports.find(sport => sport.name === selectedSport);
+  const courtsToDisplay = selectedSportCourts.length > 0 ? selectedSportCourts : (selectedSportData?.courts || []);
 
   const getCourtStatus = (courtName) => {
     const status = courtStatuses[courtName]?.status;
@@ -232,7 +403,7 @@ const SportAndCourtManagement = () => {
     return status || "Open";
   };
 
-  const sortedCourts = [...(selectedSportData?.courts || [])].sort((a, b) => {
+  const sortedCourts = [...courtsToDisplay].sort((a, b) => {
     const aName = a.name;
     const bName = b.name;
     if (courtSort.field === 'name') {
@@ -241,8 +412,8 @@ const SportAndCourtManagement = () => {
         : bName.localeCompare(aName);
     }
     if (courtSort.field === 'added') {
-      const aIdx = selectedSportData.courts.findIndex(c => c.name === aName);
-      const bIdx = selectedSportData.courts.findIndex(c => c.name === bName);
+      const aIdx = courtsToDisplay.findIndex(c => c.name === aName);
+      const bIdx = courtsToDisplay.findIndex(c => c.name === bName);
       return courtSort.order === 'asc' ? aIdx - bIdx : bIdx - aIdx;
     }
     if (courtSort.field === 'status') {
@@ -255,13 +426,68 @@ const SportAndCourtManagement = () => {
     return 0;
   });
 
+  const renderCourtTimeSlots = (courtName, status) => {
+    const courtTimeRange = courtTimeRanges[courtName];
+    
+    if (!courtTimeRange) {
+      // Use default time slots if no specific range available
+      return dynamicTimeSlots.map((time, index) => {
+        const avail = courtStatuses[courtName]?.availability[index] || "Available";
+        return (
+          <td key={time} className={`time-slot ${avail.toLowerCase()}`}>
+            {avail}
+          </td>
+        );
+      });
+    }
+    
+    // Generate slots based on court's specific time range
+    const courtSlots = generateTimeSlots(courtTimeRange.earliestTime, courtTimeRange.latestTime);
+    
+    return dynamicTimeSlots.map((time, index) => {
+      const timeHour = parseInt(time.split(':')[0]);
+      const courtStartHour = Math.floor(courtTimeRange.earliestTime / 3600);
+      const courtEndHour = Math.floor(courtTimeRange.latestTime / 3600);
+      
+      // Check if this time slot is within the court's operating hours
+      const isWithinRange = timeHour >= courtStartHour && timeHour <= courtEndHour;
+      
+      if (status === "Maintenance") {
+        return (
+          <td
+            key={time}
+            className="time-slot maintenance"
+            style={{ backgroundColor: "#fef3c7", color: "#fef3c7" }}
+          />
+        );
+      }
+      
+      if (status === "Closed" || !isWithinRange) {
+        return (
+          <td
+            key={time}
+            className="time-slot closed"
+            style={{ backgroundColor: "#fee2e2", color: "#fee2e2" }}
+          />
+        );
+      }
+      
+      const avail = courtStatuses[courtName]?.availability[index] || "Available";
+      return (
+        <td key={time} className={`time-slot ${avail.toLowerCase()}`}>
+          {avail}
+        </td>
+      );
+    });
+  };
+
   return (
     <>
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
       <div className="sport-management-container">
         {loading && (
           <div className="loading-overlay">
-            <div className="loading-spinner">Loading...</div>
+            <Spinner />
           </div>
         )}
 
@@ -284,63 +510,79 @@ const SportAndCourtManagement = () => {
                 <tr>
                   <th>Sports</th>
                   <th>Court</th>
-                  <th>Earliest</th>
-                  <th>Latest</th>
                   <th>Location</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {sports.map((sport) => (
-                  <tr
-                    key={sport.id}
-                    className={selectedSport === sport.name ? 'selected-row' : ''}
-                    onClick={() => setSelectedSport(sport.name)}
-                  >
-                    <td>{sport.name}</td>
-                    <td>
-                      {sport.courts.map(court => court.name).join(', ')}
-                    </td>
-                    <td>
-                      {sport.courts.map(court => court.earliest || DEFAULT_EARLIEST).join(', ')}
-                    </td>
-                    <td>
-                      {sport.courts.map(court => court.latest || DEFAULT_LATEST).join(', ')}
-                    </td>
-                    <td>
-                      <a href={sport.location} className="map-link" target="_blank" rel="noopener noreferrer">
-                        <MapPin size={14} />
-                        Google Map link
-                      </a>
-                    </td>
-                    <td>
-                      <div className="action-buttons">
-                        <button
-                          className="edit-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedSportForEdit(sport);
-                            setShowEditSportModal(true);
-                          }}
-                          disabled={loading}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="delete-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedSportForEdit(sport);
-                            setShowDeleteSportModal(true);
-                          }}
-                          disabled={loading}
-                        >
-                          Delete
-                        </button>
+                {sports.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="empty-state">
+                      <div className="empty-state-content">
+                        <p>No Sport Facilities Found</p>
                       </div>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  sports.map((sport) => (
+                    <tr
+                      key={sport.id}
+                      className={selectedSport === sport.name ? 'selected-row' : ''}
+                      onClick={() => setSelectedSport(sport.name)}
+                    >
+                      <td>{sport.name}</td>
+                      <td>
+                        {sport.courts && sport.courts.length > 0 
+                          ? sport.courts.map(court => court.name).join(', ')
+                          : 'No courts'
+                        }
+                      </td>
+                      <td>
+                        {sport.location ? (
+                          <a href={sport.location} className="map-link" target="_blank" rel="noopener noreferrer">
+                            <MapPin size={14} />
+                            Google Map link
+                          </a>
+                        ) : (
+                          <span className="no-location">No location set</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            className="edit-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedSportForEdit(sport);
+                              setShowEditSportModal(true);
+                            }}
+                            disabled={loading || deleteLoading}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="delete-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedSportForEdit(sport);
+                              setShowDeleteSportModal(true);
+                            }}
+                            disabled={loading || deleteLoading}
+                          >
+                            {deleteLoading && selectedSportForEdit?.id === sport.id ? (
+                              <>
+                                <div className="button-spinner"></div>
+                                Deleting...
+                              </>
+                            ) : (
+                              'Delete'
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -350,7 +592,8 @@ const SportAndCourtManagement = () => {
         <div className="courts-section">
           <div className="section-header">
             <div className="section-title-with-sort">
-              <h3>{selectedSport} Courts</h3>
+              <h3>{selectedSport}</h3>
+              {courtsLoading && <span className="loading-text">Loading courts...</span>}
               <div className="sort-btn-group">
                 <button
                   className={`sort-btn${courtSort.field === 'name' ? ' active' : ''}`}
@@ -361,6 +604,7 @@ const SportAndCourtManagement = () => {
                     }))
                   }
                   type="button"
+                  disabled={courtsLoading}
                 >
                   Court Name {courtSort.field === 'name' ? (courtSort.order === 'asc' ? '↑' : '↓') : ''}
                 </button>
@@ -373,6 +617,7 @@ const SportAndCourtManagement = () => {
                     }))
                   }
                   type="button"
+                  disabled={courtsLoading}
                 >
                   Court Added {courtSort.field === 'added' ? (courtSort.order === 'asc' ? '↑' : '↓') : ''}
                 </button>
@@ -385,6 +630,7 @@ const SportAndCourtManagement = () => {
                     }))
                   }
                   type="button"
+                  disabled={courtsLoading}
                 >
                   Status {courtSort.field === 'status' ? (courtSort.order === 'asc' ? '↑' : '↓') : ''}
                 </button>
@@ -394,83 +640,73 @@ const SportAndCourtManagement = () => {
               <button
                 className="add-btn secondary"
                 onClick={() => setShowAddCourtModal(true)}
+                disabled={!selectedSport || courtsLoading}
               >
                 <Plus size={16} />
                 Add New Court
               </button>
               <button
-                className="edit-btn"
-                onClick={() => setShowEditCourtModal(true)}
-              >
-                <Edit size={16} />
-                Edit
-              </button>
-              <button
                 className="delete-btn"
                 onClick={() => setShowDeleteCourtModal(true)}
+                disabled={!selectedSport || courtsLoading || sortedCourts.length === 0}
               >
                 <Trash2 size={16} />
-                Delete
+                Delete Court
               </button>
             </div>
           </div>
 
-          <div className="schedule-container">
-            <div className="schedule-table-wrapper">
-              <table className="schedule-table">
-                <thead>
-                  <tr>
-                    <th>Courts</th>
-                    <th>Status</th>
-                    {timeSlots.map(time => (
-                      <th key={time}>{time}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedCourts.map(court => {
-                    const courtName = court.name;
-                    const status = getCourtStatus(courtName);
-                    return (
-                      <tr key={courtName}>
-                        <td className="court-name">Court {courtName}</td>
-                        <td className={`status ${status.toLowerCase()}`}>{status}</td>
-                        {timeSlots.map((time, index) => {
-                          if (status === "Maintenance") {
-                            return (
-                              <td
-                                key={time}
-                                className="time-slot maintenance"
-                                style={{ backgroundColor: "#fef3c7", color: "#fef3c7" }}
-                              />
-                            );
-                          }
-                          if (status === "Closed") {
-                            return (
-                              <td
-                                key={time}
-                                className="time-slot closed"
-                                style={{ backgroundColor: "#fee2e2", color: "#fee2e2" }}
-                              />
-                            );
-                          }
-                          const avail = courtStatuses[courtName]?.availability[index] || "Available";
-                          return (
-                            <td
-                              key={time}
-                              className={`time-slot ${avail.toLowerCase()}`}
-                            >
-                              {avail}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          {courtsLoading ? (
+            <div className="loading-container">
+              <Spinner />
             </div>
-          </div>
+          ) : (
+            <div className="schedule-container">
+              <div className="schedule-table-wrapper">
+                <table className="schedule-table">
+                  <thead>
+                    <tr>
+                      <th>Courts</th>
+                      <th>Status</th>
+                      <th>Time Range</th>
+                      {dynamicTimeSlots.map(time => (
+                        <th key={time}>{time}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedCourts.length === 0 ? (
+                      <tr>
+                        <td colSpan={dynamicTimeSlots.length + 3} style={{ textAlign: 'center', padding: '2rem' }}>
+                          {selectedSport ? 'No courts found for this facility' : 'Please select a sport facility'}
+                        </td>
+                      </tr>
+                    ) : (
+                      sortedCourts.map(court => {
+                        const courtName = court.name;
+                        const status = getCourtStatus(courtName);
+                        const courtTimeRange = courtTimeRanges[courtName];
+                        
+                        return (
+                          <tr key={courtName}>
+                            <td className="court-name">Court {courtName}</td>
+                            <td className={`status ${status.toLowerCase()}`}>{status}</td>
+                            <td className="time-range">
+                              {courtTimeRange ? 
+                                `${courtTimeRange.earliestTimeStr} - ${courtTimeRange.latestTimeStr}` : 
+                                'Loading...'
+                              }
+                            </td>
+                            {renderCourtTimeSlots(courtName, status)}
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div className="legend-and-update">
             <div className="legend">
@@ -480,12 +716,13 @@ const SportAndCourtManagement = () => {
               </div>
               <div className="legend-item">
                 <span className="legend-color booked"></span>
-                Booked
+                Booked / Unavailable
               </div>
             </div>
             <button
               className="update-availability-btn"
               onClick={() => setShowUpdateAvailabilityModal(true)}
+              disabled={!selectedSport || courtsLoading}
             >
               Update Court Availability
             </button>
@@ -516,10 +753,13 @@ const SportAndCourtManagement = () => {
             title="Delete Sport Facility"
             message={`Are you sure you want to delete ${selectedSportForEdit?.name}? This action cannot be undone.`}
             onClose={() => {
-              setShowDeleteSportModal(false);
-              setSelectedSportForEdit(null);
+              if (!deleteLoading) {
+                setShowDeleteSportModal(false);
+                setSelectedSportForEdit(null);
+              }
             }}
             onConfirm={handleDeleteSport}
+            isLoading={deleteLoading}
           />
         )}
 
@@ -724,7 +964,7 @@ const AddSportModal = ({ onClose, onSave }) => {
           <div className="modal-actions">
             <button type="button" onClick={onClose} className="cancel-btn" disabled={isSubmitting}>Cancel</button>
             <button type="submit" className="save-btn" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Save'}
+              {isSubmitting ? 'Adding...' : 'Add'}
             </button>
           </div>
         </form>
@@ -737,7 +977,7 @@ const AddSportModal = ({ onClose, onSave }) => {
 const EditSportModal = ({ sport, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     name: sport?.name || '',
-    courts: sport?.courts || [],
+    courts: sport?.courts?.map(court => court.name) || [],
     location: sport?.location || '',
     timeRange: sport?.timeRange || { earliest: '8:00', latest: '23:00' }
   });
@@ -781,7 +1021,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
             <X size={20} />
           </button>
         </div>
-        <div className="modal-form">
+        <form className="modal-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Sport Name *</label>
             <input
@@ -808,7 +1048,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
             <div className="courts-list">
               {formData.courts.map((court, index) => (
                 <div key={index} className="court-item">
-                  <span>{court}</span>
+                  <span>{typeof court === 'string' ? court : court.name}</span>
                   <button type="button" onClick={() => removeCourt(index)} className="remove-court-btn" disabled={isSubmitting}>
                     <X size={14} />
                   </button>
@@ -860,11 +1100,11 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
 
           <div className="modal-actions">
             <button type="button" onClick={onClose} className="cancel-btn" disabled={isSubmitting}>Cancel</button>
-            <button type="button" onClick={handleSubmit} className="save-btn" disabled={isSubmitting}>
+            <button type="submit" className="save-btn" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
@@ -1091,13 +1331,13 @@ const UpdateAvailabilityModal = ({ onClose, onSave }) => {
 };
 
 // Delete Confirmation Modal Component
-const DeleteConfirmModal = ({ title, message, onClose, onConfirm }) => {
+const DeleteConfirmModal = ({ title, message, onClose, onConfirm, isLoading = false }) => {
   return (
     <div className="modal-overlay">
       <div className="modal delete-modal">
         <div className="modal-header">
           <h3>{title}</h3>
-          <button className="close-btn" onClick={onClose}>
+          <button className="close-btn" onClick={onClose} disabled={isLoading}>
             <X size={20} />
           </button>
         </div>
@@ -1105,8 +1345,19 @@ const DeleteConfirmModal = ({ title, message, onClose, onConfirm }) => {
           <p>{message}</p>
         </div>
         <div className="modal-actions">
-          <button onClick={onClose} className="cancel-btn">Cancel</button>
-          <button onClick={onConfirm} className="delete-btn">Delete</button>
+          <button onClick={onClose} className="cancel-btn" disabled={isLoading}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} className="delete-btn" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <div className="button-spinner"></div>
+                Deleting...
+              </>
+            ) : (
+              'Delete'
+            )}
+          </button>
         </div>
       </div>
     </div>
