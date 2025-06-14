@@ -1,93 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from "@components/Navbar";
 import { X, Plus, Edit, Trash2, MapPin } from 'lucide-react';
+import { authFetch } from '@utils/authFetch';
+import Toast from '@components/Toast';
 import '@styles/SportAndCourtManagement.css';
 
 const DEFAULT_EARLIEST = '08:00';
 const DEFAULT_LATEST = '23:00';
 
 const SportAndCourtManagement = () => {
-  // Standardize all courts as objects
-  const [sports, setSports] = useState([
-    {
-      id: 1,
-      name: 'Badminton',
-      courts: [
-        { name: 'A', earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST },
-        { name: 'B', earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST },
-        { name: 'C', earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-      ],
-      location: 'Google Map link',
-      timeRange: { earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-    },
-    {
-      id: 2,
-      name: 'Volleyball',
-      courts: [
-        { name: 'A', earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST },
-        { name: 'B', earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-      ],
-      location: 'Google Map link',
-      timeRange: { earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-    },
-    {
-      id: 3,
-      name: 'Basketball',
-      courts: [
-        { name: 'A', earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-      ],
-      location: 'Google Map link',
-      timeRange: { earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-    },
-    {
-      id: 4,
-      name: 'Football',
-      courts: [
-        { name: 'Stadium Field', earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-      ],
-      location: 'Google Map link',
-      timeRange: { earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-    },
-    {
-      id: 5,
-      name: 'Swimming Pool',
-      courts: [
-        { name: 'A', earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-      ],
-      location: 'Google Map link',
-      timeRange: { earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-    },
-    {
-      id: 6,
-      name: 'Archer',
-      courts: [
-        { name: 'Archer Field', earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-      ],
-      location: 'Google Map link',
-      timeRange: { earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-    },
-    {
-      id: 7,
-      name: 'Rugby',
-      courts: [
-        { name: 'Rugby Field', earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-      ],
-      location: 'Google Map link',
-      timeRange: { earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-    },
-    {
-      id: 8,
-      name: 'Squash',
-      courts: [
-        { name: 'A', earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST },
-        { name: 'B', earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-      ],
-      location: 'Google Map link',
-      timeRange: { earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-    }
-  ]);
+  const [sports, setSports] = useState([]);
   const [activeTab, setActiveTab] = useState("courts");
-  const [selectedSport, setSelectedSport] = useState(sports[0]?.name || '');
+  const [selectedSport, setSelectedSport] = useState('');
   const [showAddSportModal, setShowAddSportModal] = useState(false);
   const [showEditSportModal, setShowEditSportModal] = useState(false);
   const [showDeleteSportModal, setShowDeleteSportModal] = useState(false);
@@ -97,8 +21,9 @@ const SportAndCourtManagement = () => {
   const [showUpdateAvailabilityModal, setShowUpdateAvailabilityModal] = useState(false);
   const [selectedSportForEdit, setSelectedSportForEdit] = useState(null);
   const [courtSort, setCourtSort] = useState({ field: 'name', order: 'asc' });
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ msg: "", type: "success" });
 
-  // Example: courtStatuses should use court.name as key
   const [courtStatuses, setCourtStatuses] = useState({
     'A': { status: 'Normal', availability: Array(16).fill('Available').map((_, i) => i === 6 ? 'Booked' : 'Available') },
     'B': { status: 'Full', availability: Array(16).fill('Booked') },
@@ -110,59 +35,203 @@ const SportAndCourtManagement = () => {
     '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
   ];
 
-  const handleAddSport = (sportData) => {
-    const newSport = {
-      id: sports.length + 1,
-      name: sportData.name,
-      courts: (sportData.courts || []).map(court =>
-        typeof court === 'string'
-          ? { name: court, earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-          : { ...court, earliest: court.earliest || DEFAULT_EARLIEST, latest: court.latest || DEFAULT_LATEST }
-      ),
-      location: sportData.location,
-      timeRange: sportData.timeRange
-    };
-    setSports([...sports, newSport]);
-    setShowAddSportModal(false);
-  };
+  useEffect(() => {
+    loadSportFacilities();
+  }, []);
 
-  const handleEditSport = (sportData) => {
-    setSports(sports.map(sport =>
-      sport.id === selectedSportForEdit.id
-        ? {
-            ...sport,
-            ...sportData,
-            courts: (sportData.courts || []).map(court =>
-              typeof court === 'string'
-                ? { name: court, earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
-                : { ...court, earliest: court.earliest || DEFAULT_EARLIEST, latest: court.latest || DEFAULT_LATEST }
-            )
-          }
-        : sport
-    ));
-    setShowEditSportModal(false);
-    setSelectedSportForEdit(null);
-  };
-
-  const handleDeleteSport = () => {
-    setSports(sports.filter(sport => sport.id !== selectedSportForEdit.id));
-    setShowDeleteSportModal(false);
-    setSelectedSportForEdit(null);
-    if (selectedSport === selectedSportForEdit.name) {
-      setSelectedSport(sports[0]?.name || '');
+  const loadSportFacilities = async () => {
+    setLoading(true);
+    try {
+      const res = await authFetch('/api/admin/sport-facilities');
+      if (!res.ok) {
+        throw new Error('Failed to load sport facilities');
+      }
+      const data = await res.json();
+      
+      if (data.success) {
+        const transformedSports = data.data.map((facility, index) => ({
+          id: index + 1,
+          name: facility.name,
+          location: facility.location,
+          status: facility.status,
+          courts: facility.courts ? facility.courts.map(court => ({
+            name: court.name,
+            earliest: secondsToTime(court.earliestTime),
+            latest: secondsToTime(court.latestTime),
+            status: getStatusString(court.status)
+          })) : [],
+          timeRange: { earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
+        }));
+        
+        setSports(transformedSports);
+        if (transformedSports.length > 0) {
+          setSelectedSport(transformedSports[0].name);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading sport facilities:', err);
+      setToast({ msg: err.message, type: "error" });
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleAddSport = async (sportData) => {
+    setLoading(true);
+    try {
+      const requestData = {
+        facilityName: sportData.name,
+        facilityLocation: sportData.location,
+        facilityStatus: getStatusValue(sportData.status || 'OPEN'),
+        courts: sportData.courts.map(court => ({
+          name: court.name,
+          earliestTime: timeToSeconds(court.earliest || DEFAULT_EARLIEST),
+          latestTime: timeToSeconds(court.latest || DEFAULT_LATEST),
+          status: getStatusValue('OPEN')
+        }))
+      };
+
+      const res = await authFetch('/api/admin/sport-facilities', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to add sport facility');
+      }
+
+      const result = await res.json();
+      setToast({ msg: result.message, type: "success" });
+      setShowAddSportModal(false);
+      await loadSportFacilities();
+      
+    } catch (err) {
+      console.error('Error adding sport facility:', err);
+      setToast({ msg: err.message, type: "error" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditSport = async (sportData) => {
+    setLoading(true);
+    try {
+      if (selectedSportForEdit.name !== sportData.name) {
+        const res = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(selectedSportForEdit.name)}/name`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ newName: sportData.name })
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Failed to update facility name');
+        }
+      }
+
+      if (selectedSportForEdit.location !== sportData.location) {
+        const facilityName = sportData.name;
+        const res = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/location`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ location: sportData.location })
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Failed to update facility location');
+        }
+      }
+
+      setToast({ msg: "Sport facility updated successfully", type: "success" });
+      setShowEditSportModal(false);
+      setSelectedSportForEdit(null);
+      await loadSportFacilities();
+      
+    } catch (err) {
+      console.error('Error updating sport facility:', err);
+      setToast({ msg: err.message, type: "error" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSport = async () => {
+    if (!selectedSportForEdit) return;
+    
+    setLoading(true);
+    try {
+      const res = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(selectedSportForEdit.name)}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to delete sport facility');
+      }
+
+      const result = await res.json();
+      setToast({ msg: result.message, type: "success" });
+      setShowDeleteSportModal(false);
+      setSelectedSportForEdit(null);
+      await loadSportFacilities();
+      
+    } catch (err) {
+      console.error('Error deleting sport facility:', err);
+      setToast({ msg: err.message, type: "error" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper functions
+  const getStatusValue = (statusString) => {
+    const statusMap = {
+      'OPEN': 0,
+      'CLOSED': 1,
+      'MAINTENANCE': 2,
+      'BOOKED': 3
+    };
+    return statusMap[statusString] || 0;
+  };
+
+  const getStatusString = (statusValue) => {
+    const statusMap = {
+      0: 'OPEN',
+      1: 'CLOSED',
+      2: 'MAINTENANCE',
+      3: 'BOOKED'
+    };
+    return statusMap[statusValue] || 'OPEN';
+  };
+
+  const timeToSeconds = (timeString) => {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return hours * 3600 + minutes * 60;
+  };
+
+  const secondsToTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   };
 
   const selectedSportData = sports.find(sport => sport.name === selectedSport);
 
-  // Helper to get status for a court
   const getCourtStatus = (courtName) => {
     const status = courtStatuses[courtName]?.status;
     if (status === "Normal") return "Open";
     return status || "Open";
   };
 
-  // Sort courts based on selected field and order
   const sortedCourts = [...(selectedSportData?.courts || [])].sort((a, b) => {
     const aName = a.name;
     const bName = b.name;
@@ -190,6 +259,12 @@ const SportAndCourtManagement = () => {
     <>
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
       <div className="sport-management-container">
+        {loading && (
+          <div className="loading-overlay">
+            <div className="loading-spinner">Loading...</div>
+          </div>
+        )}
+
         {/* Sport Facilities Section */}
         <div className="sport-facilities-section">
           <div className="section-header">
@@ -197,6 +272,7 @@ const SportAndCourtManagement = () => {
             <button
               className="add-btn primary"
               onClick={() => setShowAddSportModal(true)}
+              disabled={loading}
             >
               <Plus size={16} />
               Add New Sport Facility
@@ -232,7 +308,7 @@ const SportAndCourtManagement = () => {
                       {sport.courts.map(court => court.latest || DEFAULT_LATEST).join(', ')}
                     </td>
                     <td>
-                      <a href="#" className="map-link">
+                      <a href={sport.location} className="map-link" target="_blank" rel="noopener noreferrer">
                         <MapPin size={14} />
                         Google Map link
                       </a>
@@ -246,6 +322,7 @@ const SportAndCourtManagement = () => {
                             setSelectedSportForEdit(sport);
                             setShowEditSportModal(true);
                           }}
+                          disabled={loading}
                         >
                           Edit
                         </button>
@@ -256,6 +333,7 @@ const SportAndCourtManagement = () => {
                             setSelectedSportForEdit(sport);
                             setShowDeleteSportModal(true);
                           }}
+                          disabled={loading}
                         >
                           Delete
                         </button>
@@ -358,7 +436,6 @@ const SportAndCourtManagement = () => {
                         <td className="court-name">Court {courtName}</td>
                         <td className={`status ${status.toLowerCase()}`}>{status}</td>
                         {timeSlots.map((time, index) => {
-                          // Maintenance: highlight all, no text
                           if (status === "Maintenance") {
                             return (
                               <td
@@ -368,7 +445,6 @@ const SportAndCourtManagement = () => {
                               />
                             );
                           }
-                          // Closed: use booked bg, no text
                           if (status === "Closed") {
                             return (
                               <td
@@ -378,7 +454,6 @@ const SportAndCourtManagement = () => {
                               />
                             );
                           }
-                          // Open: show normal availability/booked
                           const avail = courtStatuses[courtName]?.availability[index] || "Available";
                           return (
                             <td
@@ -481,6 +556,12 @@ const SportAndCourtManagement = () => {
           />
         )}
       </div>
+
+      <Toast
+        message={toast.msg}
+        type={toast.type}
+        onClose={() => setToast({ msg: "", type: "success" })}
+      />
     </>
   );
 };
@@ -494,6 +575,7 @@ const AddSportModal = ({ onClose, onSave }) => {
   });
   const [newCourt, setNewCourt] = useState('');
   const [courtTimes, setCourtTimes] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const addCourt = () => {
     const courtName = newCourt.trim();
@@ -539,17 +621,24 @@ const AddSportModal = ({ onClose, onSave }) => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const courtsWithTimes = formData.courts.map(court => ({
-      name: court.name,
-      earliest: court.earliest || '08:00',
-      latest: court.latest || '23:00'
-    }));
-    onSave({
-      ...formData,
-      courts: courtsWithTimes,
-    });
+    setIsSubmitting(true);
+    
+    try {
+      const courtsWithTimes = formData.courts.map(court => ({
+        name: court.name,
+        earliest: court.earliest || '08:00',
+        latest: court.latest || '23:00'
+      }));
+      
+      await onSave({
+        ...formData,
+        courts: courtsWithTimes,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -557,7 +646,7 @@ const AddSportModal = ({ onClose, onSave }) => {
       <div className="modal">
         <div className="modal-header">
           <h3>Add New Sport Facility</h3>
-          <button className="close-btn" onClick={onClose}>
+          <button className="close-btn" onClick={onClose} disabled={isSubmitting}>
             <X size={20} />
           </button>
         </div>
@@ -569,6 +658,7 @@ const AddSportModal = ({ onClose, onSave }) => {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -580,15 +670,16 @@ const AddSportModal = ({ onClose, onSave }) => {
                 value={newCourt}
                 onChange={(e) => setNewCourt(e.target.value)}
                 placeholder="Enter court name"
+                disabled={isSubmitting}
               />
-              <button type="button" onClick={addCourt} className="add-court-btn">Add</button>
+              <button type="button" onClick={addCourt} className="add-court-btn" disabled={isSubmitting}>Add</button>
             </div>
             <div className="courts-list">
               {formData.courts.map((court, index) => (
                 <div key={court.name} className="court-item" style={{ flexDirection: 'column', alignItems: 'flex-start', width: '100%' }}>
                   <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                     <span style={{ fontWeight: 500 }}>{court.name}</span>
-                    <button type="button" onClick={() => removeCourt(index)} className="remove-court-btn" style={{ marginLeft: 8 }}>
+                    <button type="button" onClick={() => removeCourt(index)} className="remove-court-btn" style={{ marginLeft: 8 }} disabled={isSubmitting}>
                       <X size={14} />
                     </button>
                   </div>
@@ -600,6 +691,7 @@ const AddSportModal = ({ onClose, onSave }) => {
                         value={court.earliest || '08:00'}
                         onChange={e => handleCourtTimeChange(court.name, 'earliest', e.target.value)}
                         style={{ minWidth: 120 }}
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -609,6 +701,7 @@ const AddSportModal = ({ onClose, onSave }) => {
                         value={court.latest || '23:00'}
                         onChange={e => handleCourtTimeChange(court.name, 'latest', e.target.value)}
                         style={{ minWidth: 120 }}
+                        disabled={isSubmitting}
                       />
                     </div>
                   </div>
@@ -624,12 +717,15 @@ const AddSportModal = ({ onClose, onSave }) => {
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               placeholder="Google Map link"
+              disabled={isSubmitting}
             />
           </div>
 
           <div className="modal-actions">
-            <button type="button" onClick={onClose} className="cancel-btn">Cancel</button>
-            <button type="submit" className="save-btn">Save</button>
+            <button type="button" onClick={onClose} className="cancel-btn" disabled={isSubmitting}>Cancel</button>
+            <button type="submit" className="save-btn" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : 'Save'}
+            </button>
           </div>
         </form>
       </div>
@@ -646,6 +742,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
     timeRange: sport?.timeRange || { earliest: '8:00', latest: '23:00' }
   });
   const [newCourt, setNewCourt] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const addCourt = () => {
     if (newCourt.trim()) {
@@ -664,9 +761,15 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave(formData);
+    setIsSubmitting(true);
+    
+    try {
+      await onSave(formData);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -674,7 +777,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
       <div className="modal">
         <div className="modal-header">
           <h3>Edit Sport Facility</h3>
-          <button className="close-btn" onClick={onClose}>
+          <button className="close-btn" onClick={onClose} disabled={isSubmitting}>
             <X size={20} />
           </button>
         </div>
@@ -686,6 +789,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
               required
+              disabled={isSubmitting}
             />
           </div>
           
@@ -697,14 +801,15 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
                 value={newCourt}
                 onChange={(e) => setNewCourt(e.target.value)}
                 placeholder="Enter court name"
+                disabled={isSubmitting}
               />
-              <button type="button" onClick={addCourt} className="add-court-btn">Add</button>
+              <button type="button" onClick={addCourt} className="add-court-btn" disabled={isSubmitting}>Add</button>
             </div>
             <div className="courts-list">
               {formData.courts.map((court, index) => (
                 <div key={index} className="court-item">
                   <span>{court}</span>
-                  <button type="button" onClick={() => removeCourt(index)} className="remove-court-btn">
+                  <button type="button" onClick={() => removeCourt(index)} className="remove-court-btn" disabled={isSubmitting}>
                     <X size={14} />
                   </button>
                 </div>
@@ -724,6 +829,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
                     ...formData,
                     timeRange: {...formData.timeRange, earliest: e.target.value}
                   })}
+                  disabled={isSubmitting}
                 />
               </div>
               <div>
@@ -735,6 +841,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
                     ...formData,
                     timeRange: {...formData.timeRange, latest: e.target.value}
                   })}
+                  disabled={isSubmitting}
                 />
               </div>
             </div>
@@ -747,12 +854,15 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
               value={formData.location}
               onChange={(e) => setFormData({...formData, location: e.target.value})}
               placeholder="Google Map link"
+              disabled={isSubmitting}
             />
           </div>
 
           <div className="modal-actions">
-            <button type="button" onClick={onClose} className="cancel-btn">Cancel</button>
-            <button type="button" onClick={() => onSave(formData)} className="save-btn">Save Changes</button>
+            <button type="button" onClick={onClose} className="cancel-btn" disabled={isSubmitting}>Cancel</button>
+            <button type="button" onClick={handleSubmit} className="save-btn" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
+            </button>
           </div>
         </div>
       </div>

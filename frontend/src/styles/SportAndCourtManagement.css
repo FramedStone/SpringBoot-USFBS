@@ -8,6 +8,28 @@
   min-height: 100vh;
 }
 
+/* Loading overlay */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.loading-spinner {
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  font-weight: 500;
+}
+
 /* Sport Facilities Section */
 .sport-facilities-section {
   background: white;
@@ -41,6 +63,12 @@
   color: #1e293b;
 }
 
+.section-title-with-sort {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 /* Buttons */
 .add-btn {
   display: flex;
@@ -55,12 +83,17 @@
   font-size: 14px;
 }
 
+.add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .add-btn.primary {
   background-color: #6366f1;
   color: white;
 }
 
-.add-btn.primary:hover {
+.add-btn.primary:hover:not(:disabled) {
   background-color: #5855eb;
   transform: translateY(-1px);
 }
@@ -70,7 +103,7 @@
   color: white;
 }
 
-.add-btn.secondary:hover {
+.add-btn.secondary:hover:not(:disabled) {
   background-color: #059669;
   transform: translateY(-1px);
 }
@@ -85,13 +118,19 @@
   transition: all 0.2s ease;
 }
 
+.edit-btn:disabled,
+.delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .edit-btn {
   background-color: #f59e0b;
   color: white;
   margin-right: 8px;
 }
 
-.edit-btn:hover {
+.edit-btn:hover:not(:disabled) {
   background-color: #d97706;
   transform: translateY(-1px);
 }
@@ -101,9 +140,37 @@
   color: white;
 }
 
-.delete-btn:hover {
+.delete-btn:hover:not(:disabled) {
   background-color: #dc2626;
   transform: translateY(-1px);
+}
+
+/* Sort Button Group */
+.sort-btn-group {
+  display: flex;
+  gap: 10px; 
+}
+
+.sort-btn-group .sort-btn {
+  background-color: #8b5cf6;
+  color: #fff;
+  border: 1px solid #8b5cf6;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  margin: 0;
+  transition: background 0.15s, color 0.15s, border 0.15s;
+}
+
+.sort-btn-group .sort-btn.active,
+.sort-btn-group .sort-btn:hover,
+.sort-btn-group .sort-btn:focus {
+  background-color: #7c3aed;
+  color: #fff;
+  border: 1px solid #7c3aed;
+  outline: none;
 }
 
 /* Table Styles */
@@ -265,6 +332,11 @@
   color: #166534;
 }
 
+.status.closed {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
 .time-slot {
   font-size: 10px;
   font-weight: 500;
@@ -391,6 +463,11 @@
   color: #1e293b;
 }
 
+.close-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .modal-form {
   padding: 24px;
 }
@@ -462,6 +539,11 @@
   background-color: #059669;
 }
 
+.add-court-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .courts-list {
   display: flex;
   flex-wrap: wrap;
@@ -490,6 +572,11 @@
 
 .remove-court-btn:hover {
   background-color: #fee2e2;
+}
+
+.remove-court-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Time Range Group */
@@ -563,6 +650,12 @@
   background-color: #2563eb;
 }
 
+.save-btn:disabled,
+.cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .delete-modal .delete-btn {
   background-color: #ef4444;
   color: white;
@@ -579,121 +672,10 @@
   background-color: #dc2626;
 }
 
-/* Sort By Button and Dropdown Menu */
-.sort-by-dropdown {
-  position: relative;
-  display: inline-block;
-  margin-right: 8px;
-}
-
-.sort-by-btn {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: background 0.15s;
-  min-width: 110px;
-}
-
-.sort-by-btn:hover,
-.sort-by-btn:focus {
-  background: #e5e7eb;
-  outline: none;
-}
-
-.sort-menu {
-  position: absolute;
-  left: 0;
-  top: 110%;
-  min-width: 170px;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  z-index: 10;
-  padding: 4px 0;
-  display: flex;
-  flex-direction: column;
-  animation: fadeInSortMenu 0.18s;
-}
-
-@keyframes fadeInSortMenu {
-  from { opacity: 0; transform: translateY(-8px);}
-  to { opacity: 1; transform: translateY(0);}
-}
-
-.sort-menu-item {
-  background: none;
-  border: none;
-  text-align: left;
-  padding: 10px 18px;
-  font-size: 13px;
-  color: #374151;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  width: 100%;
-}
-
-.sort-menu-item.active,
-.sort-menu-item:hover {
-  background: #f3f4f6;
-  color: #2563eb;
-}
-
-.sort-btn-group {
-  display: flex;
-  gap: 10px; 
-}
-
-.sort-btn-group .sort-btn {
-  background-color: #8b5cf6;
-  color: #fff;
-  border: 1px solid #8b5cf6;
-  border-radius: 6px;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  margin: 0;
-  transition: background 0.15s, color 0.15s, border 0.15s;
-}
-
-.sort-btn-group .sort-btn.active,
-.sort-btn-group .sort-btn:hover,
-.sort-btn-group .sort-btn:focus {
-  background-color: #7c3aed;
-  color: #fff;
-  border: 1px solid #7c3aed;
-  outline: none;
-}
-
 /* Responsive adjustments for sort buttons beside title */
 @media (max-width: 700px) {
   .sort-btn-group {
     gap: 6px;
-  }
-}
-
-/* Responsive adjustments for sort button */
-@media (max-width: 700px) {
-  .sort-by-btn {
-    padding: 7px 10px;
-    font-size: 12px;
-    min-width: 90px;
-  }
-  .sort-menu {
-    min-width: 120px;
-  }
-  .sort-menu-item {
-    padding: 8px 12px;
-    font-size: 12px;
   }
 }
 

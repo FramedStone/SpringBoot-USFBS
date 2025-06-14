@@ -1,7 +1,11 @@
 package com.usfbs.springboot.controller;
 
 import com.usfbs.springboot.dto.AnnouncementItem;
+import com.usfbs.springboot.dto.AddSportFacilityRequest;
+import com.usfbs.springboot.dto.SportFacilityResponse;
+import com.usfbs.springboot.dto.SportFacilityDetailResponse;
 import com.usfbs.springboot.contracts.Management;
+import com.usfbs.springboot.contracts.SportFacility;
 import com.usfbs.springboot.service.AdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -10,8 +14,11 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -293,6 +300,143 @@ public class AdminController {
             return ResponseEntity.status(500).body(
                 java.util.Map.of("error", "Title update failed", "details", e.getMessage())
             );
+        }
+    }
+
+    // Sport Facility Management Endpoints
+    @PostMapping("/sport-facilities")
+    public ResponseEntity<?> addSportFacility(@RequestBody AddSportFacilityRequest request) {
+        try {
+            List<SportFacility.court> courts = request.getCourts().stream()
+                .map(courtReq -> new SportFacility.court(
+                    courtReq.getName(),
+                    courtReq.getEarliestTime(),
+                    courtReq.getLatestTime(),
+                    courtReq.getStatus()
+                ))
+                .collect(Collectors.toList());
+            
+            String result = adminService.addSportFacility(
+                request.getFacilityName(),
+                request.getFacilityLocation(),
+                request.getFacilityStatus(),
+                courts
+            );
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/sport-facilities")
+    public ResponseEntity<?> getAllSportFacilities() {
+        try {
+            List<SportFacilityResponse> facilities = adminService.getAllSportFacilities();
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", facilities
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/sport-facilities/{facilityName}")
+    public ResponseEntity<?> getSportFacility(@PathVariable String facilityName) {
+        try {
+            SportFacilityDetailResponse facility = adminService.getSportFacility(facilityName);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", facility
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PutMapping("/sport-facilities/{facilityName}/name")
+    public ResponseEntity<?> updateSportFacilityName(
+            @PathVariable String facilityName,
+            @RequestBody Map<String, String> request) {
+        try {
+            String newName = request.get("newName");
+            String result = adminService.updateSportFacilityName(facilityName, newName);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PutMapping("/sport-facilities/{facilityName}/location")
+    public ResponseEntity<?> updateSportFacilityLocation(
+            @PathVariable String facilityName,
+            @RequestBody Map<String, String> request) {
+        try {
+            String newLocation = request.get("location");
+            String result = adminService.updateSportFacilityLocation(facilityName, newLocation);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PutMapping("/sport-facilities/{facilityName}/status")
+    public ResponseEntity<?> updateSportFacilityStatus(
+            @PathVariable String facilityName,
+            @RequestBody Map<String, Integer> request) {
+        try {
+            BigInteger status = BigInteger.valueOf(request.get("status"));
+            String result = adminService.updateSportFacilityStatus(facilityName, status);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @DeleteMapping("/sport-facilities/{facilityName}")
+    public ResponseEntity<?> deleteSportFacility(@PathVariable String facilityName) {
+        try {
+            String result = adminService.deleteSportFacility(facilityName);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
         }
     }
 }

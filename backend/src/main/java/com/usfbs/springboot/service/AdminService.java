@@ -1,14 +1,21 @@
 package com.usfbs.springboot.service;
 
 import com.usfbs.springboot.contracts.Management;
+import com.usfbs.springboot.contracts.SportFacility;
 import com.usfbs.springboot.dto.AnnouncementItem;
 import com.usfbs.springboot.dto.PinataManifest;
+import com.usfbs.springboot.dto.SportFacilityResponse;
+import com.usfbs.springboot.dto.SportFacilityDetailResponse;
 import com.usfbs.springboot.util.PinataUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.protocol.core.RemoteFunctionCall;
+import org.web3j.tuples.generated.Tuple3;
+import org.web3j.tuples.generated.Tuple4;
 import org.web3j.tx.RawTransactionManager;
 
 import java.math.BigInteger;
@@ -18,8 +25,13 @@ import java.util.Map;
 
 @Service
 public class AdminService {
+    private static final Logger logger = LoggerFactory.getLogger(AdminService.class);
+    
     private final PinataUtil pinataUtil;
     private final Management managementContract;
+    
+    @Autowired
+    private SportFacility sportFacilityContract;
 
     @Autowired
     public AdminService(PinataUtil pinataUtil, Management managementContract) {
@@ -497,6 +509,152 @@ public class AdminService {
         } catch (Exception e) {
             System.err.println("Failed to update announcement selectively: " + e.getMessage());
             throw new Exception("Selective announcement update failed: " + e.getMessage());
+        }
+    }
+
+    // Sport Facility CRUD Operations
+    public String addSportFacility(String facilityName, String facilityLocation, 
+                                  BigInteger facilityStatus, List<SportFacility.court> facilityCourts) {
+        try {
+            TransactionReceipt receipt = sportFacilityContract
+                .addSportFacility(facilityName, facilityLocation, facilityStatus, facilityCourts)
+                .send();
+            
+            if (receipt.isStatusOK()) {
+                List<SportFacility.SportFacilityAddedEventResponse> events = 
+                    SportFacility.getSportFacilityAddedEvents(receipt);
+                
+                if (!events.isEmpty()) {
+                    SportFacility.SportFacilityAddedEventResponse event = events.get(0);
+                    return String.format("Sport facility '%s' added successfully at location '%s' with %d courts", 
+                        event.facilityName, event.Location, facilityCourts.size());
+                }
+            }
+            return "Sport facility added but event not found";
+        } catch (Exception e) {
+            logger.error("Error adding sport facility: {}", e.getMessage());
+            throw new RuntimeException("Failed to add sport facility: " + e.getMessage());
+        }
+    }
+
+    public List<SportFacilityResponse> getAllSportFacilities() {
+        try {
+            Tuple3<List<String>, List<String>, List<BigInteger>> result = 
+                sportFacilityContract.getAllSportFacility().send();
+            
+            List<String> names = result.component1();
+            List<String> locations = result.component2();
+            List<BigInteger> statuses = result.component3();
+            
+            List<SportFacilityResponse> facilities = new ArrayList<>();
+            for (int i = 0; i < names.size(); i++) {
+                SportFacilityResponse facility = new SportFacilityResponse();
+                facility.setName(names.get(i));
+                facility.setLocation(locations.get(i));
+                facility.setStatus(getStatusString(statuses.get(i)));
+                facilities.add(facility);
+            }
+            
+            return facilities;
+        } catch (Exception e) {
+            logger.error("Error getting all sport facilities: {}", e.getMessage());
+            throw new RuntimeException("Failed to get sport facilities: " + e.getMessage());
+        }
+    }
+
+    public SportFacilityDetailResponse getSportFacility(String facilityName) {
+        try {
+            Tuple4<String, String, BigInteger, List<SportFacility.court>> result = 
+                sportFacilityContract.getSportFacility(facilityName).send();
+            
+            SportFacilityDetailResponse facility = new SportFacilityDetailResponse();
+            facility.setName(result.component1());
+            facility.setLocation(result.component2());
+            facility.setStatus(getStatusString(result.component3()));
+            facility.setCourts(result.component4());
+            
+            return facility;
+        } catch (Exception e) {
+            logger.error("Error getting sport facility {}: {}", facilityName, e.getMessage());
+            throw new RuntimeException("Failed to get sport facility: " + e.getMessage());
+        }
+    }
+
+    public String updateSportFacilityName(String oldFacilityName, String newFacilityName) {
+        try {
+            TransactionReceipt receipt = sportFacilityContract
+                .updateSportFacilityName(oldFacilityName, newFacilityName)
+                .send();
+            
+            if (receipt.isStatusOK()) {
+                return String.format("Sport facility name updated from '%s' to '%s'", 
+                    oldFacilityName, newFacilityName);
+            }
+            return "Failed to update sport facility name";
+        } catch (Exception e) {
+            logger.error("Error updating sport facility name: {}", e.getMessage());
+            throw new RuntimeException("Failed to update sport facility name: " + e.getMessage());
+        }
+    }
+
+    public String updateSportFacilityLocation(String facilityName, String newLocation) {
+        try {
+            TransactionReceipt receipt = sportFacilityContract
+                .updateSportFacilityLocation(facilityName, newLocation)
+                .send();
+            
+            if (receipt.isStatusOK()) {
+                return String.format("Sport facility '%s' location updated to '%s'", 
+                    facilityName, newLocation);
+            }
+            return "Failed to update sport facility location";
+        } catch (Exception e) {
+            logger.error("Error updating sport facility location: {}", e.getMessage());
+            throw new RuntimeException("Failed to update sport facility location: " + e.getMessage());
+        }
+    }
+
+    public String updateSportFacilityStatus(String facilityName, BigInteger status) {
+        try {
+            TransactionReceipt receipt = sportFacilityContract
+                .updateSportFacilityStatus(facilityName, status)
+                .send();
+            
+            if (receipt.isStatusOK()) {
+                return String.format("Sport facility '%s' status updated to '%s'", 
+                    facilityName, getStatusString(status));
+            }
+            return "Failed to update sport facility status";
+        } catch (Exception e) {
+            logger.error("Error updating sport facility status: {}", e.getMessage());
+            throw new RuntimeException("Failed to update sport facility status: " + e.getMessage());
+        }
+    }
+
+    public String deleteSportFacility(String facilityName) {
+        try {
+            TransactionReceipt receipt = sportFacilityContract
+                .deleteSportFacility(facilityName)
+                .send();
+            
+            if (receipt.isStatusOK()) {
+                return String.format("Sport facility '%s' deleted successfully", facilityName);
+            }
+            return "Failed to delete sport facility";
+        } catch (Exception e) {
+            logger.error("Error deleting sport facility: {}", e.getMessage());
+            throw new RuntimeException("Failed to delete sport facility: " + e.getMessage());
+        }
+    }
+
+    private String getStatusString(BigInteger status) {
+        int statusValue = status.intValue();
+        switch (statusValue) {
+            case 0: return "OPEN";
+            case 1: return "CLOSED";
+            case 2: return "MAINTENANCE";
+            case 3: return "BOOKED";
+            default: return "UNKNOWN";
         }
     }
 }
