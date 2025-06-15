@@ -16,8 +16,10 @@ import org.springframework.http.MediaType;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -479,6 +481,117 @@ public class AdminController {
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "data", timeRange
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/sport-facilities/{facilityName}/courts")
+    public ResponseEntity<?> addCourts(
+            @PathVariable String facilityName,
+            @RequestBody Map<String, List<Map<String, Object>>> requestBody) {
+        try {
+            List<Map<String, Object>> courtsData = requestBody.get("courts");
+            
+            // Validate input
+            if (courtsData == null || courtsData.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "No courts provided"
+                ));
+            }
+            
+            // Validate court names are unique within this request
+            Set<String> courtNames = new HashSet<>();
+            for (Map<String, Object> courtData : courtsData) {
+                String courtName = (String) courtData.get("name");
+                if (courtNames.contains(courtName)) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "Duplicate court name in request: " + courtName
+                    ));
+                }
+                courtNames.add(courtName);
+            }
+            
+            List<SportFacility.court> courts = courtsData.stream()
+                .map(courtData -> new SportFacility.court(
+                    (String) courtData.get("name"),
+                    BigInteger.valueOf(((Number) courtData.get("earliestTime")).longValue()),
+                    BigInteger.valueOf(((Number) courtData.get("latestTime")).longValue()),
+                    BigInteger.valueOf(((Number) courtData.get("status")).longValue())
+                ))
+                .collect(Collectors.toList());
+            
+            String result = adminService.addCourtsToFacility(facilityName, courts);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result,
+                "courtsAdded", courts.size()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @DeleteMapping("/sport-facilities/{facilityName}/courts/{courtName}")
+    public ResponseEntity<?> deleteCourt(
+            @PathVariable String facilityName,
+            @PathVariable String courtName) {
+        try {
+            String result = adminService.deleteCourt(facilityName, courtName);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PutMapping("/sport-facilities/{facilityName}/courts/{courtName}/time")
+    public ResponseEntity<?> updateCourtTime(
+            @PathVariable String facilityName,
+            @PathVariable String courtName,
+            @RequestBody Map<String, Long> requestBody) {
+        try {
+            Long earliestTime = requestBody.get("earliestTime");
+            Long latestTime = requestBody.get("latestTime");
+            
+            String result = adminService.updateCourtTime(facilityName, courtName, earliestTime, latestTime);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PutMapping("/sport-facilities/{facilityName}/courts/{courtName}/status")
+    public ResponseEntity<?> updateCourtStatus(
+            @PathVariable String facilityName,
+            @PathVariable String courtName,
+            @RequestBody Map<String, Integer> requestBody) {
+        try {
+            BigInteger status = BigInteger.valueOf(requestBody.get("status"));
+            String result = adminService.updateCourtStatus(facilityName, courtName, status);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(

@@ -24,9 +24,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class AdminService {
+    
+    private final Map<String, Long> recentRequests = new ConcurrentHashMap<>();
+    
     private static final Logger logger = LoggerFactory.getLogger(AdminService.class);
     
     private final PinataUtil pinataUtil;
@@ -722,6 +727,108 @@ public class AdminService {
             case 2: return "MAINTENANCE";
             case 3: return "BOOKED";
             default: return "UNKNOWN";
+        }
+    }
+
+    public String addCourtsToFacility(String facilityName, List<SportFacility.court> courts) {
+        try {
+            // Validate input to prevent duplicate calls
+            if (courts == null || courts.isEmpty()) {
+                throw new RuntimeException("No courts provided for addition");
+            }
+            
+            // Create request signature for deduplication
+            String requestSignature = facilityName + "-" + courts.size() + "-" + 
+                courts.stream().map(c -> c.name).sorted().reduce("", String::concat);
+            long currentTime = System.currentTimeMillis();
+            
+            // Check for recent duplicate requests (within 5 seconds)
+            Long lastRequestTime = recentRequests.get(requestSignature);
+            if (lastRequestTime != null && (currentTime - lastRequestTime) < 5000) {
+                logger.warn("Duplicate request detected for facility '{}' with {} courts. Ignoring.", 
+                           facilityName, courts.size());
+                return "Duplicate request ignored";
+            }
+            
+            // Store request timestamp
+            recentRequests.put(requestSignature, currentTime);
+            
+            // Clean up old requests (older than 30 seconds)
+            recentRequests.entrySet().removeIf(entry -> 
+                (currentTime - entry.getValue()) > 30000
+            );
+            
+            logger.info("Processing court addition for facility '{}' with {} court(s)", 
+                       facilityName, courts.size());
+            
+            // Single transaction call
+            TransactionReceipt receipt = sportFacilityContract
+                .addCourt(facilityName, courts)
+                .send();
+            
+            if (receipt.isStatusOK()) {
+                logger.info("Courts added successfully to facility '{}'", facilityName);
+                
+                return String.format("Successfully added %d court(s) to facility '%s'", 
+                    courts.size(), facilityName);
+            }
+            
+            return "Failed to add courts to facility";
+            
+        } catch (Exception e) {
+            logger.error("Error adding courts to facility '{}': {}", facilityName, e.getMessage());
+            throw new RuntimeException("Failed to add courts: " + e.getMessage());
+        }
+    }
+
+    public String deleteCourt(String facilityName, String courtName) {
+        try {
+            TransactionReceipt receipt = sportFacilityContract
+                .deleteCourt(facilityName, courtName)
+                .send();
+            
+            if (receipt.isStatusOK()) {
+                return String.format("Court '%s' deleted successfully from facility '%s'", 
+                    courtName, facilityName);
+            }
+            return "Failed to delete court";
+        } catch (Exception e) {
+            logger.error("Error deleting court: {}", e.getMessage());
+            throw new RuntimeException("Failed to delete court: " + e.getMessage());
+        }
+    }
+
+    public String updateCourtTime(String facilityName, String courtName, 
+                                 Long earliestTime, Long latestTime) {
+        try {
+            TransactionReceipt receipt = sportFacilityContract
+                .updateCourtTime(facilityName, courtName, 
+                    BigInteger.valueOf(earliestTime), BigInteger.valueOf(latestTime))
+                .send();
+            
+            if (receipt.isStatusOK()) {
+                return String.format("Court '%s' time updated successfully", courtName);
+            }
+            return "Failed to update court time";
+        } catch (Exception e) {
+            logger.error("Error updating court time: {}", e.getMessage());
+            throw new RuntimeException("Failed to update court time: " + e.getMessage());
+        }
+    }
+
+    public String updateCourtStatus(String facilityName, String courtName, BigInteger status) {
+        try {
+            TransactionReceipt receipt = sportFacilityContract
+                .updateCourtStatus(facilityName, courtName, status)
+                .send();
+            
+            if (receipt.isStatusOK()) {
+                return String.format("Court '%s' status updated successfully", courtName);
+            }
+            return "Failed to update court status";
+        } catch (Exception e) {
+            logger.error("Error updating court status: {}", e.getMessage());
+            throw new RuntimeException("Failed to update court status: " + e.getMessage());
         }
     }
 }

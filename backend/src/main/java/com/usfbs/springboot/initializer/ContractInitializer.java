@@ -6,6 +6,8 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.math.BigInteger;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -728,33 +730,6 @@ public class ContractInitializer implements CommandLineRunner {
                 );
             }, error -> {
                 System.err.println("Error in announcementTitleModified subscription: " + error.getMessage());
-                error.printStackTrace();
-            });
-
-            sportFacilityContract.courtAddedEventFlowable(
-                DefaultBlockParameterName.EARLIEST,
-                DefaultBlockParameterName.LATEST
-            ).subscribe(event -> {
-                String originalOutput = ">>> [courtAdded] event received:\n" +
-                                       "    from           = " + event.from + "\n" +
-                                       "    courtName      = " + event.courtName + "\n" +
-                                       "    earliestTime   = " + safeFormatBookingTime(event.earliestTime) + "\n" +
-                                       "    latestTime     = " + safeFormatBookingTime(event.latestTime) + "\n" +
-                                       "    status         = " + event.status + "\n" +
-                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
-                
-                System.out.println(originalOutput);
-                
-                eventLogService.addEventLog(
-                    "",
-                    "Court Added",
-                    event.from,
-                    event.timestamp,
-                    "",
-                    "FACILITY"
-                );
-            }, error -> {
-                System.err.println("Error in courtAdded subscription: " + error.getMessage());
                 error.printStackTrace();
             });
 

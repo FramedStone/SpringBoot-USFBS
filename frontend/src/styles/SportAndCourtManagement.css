@@ -655,22 +655,29 @@
 }
 
 .remove-court-btn {
-  background: none;
+  background: #fee2e2;
+  color: #dc2626;
   border: none;
+  border-radius: 6px;
+  padding: 8px;
   cursor: pointer;
-  color: #ef4444;
-  padding: 2px;
-  border-radius: 3px;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
 }
 
 .remove-court-btn:hover {
-  background-color: #fee2e2;
+  background: #fecaca;
+  transform: scale(1.05);
 }
 
 .remove-court-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
 /* Time Range Group */
@@ -766,7 +773,221 @@
   background-color: #dc2626;
 }
 
-/* Responsive adjustments for sort buttons beside title */
+/* Enhanced Court Edit Styles */
+.existing-courts-list {
+  margin-top: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  background-color: #fafafa;
+}
+
+.court-edit-item {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.court-edit-item:last-child {
+  margin-bottom: 0;
+}
+
+.court-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.court-name-input {
+  flex: 1;
+  margin-right: 12px;
+}
+
+.court-name-input label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+.court-name-input input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.court-name-input input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.court-time-settings {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.time-input {
+  flex: 1;
+}
+
+.time-input label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.time-input input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.time-input input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.court-status-display {
+  display: flex;
+  align-items: center;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.status-badge.open {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.status-badge.closed {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.status-badge.maintenance {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.no-courts-message {
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+  padding: 20px;
+  background-color: #f9fafb;
+  border-radius: 6px;
+  margin: 0;
+}
+
+.remove-court-btn {
+  background: #fee2e2;
+  color: #dc2626;
+  border: none;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+}
+
+.remove-court-btn:hover {
+  background: #fecaca;
+  transform: scale(1.05);
+}
+
+.remove-court-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.warning-message {
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 12px;
+  margin: 16px 0;
+}
+
+.warning-message p {
+  margin: 0;
+  color: #92400e;
+  font-weight: 500;
+}
+
+.button-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Enhanced Modal Styles */
+.modal[style*="maxWidth"] {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .court-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .court-name-input {
+    margin-right: 0;
+  }
+  
+  .court-time-settings {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .time-range-group {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
 @media (max-width: 700px) {
   .sort-btn-group {
     gap: 6px;
