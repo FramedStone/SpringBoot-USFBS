@@ -1114,8 +1114,104 @@
   overflow-y: auto;
 }
 
+/* Fixed modal form padding */
 .modal-form {
   max-height: 70vh;
   overflow-y: auto;
-  padding-right: 8px;
+  padding: 24px;
+}
+
+/* Remove the uneven padding-right */
+.modal-form::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-form::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 6px;
+}
+
+.modal-form::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 6px;
+}
+
+.modal-form::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Ensure consistent form group spacing */
+.modal-form .form-group {
+  margin-bottom: 20px;
+}
+
+.modal-form .form-group:last-child {
+  margin-bottom: 0;
+}
+
+/* Enhanced time-range-group for consistent spacing */
+.modal-form .time-range-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* Enhanced form input consistency */
+.modal-form .form-group input[type="date"],
+.modal-form .form-group select,
+.modal-form .form-group input[type="text"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.modal-form .form-group input[type="date"]:focus,
+.modal-form .form-group select:focus,
+.modal-form .form-group input[type="text"]:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Enhanced modal actions padding */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  border-radius: 0 0 12px 12px;
+  margin: 0;
+}
+
+/* Responsive modal padding adjustments */
+@media (max-width: 768px) {
+  .modal-form {
+    padding: 16px;
+  }
+  
+  .modal-actions {
+    padding: 16px;
+  }
+  
+  .modal-form .time-range-group {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-form {
+    padding: 12px;
+  }
+  
+  .modal-actions {
+    padding: 12px;
+  }
 }
