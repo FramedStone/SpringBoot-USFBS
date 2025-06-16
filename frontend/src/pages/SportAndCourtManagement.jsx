@@ -1728,8 +1728,7 @@ const UpdateAvailabilityModal = ({ onClose, onSave, selectedFacility, availableC
     court: '',
     status: 'MAINTENANCE',
     startDate: '',
-    endDate: '',
-    reason: ''
+    endDate: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState({ msg: "", type: "success" });
@@ -1769,8 +1768,7 @@ const UpdateAvailabilityModal = ({ onClose, onSave, selectedFacility, availableC
           body: JSON.stringify({
             status: formData.status,
             startDate: formData.startDate,
-            endDate: formData.endDate,
-            reason: formData.reason
+            endDate: formData.endDate
           })
         }
       );
@@ -1866,17 +1864,6 @@ const UpdateAvailabilityModal = ({ onClose, onSave, selectedFacility, availableC
                 min={formData.startDate || new Date().toISOString().split('T')[0]}
               />
             </div>
-          </div>
-
-          <div className="form-group">
-            <label>Reason (Optional)</label>
-            <textarea
-              value={formData.reason}
-              onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-              placeholder="Reason for status change (e.g., routine maintenance, repairs, etc.)"
-              rows="3"
-              disabled={isSubmitting}
-            />
           </div>
 
           <div className="modal-actions">
