@@ -9,6 +9,7 @@ import Spinner from '@components/Spinner';
 const DEFAULT_EARLIEST = '08:00';
 const DEFAULT_LATEST = '23:00';
 
+// Enhanced main component integration
 const SportAndCourtManagement = () => {
   const [sports, setSports] = useState([]);
   const [activeTab, setActiveTab] = useState("courts");
@@ -738,6 +739,14 @@ const SportAndCourtManagement = () => {
     );
   };
 
+  const handleUpdateAvailability = async () => {
+    // Refresh court data after availability update
+    if (selectedSport) {
+      await loadCourtsForSport(selectedSport);
+    }
+    setShowUpdateAvailabilityModal(false);
+  };
+
   return (
     <>
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -1032,7 +1041,9 @@ const SportAndCourtManagement = () => {
         {showUpdateAvailabilityModal && (
           <UpdateAvailabilityModal
             onClose={() => setShowUpdateAvailabilityModal(false)}
-            onSave={() => setShowUpdateAvailabilityModal(false)}
+            onSave={handleUpdateAvailability}
+            selectedFacility={selectedSport}
+            availableCourts={sortedCourts}
           />
         )}
       </div>
@@ -1712,18 +1723,78 @@ const DeleteCourtModal = ({ sportName, courts, onClose, onSave }) => {
 };
 
 // Update Availability Modal Component
-const UpdateAvailabilityModal = ({ onClose, onSave }) => {
+const UpdateAvailabilityModal = ({ onClose, onSave, selectedFacility, availableCourts }) => {
   const [formData, setFormData] = useState({
     court: '',
-    status: 'Maintenance',
+    status: 'MAINTENANCE',
     startDate: '',
     endDate: '',
-    timeSlots: []
+    reason: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState({ msg: "", type: "success" });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave(formData);
+    setIsSubmitting(true);
+    
+    try {
+      // Frontend validation
+      if (!formData.court) {
+        setToast({ msg: "Please select a court", type: "error" });
+        return;
+      }
+      
+      if (!formData.startDate || !formData.endDate) {
+        setToast({ msg: "Please provide both start and end dates", type: "error" });
+        return;
+      }
+      
+      const startDate = new Date(formData.startDate);
+      const endDate = new Date(formData.endDate);
+      
+      if (startDate > endDate) {
+        setToast({ msg: "End date must be after start date", type: "error" });
+        return;
+      }
+      
+      // Update court status via API
+      const res = await authFetch(
+        `/api/admin/sport-facilities/${encodeURIComponent(selectedFacility)}/courts/${encodeURIComponent(formData.court)}/status`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            status: formData.status,
+            startDate: formData.startDate,
+            endDate: formData.endDate,
+            reason: formData.reason
+          })
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to update court availability');
+      }
+
+      const result = await res.json();
+      setToast({ msg: result.message || "Court availability updated successfully", type: "success" });
+      
+      // Close modal and refresh data
+      setTimeout(() => {
+        onSave();
+        onClose();
+      }, 1500);
+
+    } catch (err) {
+      console.error('Error updating court availability:', err);
+      setToast({ msg: err.message, type: "error" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -1731,62 +1802,107 @@ const UpdateAvailabilityModal = ({ onClose, onSave }) => {
       <div className="modal">
         <div className="modal-header">
           <h3>Update Court Availability</h3>
-          <button className="close-btn" onClick={onClose}>
+          <button className="close-btn" onClick={onClose} disabled={isSubmitting}>
             <X size={20} />
           </button>
         </div>
-        <div className="modal-form">
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label>Court</label>
-              <select 
-                value={formData.court}
-                onChange={(e) => setFormData({ ...formData, court: e.target.value })}
-                required
-              >
-                <option value="">Select a court</option>
-                <option value="A">Court A</option>
-                <option value="B">Court B</option>
-                <option value="C">Court C</option>
-              </select>
-            </div>
+        <form className="modal-form" onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Sport Facility</label>
+            <input type="text" value={selectedFacility} disabled />
+          </div>
+          
+          <div className="form-group">
+            <label>Court *</label>
+            <select 
+              value={formData.court}
+              onChange={(e) => setFormData({ ...formData, court: e.target.value })}
+              required
+              disabled={isSubmitting}
+            >
+              <option value="">Select a court</option>
+              {availableCourts.map(court => (
+                <option key={court.name} value={court.name}>
+                  Court {court.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div className="form-group">
-              <label>Status</label>
-              <select 
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              >
-                <option value="Maintenance">Maintenance</option>
-                <option value="Closed">Closed</option>
-              </select>
-            </div>
+          <div className="form-group">
+            <label>Status *</label>
+            <select 
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              disabled={isSubmitting}
+            >
+              <option value="MAINTENANCE">Maintenance</option>
+              <option value="CLOSED">Closed</option>
+              <option value="OPEN">Open</option>
+            </select>
+          </div>
 
+          <div className="time-range-group">
             <div className="form-group">
-              <label>Start Date</label>
+              <label>Start Date *</label>
               <input
                 type="date"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                 required
+                disabled={isSubmitting}
+                min={new Date().toISOString().split('T')[0]}
               />
             </div>
+            
             <div className="form-group">
-              <label>End Date</label>
+              <label>End Date *</label>
               <input
                 type="date"
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                 required
+                disabled={isSubmitting}
+                min={formData.startDate || new Date().toISOString().split('T')[0]}
               />
             </div>
+          </div>
 
-            <div className="modal-actions">
-              <button type="button" onClick={onClose} className="cancel-btn">Cancel</button>
-              <button type="submit" className="save-btn">Update Availability</button>
-            </div>
-          </form>
-        </div>
+          <div className="form-group">
+            <label>Reason (Optional)</label>
+            <textarea
+              value={formData.reason}
+              onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+              placeholder="Reason for status change (e.g., routine maintenance, repairs, etc.)"
+              rows="3"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="modal-actions">
+            <button type="button" onClick={onClose} className="cancel-btn" disabled={isSubmitting}>
+              Cancel
+            </button>
+            <button type="submit" className="save-btn" disabled={isSubmitting || !formData.court}>
+              {isSubmitting ? (
+                <>
+                  <div className="button-spinner"></div>
+                  Updating...
+                </>
+              ) : (
+                'Update Availability'
+              )}
+            </button>
+          </div>
+        </form>
+        
+        {toast.msg && (
+          <Toast
+            message={toast.msg}
+            type={toast.type}
+            onClose={() => setToast({ msg: "", type: "success" })}
+          />
+        )}
       </div>
     </div>
   );

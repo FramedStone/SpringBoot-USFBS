@@ -949,19 +949,39 @@ public class AdminService {
         }
     }
 
-    public String updateCourtStatus(String facilityName, String courtName, BigInteger status) {
+    /**
+     * Updates court status (OPEN, CLOSED, MAINTENANCE, BOOKED)
+     */
+    public String updateCourtStatus(String facilityName, String courtName, String status) {
         try {
+            BigInteger statusValue = getStatusValueFromString(status);
+            
             TransactionReceipt receipt = sportFacilityContract
-                .updateCourtStatus(facilityName, courtName, status)
+                .updateCourtStatus(facilityName, courtName, statusValue)
                 .send();
             
             if (receipt.isStatusOK()) {
-                return String.format("Court '%s' status updated successfully", courtName);
+                logger.info("Court {} status updated to {} in facility {}", 
+                           courtName, status, facilityName);
+                return String.format("Court '%s' status updated to %s successfully", courtName, status);
             }
             return "Failed to update court status";
         } catch (Exception e) {
             logger.error("Error updating court status: {}", e.getMessage());
             throw new RuntimeException("Failed to update court status: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Converts string status to BigInteger for smart contract
+     */
+    private BigInteger getStatusValueFromString(String status) {
+        switch (status.toUpperCase()) {
+            case "OPEN": return BigInteger.valueOf(0);
+            case "CLOSED": return BigInteger.valueOf(1);
+            case "MAINTENANCE": return BigInteger.valueOf(2);
+            case "BOOKED": return BigInteger.valueOf(3);
+            default: throw new IllegalArgumentException("Invalid status: " + status);
         }
     }
 }

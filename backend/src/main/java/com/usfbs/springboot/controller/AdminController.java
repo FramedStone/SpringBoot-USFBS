@@ -598,18 +598,28 @@ public class AdminController {
 
     @PutMapping("/sport-facilities/{facilityName}/courts/{courtName}/status")
     public ResponseEntity<?> updateCourtStatus(
-            @PathVariable String facilityName,
-            @PathVariable String courtName,
-            @RequestBody Map<String, Integer> requestBody) {
+        @PathVariable String facilityName,
+        @PathVariable String courtName,
+        @RequestBody Map<String, String> request
+    ) {
         try {
-            BigInteger status = BigInteger.valueOf(requestBody.get("status"));
+            String status = request.get("status");
+            if (status == null || status.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Status is required"
+                ));
+            }
+            
             String result = adminService.updateCourtStatus(facilityName, courtName, status);
+            
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", result
             ));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
+            logger.error("Error updating court status: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
                 "success", false,
                 "error", e.getMessage()
             ));
