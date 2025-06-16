@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -26,6 +28,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/admin")
 public class AdminController {
 
+    private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
+    
     private final Management managementContract;
     private final RestTemplate rest;
     private final AdminService adminService;
@@ -475,15 +479,26 @@ public class AdminController {
     }
 
     @GetMapping("/sport-facilities/{facilityName}/courts/{courtName}/time-range")
-    public ResponseEntity<?> getCourtTimeRange(@PathVariable String facilityName, @PathVariable String courtName) {
+    public ResponseEntity<?> getCourtTimeRange(
+        @PathVariable String facilityName,
+        @PathVariable String courtName
+    ) {
         try {
             Map<String, Object> timeRange = adminService.getCourtAvailableTimeRange(facilityName, courtName);
+            
+            // Ensure status is included in response
+            if (!timeRange.containsKey("status")) {
+                timeRange.put("status", "UNKNOWN");
+            }
+            
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                "data", timeRange
+                "data", timeRange,
+                "message", "Court time range retrieved successfully"
             ));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
+            logger.error("Error getting court time range: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
                 "success", false,
                 "error", e.getMessage()
             ));

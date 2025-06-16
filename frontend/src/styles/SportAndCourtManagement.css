@@ -400,51 +400,53 @@
 }
 
 .time-slot {
-  font-size: 10px;
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+  min-width: 80px;
   font-weight: 500;
-  text-transform: capitalize;
 }
 
+/* Status-specific time slot styles */
 .time-slot.available {
   background-color: #dcfce7;
-  color: #166534;
+  color: #16a34a;
+  cursor: pointer;
+}
+
+.time-slot.available:hover {
+  background-color: #bbf7d0;
 }
 
 .time-slot.booked {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-.time-range {
-  font-size: 12px;
-  color: #6b7280;
-  font-weight: 500;
-  white-space: nowrap;
-  padding: 8px 12px;
-  background-color: #f9fafb;
-  border-right: 1px solid #e5e7eb;
-}
-
-.schedule-table th:nth-child(3),
-.schedule-table td:nth-child(3) {
-  min-width: 120px;
-  width: 120px;
+  background-color: #fde68a;
+  color: #d97706;
+  font-weight: bold;
 }
 
 .time-slot.closed {
-  background-color: #fee2e2 !important;
-  color: #991b1b;
-  position: relative;
+  background-color: #fecaca;
+  color: #dc2626;
+  font-weight: bold;
 }
 
-.time-slot.closed::after {
-  content: 'Closed';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 10px;
-  font-weight: 500;
+.time-slot.maintenance {
+  background-color: #fed7aa;
+  color: #ea580c;
+  font-weight: bold;
+}
+
+.time-slot.unavailable {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.time-slot.loading {
+  background-color: #f9fafb;
+  color: #6b7280;
+  font-style: italic;
 }
 
 /* Legend and Update Section */
@@ -873,90 +875,43 @@
 
 .status-badge {
   padding: 4px 8px;
-  border-radius: 12px;
+  border-radius: 4px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
 .status-badge.open {
   background-color: #dcfce7;
-  color: #166534;
+  color: #16a34a;
 }
 
 .status-badge.closed {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: #fecaca;
+  color: #dc2626;
 }
 
 .status-badge.maintenance {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: #fed7aa;
+  color: #ea580c;
 }
 
-.no-courts-message {
-  text-align: center;
+.status-badge.booked {
+  background-color: #fde68a;
+  color: #d97706;
+}
+
+.status-badge.unknown,
+.status-badge.error {
+  background-color: #f3f4f6;
   color: #6b7280;
-  font-style: italic;
-  padding: 20px;
-  background-color: #f9fafb;
-  border-radius: 6px;
-  margin: 0;
 }
 
-.remove-court-btn {
-  background: #fee2e2;
-  color: #dc2626;
-  border: none;
-  border-radius: 6px;
-  padding: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 32px;
-}
-
-.remove-court-btn:hover {
-  background: #fecaca;
-  transform: scale(1.05);
-}
-
-.remove-court-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.warning-message {
-  background-color: #fef3c7;
-  border: 1px solid #f59e0b;
-  border-radius: 6px;
-  padding: 12px;
-  margin: 16px 0;
-}
-
-.warning-message p {
-  margin: 0;
-  color: #92400e;
-  font-weight: 500;
-}
-
-.button-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid transparent;
-  border-top: 2px solid currentColor;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-right: 8px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+/* Enhanced status column styling */
+.status {
+  text-align: center;
+  vertical-align: middle;
 }
 
 /* Enhanced Modal Styles */

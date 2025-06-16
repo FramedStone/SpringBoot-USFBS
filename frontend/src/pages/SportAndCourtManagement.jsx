@@ -419,6 +419,21 @@ const SportAndCourtManagement = () => {
     return slots;
   };
 
+  // Fix the getCourtStatus function to use actual backend data
+  const getCourtStatus = (courtName) => {
+    // Use actual court status from time range data (backend)
+    const courtTimeRange = courtTimeRanges[courtName];
+    if (courtTimeRange && courtTimeRange.status) {
+      return courtTimeRange.status;
+    }
+    
+    // Fallback to hardcoded status for backward compatibility
+    const status = courtStatuses[courtName]?.status;
+    if (status === "Normal") return "OPEN";
+    return status || "OPEN"; 
+  };
+
+  // Enhanced loadCourtTimeRanges function with proper status handling
   const loadCourtTimeRanges = async (facilityName, courts) => {
     if (!facilityName || !courts.length) {
       setCourtTimeRanges({});
@@ -430,7 +445,7 @@ const SportAndCourtManagement = () => {
       const timeRanges = {};
       let allTimeSlots = new Set();
       
-      // Fetch time range for each court
+      // Fetch time range for each court with proper status mapping
       for (const court of courts) {
         try {
           const res = await authFetch(
@@ -440,26 +455,47 @@ const SportAndCourtManagement = () => {
           if (res.ok) {
             const data = await res.json();
             if (data.success) {
-              timeRanges[court.name] = data.data;
+              // Store complete court data including status
+              timeRanges[court.name] = {
+                ...data.data,
+                status: data.data.status || "OPEN",
+                available: data.data.available !== false
+              };
+              
+              console.log(`Court ${court.name} loaded with status: ${data.data.status}`);
               
               // Generate time slots for this court
               const courtSlots = generateTimeSlots(data.data.earliestTime, data.data.latestTime);
               courtSlots.forEach(slot => allTimeSlots.add(slot));
             }
+          } else {
+            console.error(`Failed to load time range for court ${court.name}:`, res.status);
+            // Set default with unknown status
+            timeRanges[court.name] = {
+              earliestTime: timeToSeconds('08:00'),
+              latestTime: timeToSeconds('23:00'),
+              earliestTimeStr: '08:00',
+              latestTimeStr: '23:00',
+              status: "UNKNOWN",
+              available: false
+            };
           }
         } catch (err) {
           console.error(`Error loading time range for court ${court.name}:`, err);
-          // Use default time range if API fails
+          // Set error status
           timeRanges[court.name] = {
             earliestTime: timeToSeconds('08:00'),
             latestTime: timeToSeconds('23:00'),
             earliestTimeStr: '08:00',
-            latestTimeStr: '23:00'
+            latestTimeStr: '23:00',
+            status: "ERROR",
+            available: false
           };
         }
       }
       
       setCourtTimeRanges(timeRanges);
+      console.log('Updated court time ranges with statuses:', timeRanges);
       
       // Sort and set dynamic time slots
       const sortedSlots = Array.from(allTimeSlots).sort();
@@ -554,12 +590,6 @@ const SportAndCourtManagement = () => {
   const selectedSportData = sports.find(sport => sport.name === selectedSport);
   const courtsToDisplay = selectedSportCourts.length > 0 ? selectedSportCourts : (selectedSportData?.courts || []);
 
-  const getCourtStatus = (courtName) => {
-    const status = courtStatuses[courtName]?.status;
-    if (status === "Normal") return "Open";
-    return status || "Open";
-  };
-
   const sortedCourts = [...courtsToDisplay].sort((a, b) => {
     const aName = a.name;
     const bName = b.name;
@@ -583,23 +613,22 @@ const SportAndCourtManagement = () => {
     return 0;
   });
 
+  // Enhanced renderCourtTimeSlots function with proper status-based rendering
   const renderCourtTimeSlots = (courtName, status) => {
     const courtTimeRange = courtTimeRanges[courtName];
     
     if (!courtTimeRange) {
-      // Use default time slots if no specific range available
-      return dynamicTimeSlots.map((time, index) => {
-        const avail = courtStatuses[courtName]?.availability[index] || "Available";
-        return (
-          <td key={time} className={`time-slot ${avail.toLowerCase()}`}>
-            {avail}
-          </td>
-        );
-      });
+      // Loading state
+      return dynamicTimeSlots.map((time, index) => (
+        <td key={time} className="time-slot loading">
+          Loading...
+        </td>
+      ));
     }
     
-    // Generate slots based on court's specific time range
-    const courtSlots = generateTimeSlots(courtTimeRange.earliestTime, courtTimeRange.latestTime);
+    // Use actual status from backend
+    const actualStatus = courtTimeRange.status || status;
+    const isAvailable = courtTimeRange.available !== false;
     
     return dynamicTimeSlots.map((time, index) => {
       const timeHour = parseInt(time.split(':')[0]);
@@ -609,33 +638,104 @@ const SportAndCourtManagement = () => {
       // Check if this time slot is within the court's operating hours
       const isWithinRange = timeHour >= courtStartHour && timeHour <= courtEndHour;
       
-      if (status === "Maintenance") {
+      // Handle different court statuses with proper color coding
+      if (actualStatus === "MAINTENANCE") {
         return (
           <td
             key={time}
             className="time-slot maintenance"
-            style={{ backgroundColor: "#fef3c7", color: "#fef3c7" }}
-          />
+            style={{ 
+              backgroundColor: "#fed7aa", 
+              color: "#ea580c",
+              fontWeight: "bold"
+            }}
+          >
+            Maintenance
+          </td>
         );
       }
       
-      if (status === "Closed" || !isWithinRange) {
+      if (actualStatus === "CLOSED" || !isWithinRange) {
         return (
           <td
             key={time}
             className="time-slot closed"
-            style={{ backgroundColor: "#fee2e2", color: "#fee2e2" }}
-          />
+            style={{ 
+              backgroundColor: "#fecaca", 
+              color: "#dc2626",
+              fontWeight: "bold"
+            }}
+          >
+            Closed
+          </td>
         );
       }
       
-      const avail = courtStatuses[courtName]?.availability[index] || "Available";
+      if (actualStatus === "BOOKED") {
+        return (
+          <td
+            key={time}
+            className="time-slot booked"
+            style={{ 
+              backgroundColor: "#fde68a", 
+              color: "#d97706",
+              fontWeight: "bold"
+            }}
+          >
+            Booked
+          </td>
+        );
+      }
+      
+      // For OPEN courts, show availability or use fallback
+      if (actualStatus === "OPEN" && isAvailable && isWithinRange) {
+        const avail = courtStatuses[courtName]?.availability[index] || "Available";
+        return (
+          <td key={time} className={`time-slot ${avail.toLowerCase()}`}>
+            {avail}
+          </td>
+        );
+      }
+      
+      // Default unavailable
       return (
-        <td key={time} className={`time-slot ${avail.toLowerCase()}`}>
-          {avail}
+        <td
+          key={time}
+          className="time-slot unavailable"
+          style={{ 
+            backgroundColor: "#f3f4f6", 
+            color: "#6b7280"
+          }}
+        >
+          Unavailable
         </td>
       );
     });
+  };
+
+  // Enhanced court row rendering with proper status display
+  const renderCourtRow = (court) => {
+    const courtName = court.name;
+    const courtTimeRange = courtTimeRanges[courtName];
+    const status = getCourtStatus(courtName);
+    
+    return (
+      <tr key={courtName}>
+        <td className="court-name">Court {courtName}</td>
+        <td className="status">
+          <span className={`status-badge ${status.toLowerCase()}`}>
+            {status}
+          </span>
+        </td>
+        <td className="time-range">
+          {courtTimeRange ? 
+            `${courtTimeRange.earliestTimeStr} - ${courtTimeRange.latestTimeStr}` : 
+            'Loading...'
+          }
+        </td>
+        {renderCourtTimeSlots(courtName, status)}
+      </tr>
+    );
   };
 
   return (
@@ -685,6 +785,7 @@ const SportAndCourtManagement = () => {
                     <tr
                       key={sport.id}
                       className={selectedSport === sport.name ? 'selected-row' : ''}
+
                       onClick={() => setSelectedSport(sport.name)}
                     >
                       <td>{sport.name}</td>
@@ -728,6 +829,7 @@ const SportAndCourtManagement = () => {
                           >
                             {deleteLoading && selectedSportForEdit?.id === sport.id ? (
                               <>
+
                                 <div className="button-spinner"></div>
                                 Deleting...
                               </>
@@ -838,25 +940,7 @@ const SportAndCourtManagement = () => {
                         </td>
                       </tr>
                     ) : (
-                      sortedCourts.map(court => {
-                        const courtName = court.name;
-                        const status = getCourtStatus(courtName);
-                        const courtTimeRange = courtTimeRanges[courtName];
-                        
-                        return (
-                          <tr key={courtName}>
-                            <td className="court-name">Court {courtName}</td>
-                            <td className={`status ${status.toLowerCase()}`}>{status}</td>
-                            <td className="time-range">
-                              {courtTimeRange ? 
-                                `${courtTimeRange.earliestTimeStr} - ${courtTimeRange.latestTimeStr}` : 
-                                'Loading...'
-                              }
-                            </td>
-                            {renderCourtTimeSlots(courtName, status)}
-                          </tr>
-                        );
-                      })
+                      sortedCourts.map(court => renderCourtRow(court))
                     )}
                   </tbody>
                 </table>
@@ -1109,6 +1193,7 @@ const AddSportModal = ({ onClose, onSave }) => {
                   </div>
                 </div>
               ))}
+
             </div>
           </div>
 

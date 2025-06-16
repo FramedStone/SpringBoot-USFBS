@@ -678,38 +678,147 @@ public class AdminService {
 
     public Map<String, Object> getCourtAvailableTimeRange(String facilityName, String courtName) throws Exception {
         try {
-            // Get the admin address from the transaction manager
             String adminAddress = rawTransactionManager.getFromAddress();
             
-            // Call the contract function to get available time range
-            Tuple2<BigInteger, BigInteger> timeRange = sportFacilityContract
-                .getAvailableTimeRange_(facilityName, courtName, adminAddress)
-                .send();
-            
-            BigInteger earliestTime = timeRange.component1();
-            BigInteger latestTime = timeRange.component2();
-            
-            // Convert seconds to time format
-            String earliestTimeStr = secondsToTimeString(earliestTime.longValue());
-            String latestTimeStr = secondsToTimeString(latestTime.longValue());
-            
-            logger.info("Retrieved time range for court {} in facility {}: {} - {}", 
-                       courtName, facilityName, earliestTimeStr, latestTimeStr);
-            
-            Map<String, Object> result = new HashMap<>();
-            result.put("facilityName", facilityName);
-            result.put("courtName", courtName);
-            result.put("earliestTime", earliestTime.longValue());
-            result.put("latestTime", latestTime.longValue());
-            result.put("earliestTimeStr", earliestTimeStr);
-            result.put("latestTimeStr", latestTimeStr);
-            
-            return result;
+            // Try to call getAvailableTimeRange_ first (only works for OPEN courts)
+            try {
+                Tuple2<BigInteger, BigInteger> timeRange = sportFacilityContract
+                    .getAvailableTimeRange_(facilityName, courtName, adminAddress)
+                    .send();
+                
+                BigInteger earliestTime = timeRange.component1();
+                BigInteger latestTime = timeRange.component2();
+                
+                String earliestTimeStr = secondsToTimeString(earliestTime.longValue());
+                String latestTimeStr = secondsToTimeString(latestTime.longValue());
+                
+                logger.info("Retrieved time range for OPEN court {} in facility {}: {} - {}", 
+                           courtName, facilityName, earliestTimeStr, latestTimeStr);
+                
+                Map<String, Object> result = new HashMap<>();
+                result.put("facilityName", facilityName);
+                result.put("courtName", courtName);
+                result.put("earliestTime", earliestTime.longValue());
+                result.put("latestTime", latestTime.longValue());
+                result.put("earliestTimeStr", earliestTimeStr);
+                result.put("latestTimeStr", latestTimeStr);
+                result.put("status", "OPEN");
+                result.put("available", true);
+                
+                return result;
+                
+            } catch (Exception e) {
+                logger.warn("getAvailableTimeRange_ failed for court {} in facility {}: {}. Using getAllCourts fallback method.", 
+                           courtName, facilityName, e.getMessage());
+                
+                // Fallback: Get all courts and find the specific court
+                List<SportFacility.court> allCourts = sportFacilityContract.getAllCourts(facilityName).send();
+                
+                SportFacility.court targetCourt = null;
+                for (Object courtObj : allCourts) {
+                    try {
+                        if (courtObj instanceof SportFacility.court) {
+                            SportFacility.court court = (SportFacility.court) courtObj;
+                            if (court.name.equals(courtName)) {
+                                targetCourt = court;
+                                break;
+                            }
+                        } else {
+                            String name = extractCourtFieldString(courtObj, "name");
+                            if (courtName.equals(name)) {
+                                targetCourt = createCourtFromObject(courtObj);
+                                break;
+                            }
+                        }
+                    } catch (ClassCastException cce) {
+                        try {
+                            String name = extractCourtFieldString(courtObj, "name");
+                            if (courtName.equals(name)) {
+                                targetCourt = createCourtFromObject(courtObj);
+                                break;
+                            }
+                        } catch (Exception reflectionEx) {
+                            logger.warn("Failed to extract court data using reflection: {}", reflectionEx.getMessage());
+                            continue;
+                        }
+                    }
+                }
+                
+                if (targetCourt == null) {
+                    throw new Exception("Court '" + courtName + "' not found in facility '" + facilityName + "'");
+                }
+                
+                String earliestTimeStr = secondsToTimeString(targetCourt.earliestTime.longValue());
+                String latestTimeStr = secondsToTimeString(targetCourt.latestTime.longValue());
+                String courtStatus = getStatusString(targetCourt.status);
+                
+                logger.info("Retrieved court details via getAllCourts fallback for {} court {} in facility {}: {} - {}", 
+                           courtStatus, courtName, facilityName, earliestTimeStr, latestTimeStr);
+                
+                Map<String, Object> result = new HashMap<>();
+                result.put("facilityName", facilityName);
+                result.put("courtName", targetCourt.name);
+                result.put("earliestTime", targetCourt.earliestTime.longValue());
+                result.put("latestTime", targetCourt.latestTime.longValue());
+                result.put("earliestTimeStr", earliestTimeStr);
+                result.put("latestTimeStr", latestTimeStr);
+                result.put("status", courtStatus);
+                result.put("available", courtStatus.equals("OPEN"));
+                
+                return result;
+            }
             
         } catch (Exception e) {
-            logger.error("Error getting available time range for court {} in facility {}: {}", 
+            logger.error("Error getting court information for {} in facility {}: {}", 
                         courtName, facilityName, e.getMessage());
-            throw new Exception("Failed to get available time range: " + e.getMessage());
+            throw new Exception("Failed to get court information: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Extracts string field from court object using reflection to handle classloader issues
+     */
+    private String extractCourtFieldString(Object courtObj, String fieldName) throws Exception {
+        try {
+            Class<?> courtClass = courtObj.getClass();
+            java.lang.reflect.Field field = courtClass.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return (String) field.get(courtObj);
+        } catch (Exception e) {
+            throw new Exception("Failed to extract field " + fieldName + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Extracts BigInteger field from court object using reflection
+     */
+    private BigInteger extractCourtFieldBigInteger(Object courtObj, String fieldName) throws Exception {
+        try {
+            Class<?> courtClass = courtObj.getClass();
+            java.lang.reflect.Field field = courtClass.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return (BigInteger) field.get(courtObj);
+        } catch (Exception e) {
+            throw new Exception("Failed to extract field " + fieldName + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Creates a SportFacility.court object from a potentially different classloader object
+     */
+    private SportFacility.court createCourtFromObject(Object courtObj) throws Exception {
+        try {
+            String name = extractCourtFieldString(courtObj, "name");
+            BigInteger earliestTime = extractCourtFieldBigInteger(courtObj, "earliestTime");
+            BigInteger latestTime = extractCourtFieldBigInteger(courtObj, "latestTime");
+            BigInteger status = extractCourtFieldBigInteger(courtObj, "status");
+            
+            logger.debug("Creating court object: name={}, status={}", name, status);
+            
+            return new SportFacility.court(name, earliestTime, latestTime, status);
+        } catch (Exception e) {
+            logger.error("Failed to create court from object: {}", e.getMessage());
+            throw new Exception("Failed to create court from object: " + e.getMessage());
         }
     }
 
@@ -719,15 +828,39 @@ public class AdminService {
         return String.format("%02d:%02d", hours, minutes);
     }
 
+    /**
+     * Enhanced status conversion with proper handling of all status types
+     */
     private String getStatusString(BigInteger status) {
-        int statusValue = status.intValue();
-        switch (statusValue) {
-            case 0: return "OPEN";
-            case 1: return "CLOSED";
-            case 2: return "MAINTENANCE";
-            case 3: return "BOOKED";
-            default: return "UNKNOWN";
+        if (status == null) {
+            logger.warn("Status is null, defaulting to UNKNOWN");
+            return "UNKNOWN";
         }
+        
+        int statusValue = status.intValue();
+        String statusString;
+        
+        switch (statusValue) {
+            case 0: 
+                statusString = "OPEN";
+                break;
+            case 1: 
+                statusString = "CLOSED";
+                break;
+            case 2: 
+                statusString = "MAINTENANCE";
+                break;
+            case 3: 
+                statusString = "BOOKED";
+                break;
+            default: 
+                logger.warn("Unknown status value: {}", statusValue);
+                statusString = "UNKNOWN";
+                break;
+        }
+        
+        logger.debug("Converted status {} to string: {}", statusValue, statusString);
+        return statusString;
     }
 
     public String addCourtsToFacility(String facilityName, List<SportFacility.court> courts) {
@@ -738,7 +871,7 @@ public class AdminService {
             }
             
             // Create request signature for deduplication
-            String requestSignature = facilityName + "-" + courts.size() + "-" + 
+            String requestSignature = facilityName + "-" + courts.size() + "-"+ 
                 courts.stream().map(c -> c.name).sorted().reduce("", String::concat);
             long currentTime = System.currentTimeMillis();
             
