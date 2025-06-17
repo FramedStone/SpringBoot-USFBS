@@ -132,6 +132,7 @@ const SystemLogs = () => {
   const [lastUpdate, setLastUpdate] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [isActionFilterExpanded, setIsActionFilterExpanded] = useState(false);
+  const [showEmailColumn, setShowEmailColumn] = useState(true);
   const ITEMS_PER_PAGE = 10;
 
   const handleToastMessage = (message, type) => {
@@ -237,6 +238,141 @@ const SystemLogs = () => {
   const extractNoteFromEvent = (originalOutput, action) => {
     if (!originalOutput) return '';
     
+    // Sport Facility CRUD with detailed parsing
+    if (action === 'Sport Facility Added') {
+      const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
+      const locationMatch = originalOutput.match(/location\s*=\s*([^\n]+)/);
+      const statusMatch = originalOutput.match(/status\s*=\s*([^\n]+)/);
+      const courtsMatch = originalOutput.match(/courts\s*=\s*([^\n]+)/);
+      
+      if (facilityMatch && locationMatch) {
+        const facilityName = facilityMatch[1].trim();
+        const location = locationMatch[1].trim();
+        const status = statusMatch ? statusMatch[1].trim() : 'N/A';
+        const courts = courtsMatch ? courtsMatch[1].trim() : 'N/A';
+        return `facilityName: ${facilityName}\nlocation: ${location}\nstatus: ${status}\ncourts: ${courts}`;
+      }
+      
+      // Fallback to note extraction
+      const noteMatch = originalOutput.match(/Facility\s+([^\s]+)\s+added\s+at\s+([^\n]+)/);
+      if (noteMatch) {
+        const facilityName = noteMatch[1].trim();
+        const location = noteMatch[2].trim();
+        return `facilityName: ${facilityName}\nlocation: ${location}`;
+      }
+      
+      return 'Sport facility added';
+    }
+    
+    if (action === 'Sport Facility Modified') {
+      const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
+      const oldDataMatch = originalOutput.match(/oldData\s*=\s*([^\n]+)/);
+      const newDataMatch = originalOutput.match(/newData\s*=\s*([^\n]+)/);
+      
+      if (facilityMatch && oldDataMatch && newDataMatch) {
+        const facilityName = facilityMatch[1].trim();
+        const oldData = oldDataMatch[1].trim();
+        const newData = newDataMatch[1].trim();
+        return `facilityName: ${facilityName}\n${oldData} → ${newData}`;
+      }
+      
+      // Fallback to basic note extraction
+      const noteMatch = originalOutput.match(/Facility\s+([^\s]+)\s+modified/);
+      if (noteMatch) {
+        const facilityName = noteMatch[1].trim();
+        return `facilityName: ${facilityName}`;
+      }
+      
+      return 'Sport facility modified';
+    }
+    
+    if (action === 'Sport Facility Deleted') {
+      const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
+      
+      if (facilityMatch) {
+        const facilityName = facilityMatch[1].trim();
+        return `facilityName: ${facilityName}`;
+      }
+      
+      // Fallback to note extraction
+      const noteMatch = originalOutput.match(/Facility\s+([^\s]+)\s+deleted/);
+      if (noteMatch) {
+        const facilityName = noteMatch[1].trim();
+        return `facilityName: ${facilityName}`;
+      }
+      
+      return 'Sport facility deleted';
+    }
+    
+    // Court-specific note extraction with facility names
+    if (action === 'Court Added') {
+      const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
+      const courtMatch = originalOutput.match(/courtName\s*=\s*([^\n]+)/);
+      
+      if (facilityMatch && courtMatch) {
+        const facilityName = facilityMatch[1].trim();
+        const courtName = courtMatch[1].trim();
+        return `facilityName: ${facilityName}\ncourtName: ${courtName}`;
+      }
+      
+      // If structured parsing fails, try to extract from the note passed by ContractInitializer
+      const noteMatch = originalOutput.match(/Court\s+([^\s]+)\s+added\s+to\s+facility:\s+([^\n]+)/);
+      if (noteMatch) {
+        const courtName = noteMatch[1].trim();
+        const facilityName = noteMatch[2].trim();
+        return `facilityName: ${facilityName}\ncourtName: ${courtName}`;
+      }
+      
+      return 'Court added';
+    }
+    
+    if (action === 'Court Modified') {
+      const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
+      const courtMatch = originalOutput.match(/courtName\s*=\s*([^\n]+)/);
+      const oldDataMatch = originalOutput.match(/oldData\s*=\s*([^\n]+)/);
+      const newDataMatch = originalOutput.match(/newData\s*=\s*([^\n]+)/);
+      
+      if (facilityMatch && courtMatch && oldDataMatch && newDataMatch) {
+        const facilityName = facilityMatch[1].trim();
+        const courtName = courtMatch[1].trim();
+        const oldData = oldDataMatch[1].trim();
+        const newData = newDataMatch[1].trim();
+        return `facilityName: ${facilityName}\ncourtName: ${courtName}\n${oldData} → ${newData}`;
+      }
+      
+      // If structured parsing fails, try to extract from the note passed by ContractInitializer
+      const noteMatch = originalOutput.match(/Court\s+([^\s]+)\s+in\s+facility:\s+([^\s]+)\s+modified\s+-\s+([^\n]+)/);
+      if (noteMatch) {
+        const courtName = noteMatch[1].trim();
+        const facilityName = noteMatch[2].trim();
+        const changes = noteMatch[3].trim();
+        return `facilityName: ${facilityName}\ncourtName: ${courtName}\n${changes}`;
+      }
+      
+      return 'Court modified';
+    }
+    
+    if (action === 'Court Deleted') {
+      const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
+      const courtMatch = originalOutput.match(/courtName\s*=\s*([^\n]+)/);
+      
+      if (facilityMatch && courtMatch) {
+        const facilityName = facilityMatch[1].trim();
+        const courtName = courtMatch[1].trim();
+        return `facilityName: ${facilityName}\ncourtName: ${courtName}`;
+      }
+      
+      // If structured parsing fails, try to extract from the note passed by ContractInitializer
+      const noteMatch = originalOutput.match(/Court\s+([^\s]+)\s+deleted\s+from\s+facility:\s+([^\n]+)/);
+      if (noteMatch) {
+        const courtName = noteMatch[1].trim();
+        const facilityName = noteMatch[2].trim();
+        return `facilityName: ${facilityName}\ncourtName: ${courtName}`;
+      }
+      
+      return 'Court deleted';
+    }
+    
     if (action === 'Announcement Title Modified') {
       const oldTitleMatch = originalOutput.match(/oldTitle\s*=\s*([^\n]+)/);
       const newTitleMatch = originalOutput.match(/newTitle\s*=\s*([^\n]+)/);
@@ -261,7 +397,7 @@ const SystemLogs = () => {
         const newStart = new Date(newStartMatch[1]);
         const newEnd = new Date(newEndMatch[1]);
         
-        return `Old: ${oldStart.toLocaleDateString()} to ${oldEnd.toLocaleDateString()} → New: ${newStart.toLocaleDateString()} to ${newEnd.toLocaleDateString()}`;
+        return `Old: ${oldStart.toLocaleDateString()} to ${oldEnd.toLocaleDateString()}\nNew: ${newStart.toLocaleDateString()} to ${newEnd.toLocaleDateString()}`;
       }
       return 'Time updated';
     }
@@ -447,6 +583,16 @@ const SystemLogs = () => {
     return pageNumbers;
   };
 
+  // Check if any visible logs have meaningful email data
+  const hasEmailData = useMemo(() => {
+    return paginatedLogs.some(log => log.email && log.email !== '-' && log.email.trim() !== '');
+  }, [paginatedLogs]);
+
+  // Auto-hide email column when no email data is present
+  useEffect(() => {
+    setShowEmailColumn(hasEmailData);
+  }, [hasEmailData]);
+
   if (loading && logsData.length === 0) {
     return (
       <div className="system-logs">
@@ -471,7 +617,7 @@ const SystemLogs = () => {
   }
 
   return (
-    <div className="system-logs">
+    <div className="system-logs-page">
       <h1 className="page-title">System Event Logs</h1>
       
       {lastUpdate && (
@@ -481,6 +627,7 @@ const SystemLogs = () => {
             Total events: {logsData.length} | 
             Filtered: {filteredAndSortedLogs.length} |
             Page: {currentPage} of {totalPages}
+            {!showEmailColumn && ' | Email column hidden (no data)'}
           </span>
         </div>
       )}
@@ -623,13 +770,15 @@ const SystemLogs = () => {
         <table className="logs-table">
           <thead>
             <tr>
-              <th>Old IPFS CID</th>
-              <th>New IPFS CID</th>
-              <th>Action</th>
-              <th>Email</th>
-              <th>Role</th>
+              <th className="cid-cell">Previous IPFS Hash</th>
+              <th className="cid-cell">Current IPFS Hash</th>
+              <th className="action-cell">Event Action</th>
+              <th className={`email-cell email-header ${!showEmailColumn ? 'hidden' : ''}`}>
+                User Email
+              </th>
+              <th className="role-cell">Role</th>
               <th 
-                className={`sortable ${sortBy.field === 'timestamp' ? 'active' : ''}`}
+                className={`timestamp-cell timestamp-header sortable ${sortBy.field === 'timestamp' ? 'active' : ''}`}
                 onClick={() => handleColumnSort('timestamp')}
                 title="Sort by Timestamp"
               >
@@ -664,7 +813,7 @@ const SystemLogs = () => {
                       {log.action}
                     </span>
                   </td>
-                  <td className="email-cell">
+                  <td className={`email-cell ${!showEmailColumn ? 'hidden' : ''}`}>
                     <span className={`email-text ${log.email === '-' ? 'empty' : ''}`}>
                       {log.email}
                     </span>
@@ -686,26 +835,34 @@ const SystemLogs = () => {
                         minute: '2-digit',
                         second: '2-digit',
                         hour12: false
-                      }).replace(',', '')}
+                      })}
                     </span>
-                    <span className="timestamp-mobile" title={log.timestamp}>
+                    <span className="timestamp-mobile" title={new Date(log.timestamp).toLocaleString('en-CA', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      hour12: false
+                    })}>
                       {new Date(log.timestamp).toLocaleString('en-CA', {
                         month: '2-digit',
                         day: '2-digit',
                         hour: '2-digit',
                         minute: '2-digit',
                         hour12: false
-                      }).replace(',', '')}
+                      })}
                     </span>
                   </td>
-                  <td className="note-cell">
-                    {log.note || '-'}
+                  <td className={`note-cell ${!showEmailColumn ? 'expanded' : ''}`}>
+                    {extractNoteFromEvent(log.originalOutput, log.action) || '-'}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="7" className="no-results">
+                <td colSpan={showEmailColumn ? "7" : "6"} className="no-results">
                   No blockchain events found matching your criteria
                 </td>
               </tr>

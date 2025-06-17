@@ -541,7 +541,7 @@ public class ContractInitializer implements CommandLineRunner {
                     "Court Added",
                     event.from,
                     event.timestamp,
-                    "Court " + event.courtName + " added to " + event.facilityName,
+                    "Court " + event.courtName + " added to facility: " + event.facilityName,
                     "FACILITY"
                 );
             }, error -> {
@@ -549,27 +549,33 @@ public class ContractInitializer implements CommandLineRunner {
                 error.printStackTrace();
             });
 
-            // Add missing courtModified event
             sportFacilityContract.courtModifiedEventFlowable(
                 DefaultBlockParameterName.EARLIEST,
                 DefaultBlockParameterName.LATEST
             ).subscribe(event -> {
-                System.out.println(">>> [courtModified] event received:");
-                System.out.println("    from           = " + event.from);
-                System.out.println("    facilityName   = " + event.facilityName);
-                System.out.println("    courtName      = " + event.courtName);
-                System.out.println("    oldData        = " + event.oldData);
-                System.out.println("    newData        = " + event.newData);
-                System.out.println("    timestamp      = " + safeFormatTimestamp(event.timestamp));
-                System.out.println();
+                String originalOutput = ">>> [courtModified] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    facilityName   = " + event.facilityName + "\n" +
+                                       "    courtName      = " + event.courtName + "\n" +
+                                       "    oldData        = " + event.oldData + "\n" +
+                                       "    newData        = " + event.newData + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
                 
-                // Add to EventLogService
+                System.out.println(originalOutput);
+                
+                String noteWithChanges = String.format("Court %s in facility: %s modified - %s → %s", 
+                    event.courtName, 
+                    event.facilityName,
+                    event.oldData, 
+                    event.newData
+                );
+                
                 eventLogService.addEventLog(
                     "",
                     "Court Modified",
                     event.from,
                     event.timestamp,
-                    "Court " + event.courtName + " in " + event.facilityName + " modified",
+                    noteWithChanges,
                     "FACILITY"
                 );
             }, error -> {
@@ -594,7 +600,7 @@ public class ContractInitializer implements CommandLineRunner {
                     "Court Deleted",
                     event.from,
                     event.timestamp,
-                    "Court " + event.courtName + " deleted from " + event.facilityName,
+                    "Court " + event.courtName + " deleted from facility: " + event.facilityName,
                     "FACILITY"
                 );
             }, error -> {
