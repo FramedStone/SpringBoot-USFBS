@@ -525,14 +525,25 @@ public class ContractInitializer implements CommandLineRunner {
                 DefaultBlockParameterName.EARLIEST,
                 DefaultBlockParameterName.LATEST
             ).subscribe(event -> {
-                System.out.println(">>> [courtAdded] event received:");
-                System.out.println("    from           = " + event.from);
-                System.out.println("    courtName      = " + event.courtName);
-                System.out.println("    earliestTime   = " + safeFormatBookingTime(event.earliestTime));
-                System.out.println("    latestTime     = " + safeFormatBookingTime(event.latestTime));
-                System.out.println("    status         = " + event.status);
-                System.out.println("    timestamp      = " + safeFormatTimestamp(event.timestamp));
-                System.out.println();
+                String originalOutput = ">>> [courtAdded] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    facilityName   = " + event.facilityName + "\n" +
+                                       "    courtName      = " + event.courtName + "\n" +
+                                       "    earliestTime   = " + safeFormatBookingTime(event.earliestTime) + "\n" +
+                                       "    latestTime     = " + safeFormatBookingTime(event.latestTime) + "\n" +
+                                       "    status         = " + event.status + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    "",
+                    "Court Added",
+                    event.from,
+                    event.timestamp,
+                    "Court " + event.courtName + " added to " + event.facilityName,
+                    "FACILITY"
+                );
             }, error -> {
                 System.err.println("Error in courtAdded subscription: " + error.getMessage());
                 error.printStackTrace();
@@ -570,11 +581,22 @@ public class ContractInitializer implements CommandLineRunner {
                 DefaultBlockParameterName.EARLIEST,
                 DefaultBlockParameterName.LATEST
             ).subscribe(event -> {
-                System.out.println(">>> [courtDeleted] event received:");
-                System.out.println("    from           = " + event.from);
-                System.out.println("    courtName      = " + event.courtName);
-                System.out.println("    timestamp      = " + safeFormatTimestamp(event.timestamp));
-                System.out.println();
+                String originalOutput = ">>> [courtDeleted] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    facilityName   = " + event.facilityName + "\n" +
+                                       "    courtName      = " + event.courtName + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    "",
+                    "Court Deleted",
+                    event.from,
+                    event.timestamp,
+                    "Court " + event.courtName + " deleted from " + event.facilityName,
+                    "FACILITY"
+                );
             }, error -> {
                 System.err.println("Error in courtDeleted subscription: " + error.getMessage());
                 error.printStackTrace();

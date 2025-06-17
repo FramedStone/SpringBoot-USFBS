@@ -47,6 +47,7 @@ contract SportFacility is Management {
     );
     event courtAdded(
         address indexed from,
+        string facilityName,
         string courtName,
         uint256 earliestTime,
         uint256 latestTime,
@@ -63,6 +64,7 @@ contract SportFacility is Management {
     );
     event courtDeleted(
         address indexed from,
+        string facilityName,
         string courtName,
         uint256 timestamp
     );
@@ -257,7 +259,7 @@ contract SportFacility is Management {
             sf.courts.push(newCourts[i]);
             sf.cIndex[newCourts[i].name] = sf.courts.length; 
             
-            emit courtAdded(msg.sender, newCourts[i].name, newCourts[i].earliestTime, 
+            emit courtAdded(msg.sender, facilityName, newCourts[i].name, newCourts[i].earliestTime, 
                            newCourts[i].latestTime, statusToString(newCourts[i].status), block.timestamp);
         }
     }
@@ -378,7 +380,7 @@ contract SportFacility is Management {
         sf.courts.pop(); 
         delete sf.cIndex[cname]; 
         
-        emit courtDeleted(msg.sender, cname, block.timestamp);
+        emit courtDeleted(msg.sender, fname, cname, block.timestamp);
     }
 
     // Court getters 
