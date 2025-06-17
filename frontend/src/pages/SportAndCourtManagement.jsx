@@ -9,6 +9,25 @@ import Spinner from '@components/Spinner';
 const DEFAULT_EARLIEST = '08:00';
 const DEFAULT_LATEST = '23:00';
 
+// Helper function to validate Google Maps URL
+const validateGoogleMapsUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  
+  // Clean the URL by trimming whitespace
+  const cleanUrl = url.trim();
+  
+  // Google Maps URL patterns
+  const googleMapsPatterns = [
+    /^https?:\/\/(www\.)?google\.com\/maps/,
+    /^https?:\/\/maps\.google\.com/,
+    /^https?:\/\/goo\.gl\/maps/,
+    /^https?:\/\/maps\.app\.goo\.gl/,
+    /^https?:\/\/(www\.)?google\.[a-z]{2,}\/maps/
+  ];
+  
+  return googleMapsPatterns.some(pattern => pattern.test(cleanUrl));
+};
+
 // Enhanced main component integration
 const SportAndCourtManagement = () => {
   const [sports, setSports] = useState([]);
@@ -131,15 +150,24 @@ const SportAndCourtManagement = () => {
   const handleAddSport = async (sportData) => {
     setLoading(true);
     try {
-      // Add frontend validation before API call
+      // Enhanced validation for location
       if (!sportData.location || sportData.location.trim() === '') {
-        setToast({ msg: "Sport Facility location not provided", type: "error" });
+        setToast({ msg: "Sport Facility location is required", type: "error" });
+        return;
+      }
+
+      // Validate Google Maps URL
+      if (!validateGoogleMapsUrl(sportData.location)) {
+        setToast({ 
+          msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)", 
+          type: "error" 
+        });
         return;
       }
 
       const requestData = {
         facilityName: sportData.name,
-        facilityLocation: sportData.location,
+        facilityLocation: sportData.location.trim(),
         facilityStatus: getStatusValue(sportData.status || 'OPEN'),
         courts: sportData.courts.map(court => ({
           name: court.name,
@@ -159,12 +187,10 @@ const SportAndCourtManagement = () => {
 
       if (!res.ok) {
         const errorData = await res.json();
-        // Handle specific error messages from backend
         let errorMessage = errorData.error || 'Failed to add sport facility';
         
-        // Map common smart contract errors to user-friendly messages
         if (errorMessage.includes('Sport Facility location not provided')) {
-          errorMessage = 'Please provide a valid location for the sport facility';
+          errorMessage = 'Please provide a valid Google Maps location link';
         }
         
         throw new Error(errorMessage);
@@ -202,10 +228,19 @@ const SportAndCourtManagement = () => {
     try {
       let hasChanges = false;
       
-      // Handle location update
+      // Handle location update with validation
       if (selectedSportForEdit.location !== sportData.location) {
         if (!sportData.location || sportData.location.trim() === '') {
           setToast({ msg: "Sport Facility location cannot be empty", type: "error" });
+          return;
+        }
+        
+        // Validate Google Maps URL
+        if (!validateGoogleMapsUrl(sportData.location)) {
+          setToast({ 
+            msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)", 
+            type: "error" 
+          });
           return;
         }
         
@@ -214,7 +249,7 @@ const SportAndCourtManagement = () => {
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ location: sportData.location })
+          body: JSON.stringify({ location: sportData.location.trim() })
         });
 
         if (!res.ok) {
@@ -222,7 +257,7 @@ const SportAndCourtManagement = () => {
           let errorMessage = errorData.error || 'Failed to update facility location';
           
           if (errorMessage.includes('Sport Facility location not provided')) {
-            errorMessage = 'Location field cannot be empty';
+            errorMessage = 'Please provide a valid Google Maps location link';
           }
           
           throw new Error(errorMessage);
@@ -1067,6 +1102,7 @@ const AddSportModal = ({ onClose, onSave }) => {
   const [newCourt, setNewCourt] = useState('');
   const [courtTimes, setCourtTimes] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState({ msg: "", type: "success" });
 
   const addCourt = () => {
     const courtName = newCourt.trim();
@@ -1117,9 +1153,18 @@ const AddSportModal = ({ onClose, onSave }) => {
     setIsSubmitting(true);
     
     try {
-      // Frontend validation
+      // Enhanced validation
       if (!formData.location || formData.location.trim() === '') {
         setToast({ msg: "Sport Facility location is required", type: "error" });
+        return;
+      }
+
+      // Validate Google Maps URL
+      if (!validateGoogleMapsUrl(formData.location)) {
+        setToast({ 
+          msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)", 
+          type: "error" 
+        });
         return;
       }
 
@@ -1214,10 +1259,13 @@ const AddSportModal = ({ onClose, onSave }) => {
               type="url"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              placeholder="Google Map link (required)"
+              placeholder="Google Maps link (e.g., https://maps.google.com/...)"
               required
               disabled={isSubmitting}
             />
+            <small className="form-hint">
+              Please provide a valid Google Maps link. Accepted formats: maps.google.com, google.com/maps, goo.gl/maps, maps.app.goo.gl
+            </small>
           </div>
 
           <div className="modal-actions">
@@ -1227,6 +1275,14 @@ const AddSportModal = ({ onClose, onSave }) => {
             </button>
           </div>
         </form>
+        
+        {toast.msg && (
+          <Toast
+            message={toast.msg}
+            type={toast.type}
+            onClose={() => setToast({ msg: "", type: "success" })}
+          />
+        )}
       </div>
     </div>
   );
@@ -1304,9 +1360,18 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
     setIsSubmitting(true);
     
     try {
-      // Frontend validation for location
+      // Enhanced validation for location
       if (!formData.location || formData.location.trim() === '') {
         setToast({ msg: "Sport Facility location cannot be empty", type: "error" });
+        return;
+      }
+
+      // Validate Google Maps URL
+      if (!validateGoogleMapsUrl(formData.location)) {
+        setToast({ 
+          msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)", 
+          type: "error" 
+        });
         return;
       }
 
@@ -1366,10 +1431,13 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
               type="url"
               value={formData.location}
               onChange={(e) => setFormData({...formData, location: e.target.value})}
-              placeholder="Google Map link (required)"
+              placeholder="Google Maps link (e.g., https://maps.google.com/...)"
               required
               disabled={isSubmitting}
             />
+            <small className="form-hint">
+              Please provide a valid Google Maps link. <br></br>Accepted formats: maps.google.com, google.com/maps, goo.gl/maps, maps.app.goo.gl
+            </small>
           </div>
           
           <div className="form-group">

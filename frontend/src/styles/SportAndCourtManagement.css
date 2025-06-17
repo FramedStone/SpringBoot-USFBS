@@ -1215,3 +1215,19 @@
     padding: 12px;
   }
 }
+
+.form-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.875rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.form-group input:focus + .form-hint {
+  color: #3b82f6;
+}
+
+.form-group input:invalid + .form-hint {
+  color: #ef4444;
+}
