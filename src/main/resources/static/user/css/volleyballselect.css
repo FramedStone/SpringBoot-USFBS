@@ -15,6 +15,14 @@ header {
   background-color: #61DDFF;
   box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.3);
   padding: 10px 20px;
+  flex-wrap: wrap;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* evenly spread items */
+  gap: 10px; /* space between items */
 }
 
 .top-bar {
@@ -22,6 +30,7 @@ header {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
+  padding: 5px;
 }
 .logo {
   height:80px;
@@ -48,7 +57,9 @@ h1 {
 nav ul {
   display: flex;
   list-style: none;
-  gap: 20px;
+  gap: 10px;
+  padding:0;
+  margin:0;
   align-items: center;
 }
 
@@ -57,6 +68,19 @@ nav li {
   align-items: center;
   gap: 5px;
   font-size: 14px;
+}
+
+nav ul li {
+  display: flex;
+  align-items: center;
+}
+
+nav ul li a {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: black;
+  gap: 5px;
 }
 
 .title {
@@ -120,6 +144,8 @@ nav li {
     margin-bottom: 20px;
     font-style: italic;
     font-weight: 900;
+    display:flex;
+    align-items:center;
 }
 
 .date-display {
@@ -127,7 +153,7 @@ nav li {
     align-items: center;
     justify-content: flex-end;
     gap: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .calendar-icon {
@@ -141,6 +167,19 @@ nav li {
     color: rgba(26, 26, 26, 0.80);
 }
 
+
+.notification-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: red;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 50%;
+}
+
 .notification-bell {
     width: 50px;
     height: 50px;
@@ -150,6 +189,7 @@ nav li {
     align-items: center;
     justify-content: center;
     margin-left: 10px;
+    position: relative;
 }
 
 .bell-icon {
@@ -273,8 +313,19 @@ nav li {
     transform: translateY(-2px);
 }
 
+.date-cart-container {
+  display: flex;
+  align-items: center;
+  gap: 15px; /* spacing between date picker and cart */
+  flex-wrap: wrap;
+  justify-content: flex-end; /* aligns both to the right */
+}
+
+
+
 /* Media Queries for Responsiveness */
 @media (max-width: 768px) {
+
     .navigation {
         display: none;
         flex-direction: column;
@@ -295,10 +346,6 @@ nav li {
         display: block;
     }
     
-    .header {
-        flex-wrap: wrap;
-    }
-    
     .title {
         order: 1;
         width: 100%;
@@ -313,6 +360,23 @@ nav li {
         width: 50%;
     }
 }
+
+.date-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.calendar-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.current-date {
+  font-size: 16px;
+  padding: 4px;
+}
+
 
 @media (max-width: 480px) {
     .white-card {
