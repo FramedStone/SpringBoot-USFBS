@@ -5,11 +5,15 @@
     box-sizing: border-box;
 }
 
-body {
+html, body {
+    height: 100vh;
+    overflow: hidden;
     font-family: 'Inter', sans-serif;
     background: #B3E5FB;
-    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
+
 
 header {
   background-color: #61DDFF;
@@ -22,7 +26,9 @@ header {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
+  padding:5px;
 }
+
 .logo {
   height:80px;
 }
@@ -48,7 +54,9 @@ h1 {
 nav ul {
   display: flex;
   list-style: none;
-  gap: 20px;
+  gap: 10px;
+  padding:0;
+  margin:0;
   align-items: center;
 }
 
@@ -57,6 +65,20 @@ nav li {
   align-items: center;
   gap: 5px;
   font-size: 14px;
+}
+
+nav ul li {
+  display: flex;
+  align-items: center;
+}
+
+
+nav ul li a {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: black;
+  gap: 5px;
 }
 
 .title {
@@ -94,11 +116,14 @@ nav li {
 /* Main Content Styles */
 .content {
     flex: 1;
-    padding: 20px;
+    padding: 10px;
     text-align: center;
     display: flex;
     flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
 }
+
 
 .content-title {
     font-size: clamp(24px, 3vw, 40px);
