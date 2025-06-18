@@ -2,6 +2,7 @@ package com.usfbs.springboot.service;
 
 import com.usfbs.springboot.contracts.Management;
 import com.usfbs.springboot.contracts.SportFacility;
+import com.usfbs.springboot.contracts.Booking;
 import com.usfbs.springboot.dto.AnnouncementItem;
 import com.usfbs.springboot.dto.PinataManifest;
 import com.usfbs.springboot.dto.SportFacilityResponse;
@@ -24,7 +25,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -39,6 +39,9 @@ public class AdminService {
     
     @Autowired
     private SportFacility sportFacilityContract;
+
+    @Autowired
+    private Booking bookingContract;
 
     @Autowired
     public AdminService(PinataUtil pinataUtil, Management managementContract) {
@@ -983,5 +986,155 @@ public class AdminService {
             case "BOOKED": return BigInteger.valueOf(3);
             default: throw new IllegalArgumentException("Invalid status: " + status);
         }
+    }
+
+    /**
+     * Gets booked time slots for a specific court
+     */
+    public List<Map<String, Object>> getBookedTimeSlots(String facilityName, String courtName) {
+        try {
+            List<Object> bookedSlots = bookingContract.getBookedtimeSlots(facilityName, courtName).send();
+            
+            List<Map<String, Object>> formattedSlots = new ArrayList<>();
+            
+            for (Object slot : bookedSlots) {
+                try {
+                    Map<String, Object> timeSlot = new HashMap<>();
+                    
+                    if (slot instanceof Booking.timeSlot) {
+                        Booking.timeSlot bookingSlot = (Booking.timeSlot) slot;
+                        timeSlot.put("startTime", bookingSlot.startTime.longValue());
+                        timeSlot.put("endTime", bookingSlot.endTime.longValue());
+                    } else {
+                        timeSlot = extractTimeSlotFromObject(slot);
+                    }
+                    
+                    long startSeconds = (Long) timeSlot.get("startTime");
+                    long endSeconds = (Long) timeSlot.get("endTime");
+                    
+                    timeSlot.put("startTimeStr", secondsToTimeString(startSeconds));
+                    timeSlot.put("endTimeStr", secondsToTimeString(endSeconds));
+                    timeSlot.put("startHour", (int) (startSeconds / 3600));
+                    timeSlot.put("endHour", (int) (endSeconds / 3600));
+                    
+                    formattedSlots.add(timeSlot);
+                    
+                } catch (Exception e) {
+                    logger.warn("Failed to process booked time slot: {}", e.getMessage());
+                    continue;
+                }
+            }
+            
+            logger.info("Retrieved {} booked time slots for court {} in facility {}", 
+                       formattedSlots.size(), courtName, facilityName);
+            return formattedSlots;
+            
+        } catch (Exception e) {
+            logger.error("Error getting booked time slots for court {} in facility {}: {}", 
+                        courtName, facilityName, e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Extracts time slot data from object using reflection
+     */
+    private Map<String, Object> extractTimeSlotFromObject(Object slotObj) throws Exception {
+        try {
+            Class<?> slotClass = slotObj.getClass();
+            java.lang.reflect.Field startTimeField = slotClass.getDeclaredField("startTime");
+            java.lang.reflect.Field endTimeField = slotClass.getDeclaredField("endTime");
+            
+            startTimeField.setAccessible(true);
+            endTimeField.setAccessible(true);
+            
+            BigInteger startTime = (BigInteger) startTimeField.get(slotObj);
+            BigInteger endTime = (BigInteger) endTimeField.get(slotObj);
+            
+            Map<String, Object> timeSlot = new HashMap<>();
+            timeSlot.put("startTime", startTime.longValue());
+            timeSlot.put("endTime", endTime.longValue());
+            
+            return timeSlot;
+        } catch (Exception e) {
+            throw new Exception("Failed to extract time slot data: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Enhanced method that includes booked time slots with court time range
+     */
+    public Map<String, Object> getCourtAvailableTimeRangeWithBookings(String facilityName, String courtName) throws Exception {
+        try {
+            Map<String, Object> result = getCourtAvailableTimeRange(facilityName, courtName);
+            
+            List<Map<String, Object>> bookedSlots = getBookedTimeSlots(facilityName, courtName);
+            result.put("bookedTimeSlots", bookedSlots);
+            
+            Map<String, String> timeSlotAvailability = generateTimeSlotAvailability(result, bookedSlots);
+            result.put("timeSlotAvailability", timeSlotAvailability);
+            
+            logger.info("Retrieved complete court information with {} booked slots for court {} in facility {}", 
+                       bookedSlots.size(), courtName, facilityName);
+            
+            return result;
+            
+        } catch (Exception e) {
+            logger.error("Error getting court information with bookings for {} in facility {}: {}", 
+                        courtName, facilityName, e.getMessage());
+            throw new Exception("Failed to get court information with bookings: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Generates hourly time slot availability based on court hours and bookings
+     */
+    private Map<String, String> generateTimeSlotAvailability(Map<String, Object> courtInfo, List<Map<String, Object>> bookedSlots) {
+        Map<String, String> availability = new HashMap<>();
+    
+        try {
+        long earliestTime = (Long) courtInfo.get("earliestTime");
+        long latestTime = (Long) courtInfo.get("latestTime");
+        String courtStatus = (String) courtInfo.get("status");
+        
+        int startHour = (int) (earliestTime / 3600);
+        int endHour = (int) (latestTime / 3600);
+        
+        for (int hour = 0; hour <= 23; hour++) {
+            String timeSlot = String.format("%02d:00", hour);
+            
+            if (hour < startHour || hour > endHour) {
+                availability.put(timeSlot, "UNAVAILABLE");
+                continue;
+            }
+            
+            if (!"OPEN".equals(courtStatus)) {
+                availability.put(timeSlot, courtStatus);
+                continue;
+            }
+            
+            // Create effectively final variables for lambda
+            final int currentHour = hour;
+            boolean isBooked = bookedSlots.stream().anyMatch(slot -> {
+                Integer startHourObj = (Integer) slot.get("startHour");
+                Integer endHourObj = (Integer) slot.get("endHour");
+                int slotStartHour = startHourObj != null ? startHourObj : 0;
+                int slotEndHour = endHourObj != null ? endHourObj : 0;
+                return currentHour >= slotStartHour && currentHour < slotEndHour;
+            });
+            
+            availability.put(timeSlot, isBooked ? "BOOKED" : "AVAILABLE");
+        }
+        
+    } catch (Exception e) {
+        logger.error("Error generating time slot availability: {}", e.getMessage());
+        // Return default unavailable if error occurs
+        for (int hour = 0; hour <= 23; hour++) {
+            String timeSlot = String.format("%02d:00", hour);
+            availability.put(timeSlot, "UNAVAILABLE");
+        }
+    }
+    
+    return availability;
     }
 }

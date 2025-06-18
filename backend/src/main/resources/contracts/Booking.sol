@@ -48,14 +48,6 @@ contract Booking is Management {
         string note,
         uint256 timestamp
     );
-    event bookingDeleted(
-        address indexed from,
-        uint256 bookingId,
-        string ipfsHash,
-        string status,
-        string note,
-        uint256 timestamp
-    );
 
     // Helper Functions
     function statusToString(status s) internal pure returns(string memory sString) {
@@ -65,6 +57,19 @@ contract Booking is Management {
         if(s == status.COMPLETED) return "completed";
         if(s == status.CANCELLED) return "cancelled";
         return "unknown"; 
+    }
+
+    function updateAllBookingStatus_() external {
+        for(uint256 i=0; i<bookings.length; i++) {
+            bookingTransaction storage b = bookings[i];
+
+            if(bookings[i].status == status.APPROVED) {
+                if(block.timestamp >= b.time.endTime) {
+                    b.status = status.COMPLETED;
+                    emit bookingUpdated(msg.sender, b.bookingId, statusToString(status.APPROVED), statusToString(b.status), "updated by system (booking completed)", block.timestamp);
+                }
+            }
+        }
     }
 
     function isAvailable_(

@@ -280,7 +280,6 @@ public class ContractInitializer implements CommandLineRunner {
                 System.out.println("Management Deployment TX hash = " + deploymentReceipt.getTransactionHash());
             }
 
-            // Subscribe to Booking.sol events
             bookingContract.bookingCreatedEventFlowable(
                 DefaultBlockParameterName.EARLIEST,
                 DefaultBlockParameterName.LATEST
@@ -338,32 +337,6 @@ public class ContractInitializer implements CommandLineRunner {
                 error.printStackTrace();
             });
 
-            bookingContract.bookingDeletedEventFlowable(
-                DefaultBlockParameterName.EARLIEST,
-                DefaultBlockParameterName.LATEST
-            ).subscribe(event -> {
-                System.out.println(">>> [bookingDeleted] event received:");
-                System.out.println("    from           = " + event.from);
-                System.out.println("    bookingId      = " + event.bookingId);
-                System.out.println("    ipfsHash       = " + event.ipfsHash);
-                System.out.println("    status         = " + event.status);
-                System.out.println("    note           = " + event.note);
-                System.out.println("    timestamp      = " + safeFormatTimestamp(event.timestamp));
-                System.out.println();
-                
-                eventLogService.addEventLog(
-                    event.ipfsHash,
-                    "Booking Deleted",
-                    event.from,
-                    event.timestamp,
-                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
-                    "BOOKING"
-                );
-            }, error -> {
-                System.err.println("Error in bookingDeleted subscription: " + error.getMessage());
-                error.printStackTrace();
-            });
-
             // Management.sol events
             managementContract.announcementAddedEventFlowable(
                 DefaultBlockParameterName.EARLIEST,
@@ -383,7 +356,7 @@ public class ContractInitializer implements CommandLineRunner {
                     "Announcement Added",
                     event.from,
                     event.timestamp,
-                    originalOutput, // No note field in this event
+                    originalOutput,
                     "MANAGEMENT"
                 );
             }, error -> {

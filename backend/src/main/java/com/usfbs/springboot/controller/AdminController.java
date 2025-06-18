@@ -625,5 +625,49 @@ public class AdminController {
             ));
         }
     }
+
+    @GetMapping("/sport-facilities/{facilityName}/courts/{courtName}/time-range-with-bookings")
+    public ResponseEntity<?> getCourtTimeRangeWithBookings(
+        @PathVariable String facilityName,
+        @PathVariable String courtName
+    ) {
+        try {
+            Map<String, Object> courtInfo = adminService.getCourtAvailableTimeRangeWithBookings(facilityName, courtName);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", courtInfo,
+                "message", "Court information with bookings retrieved successfully"
+            ));
+        } catch (Exception e) {
+            logger.error("Error getting court information with bookings: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/sport-facilities/{facilityName}/courts/{courtName}/booked-slots")
+    public ResponseEntity<?> getCourtBookedSlots(
+        @PathVariable String facilityName,
+        @PathVariable String courtName
+    ) {
+        try {
+            List<Map<String, Object>> bookedSlots = adminService.getBookedTimeSlots(facilityName, courtName);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", bookedSlots,
+                "message", String.format("Retrieved %d booked time slots", bookedSlots.size())
+            ));
+        } catch (Exception e) {
+            logger.error("Error getting booked time slots: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
 }
 
