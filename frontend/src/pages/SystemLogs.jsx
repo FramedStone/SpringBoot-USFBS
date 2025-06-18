@@ -102,7 +102,6 @@ const SystemLogs = () => {
     'Booking Created': true,
     'Booking Updated': true,
     'Booking Deleted': true,
-    'Booking Requested': true,
     'Announcement Added': true,
     'Announcement Deleted': true,
     'Announcement Modified': true,
@@ -511,7 +510,37 @@ const SystemLogs = () => {
       'Booking Created': true,
       'Booking Updated': true,
       'Booking Deleted': true,
-      'Booking Requested': true,
+      'Announcement Added': true,
+      'Announcement Deleted': true,
+      'Announcement Modified': true,
+      'Announcement IPFS Hash Modified': true, 
+      'Announcement Time Modified': true,
+      'Announcement Title Modified': true,
+      'Announcement Requested': true,
+      'User Added': true,
+      'User Banned': true,
+      'User Unbanned': true,
+      'Sport Facility Added': true,
+      'Sport Facility Modified': true,
+      'Sport Facility Deleted': true,
+      'Court Added': true,
+      'Court Modified': true,
+      'Court Deleted': true,
+      'Facility Details Requested': true,
+      'Court Details Requested': true
+    });
+    setSortBy({
+      field: 'timestamp',   
+      order: 'desc'
+    });
+    setCurrentPage(1);
+  };
+
+  const resetFilters = () => {
+    setSelectedActions({
+      'Booking Created': true,
+      'Booking Updated': true,
+      'Booking Deleted': true,
       'Announcement Added': true,
       'Announcement Deleted': true,
       'Announcement Modified': true,

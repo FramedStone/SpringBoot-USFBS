@@ -785,31 +785,6 @@ public class ContractInitializer implements CommandLineRunner {
                 error.printStackTrace();
             });
 
-            // Add missing Booking event subscription
-            bookingContract.bookingRequestedEventFlowable(
-                DefaultBlockParameterName.EARLIEST,
-                DefaultBlockParameterName.LATEST
-            ).subscribe(event -> {
-                String originalOutput = ">>> [bookingRequested] event received:\n" +
-                                       "    from           = " + event.from + "\n" +
-                                       "    bookingId      = " + event.bookingId + "\n" +
-                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
-                
-                System.out.println(originalOutput);
-                
-                eventLogService.addEventLog(
-                    "",
-                    "Booking Requested",
-                    event.from,
-                    event.timestamp,
-                    "",
-                    "BOOKING"
-                );
-            }, error -> {
-                System.err.println("Error in bookingRequested subscription: " + error.getMessage());
-                error.printStackTrace();
-            });
-
             System.out.println(">>> ContractInitializer.run() completed successfully");
             System.out.println(">>> All smart contract event subscriptions are active");
             System.out.println(">>> Timezone: " + ZoneId.systemDefault());

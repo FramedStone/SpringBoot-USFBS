@@ -61,11 +61,6 @@ contract Booking is Management {
         string note,
         uint256 timestamp
     );
-    event bookingRequested(
-        address indexed from,
-        uint256 bookingId,
-        uint256 timestamp
-    );
 
     // Helper Functions
     function statusToString(status s) internal pure returns(string memory sString) {
@@ -98,7 +93,7 @@ contract Booking is Management {
         string memory fname,
         string memory cname,
         timeSlot memory time
-    ) internal isAdmin returns(bool result) {
+    ) internal isAdmin view returns(bool result) {
         require(bytes(fname).length > 0, "Facility name not provided");
         require(bytes(cname).length > 0, "Court name not provided");
         require(time.startTime != 0 && time.endTime != 0, "Start or End time not provided");
@@ -133,7 +128,7 @@ contract Booking is Management {
         string memory fname,
         string memory cname,
         timeSlot memory time
-    ) internal isUser returns(bool result) {
+    ) internal isUser view returns(bool result) {
         require(bytes(fname).length > 0, "Facility name not provided");
         require(bytes(cname).length > 0, "Court name not provided");
         require(time.startTime != 0 && time.endTime != 0, "Start or End time not provided");
@@ -224,7 +219,6 @@ contract Booking is Management {
                 (bookings[i].status == status.APPROVED || bookings[i].status == status.PENDING)
             ) {
                 timeSlots[arrayIndex] = bookings[i].time;
-                emit bookingRequested(msg.sender, bookings[i].bookingId, block.timestamp);
                 arrayIndex++;
             }
         }
@@ -346,15 +340,18 @@ contract Booking is Management {
         require(bookings[bookingId].bookingId != 0 || bytes(bookings[bookingId].ipfsHash).length > 0, "Booking not found");
         require(bookings[bookingId].owner == msg.sender, "Not booking owner");
         
-        emit bookingRequested(msg.sender, bookingId, block.timestamp);
         return bookings[bookingId];
     }
     function getAllBookings_() external isAdmin freeUpStorage_ returns(bookingTransaction[] memory booking) {
         require(bookings.length > 0, "Empty bookings saved in blockchain");
+
+        bookingTransaction[] memory bookings_;
         for(uint256 i=0; i<bookings.length; i++) {
-            emit bookingRequested(msg.sender, bookings[i].bookingId, block.timestamp);
+            if(bookings[i].owner == msg.sender) {
+                bookings_[i] = bookings[i];
+            }
         }
-        return bookings;
+        return bookings_;
     }
 
     // user
@@ -451,7 +448,6 @@ contract Booking is Management {
         require(bookings[bookingId].bookingId != 0 || bytes(bookings[bookingId].ipfsHash).length > 0, "Booking not found");
         require(bookings[bookingId].owner == msg.sender, "Not booking owner");
 
-        emit bookingRequested(msg.sender, bookingId, block.timestamp);
         return bookings[bookingId];
     }
     function getAllBookings() external isUser freeUpStorage_ returns(bookingTransaction[] memory booking) {
@@ -461,7 +457,6 @@ contract Booking is Management {
         for(uint256 i=0; i<bookings.length; i++) {
             if(bookings[i].owner == msg.sender) {
                 bookings_[i] = bookings[i];
-                emit bookingRequested(msg.sender, bookings[i].bookingId, block.timestamp);
             }
         }
         return bookings_;
