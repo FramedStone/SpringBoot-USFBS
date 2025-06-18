@@ -1,0 +1,167 @@
+@import url('https://fonts.googleapis.com/css2?family=Jersey+10&display=swap');
+
+/* Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: #FFF;
+    min-height: 100vh;
+}
+
+header {
+  background-color: #61DDFF;
+  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.3);
+  padding: 10px 20px;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 5px;
+}
+
+.logo {
+  height:80px;
+}
+
+h1 {
+  font-family: "Jersey 10", sans-serif;
+  font-size: 2.5rem;
+  text-align: center;
+  flex-grow: 1;
+}
+
+.nav-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.user-id {
+  font-size: 14px;
+}
+
+nav ul {
+  display: flex;
+  list-style: none;
+  gap: 10px;
+  padding:0;
+  margin:0;
+  align-items: center;
+}
+
+nav li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+}
+
+nav ul li {
+  display: flex;
+  align-items: center;
+}
+
+nav ul li a {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: black;
+  gap: 5px;
+}
+
+
+.title {
+    font-size: clamp(2rem, 5vw, 3.75rem);
+    font-family: 'Jersey 10', sans-serif;
+    text-align: center;
+    margin: 0 auto;
+}
+
+.nav-menu {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.nav-item:hover {
+    transform: translateY(-2px);
+}
+
+.nav-icon {
+    width: 30px;
+    height: 30px;
+}
+
+.sub-header {
+  background-color: #7B7B7B;
+  color: white;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.sub-header h2 {
+  font-size: 2rem;
+}
+
+.sub-header h2 a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.sub-header h2 a:hover {
+  text-decoration: underline;
+}
+
+main {
+  padding: 30px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 30px;
+}
+
+th, td {
+  padding: 15px;
+  text-align: center;
+  font-size: 1.2rem;
+  border: 1px solid #B9B9B9;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: 600;
+}
+
+
+.finished {
+  background: none;
+  color: #0F53FF;
+  border: none;
+  font-size: 1.2rem;
+}
+
