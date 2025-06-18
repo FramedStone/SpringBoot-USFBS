@@ -23,10 +23,12 @@ header {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
+  padding: 5px;
 }
 
 .logo {
   height: 80px;
+
 }
 
 h1 {
@@ -50,7 +52,9 @@ h1 {
 nav ul {
   display: flex;
   list-style: none;
-  gap: 20px;
+  gap: 10px;
+  padding:0;
+  margin:0;
   align-items: center;
 }
 
@@ -59,6 +63,19 @@ nav li {
   align-items: center;
   gap: 5px;
   font-size: 14px;
+}
+
+nav ul li {
+  display: flex;
+  align-items: center;
+}
+
+nav ul li a {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: black;
+  gap: 5px;
 }
 
 .sub-header {
@@ -111,15 +128,79 @@ th {
   justify-content: flex-start;
 }
 
-.checkout-btn {
-  background-color: #0F53FF;
-  color: white;
-  padding: 12px 30px;
-  font-size: 1rem;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-}
+/* Checkout Button */
+    .checkout-btn {
+      padding: 15px 30px;
+      font-size: 24px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .checkout-btn:hover {
+      background-color: #218838; /* Darker shade on hover */
+    }
+
+    /* Modal Background */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 999;
+      left: 0;
+      top: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Modal Content */
+    .modal-content {
+      background-color: white;
+      padding: 30px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 800px;
+      text-align: left; /* Left-align text */
+    }
+
+    .modal-content img {
+      width: 200px;
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    .modal-content h2 {
+      font-size: 28px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+
+    .modal-content p {
+      font-size: 20px;
+      margin: 5px 0;
+    }
+
+    .done-btn {
+      margin-top: 30px;
+      background-color: #002BFF;
+      color: white;
+      font-size: 22px;
+      padding: 10px 30px;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Inria Sans', sans-serif;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    hr {
+      margin: 20px 0;
+    }
 
 @media (max-width: 768px) {
   h1 {
@@ -128,7 +209,7 @@ th {
 
   .top-bar {
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
   }
 
   nav ul {
@@ -146,3 +227,4 @@ th {
     text-align: center;
   }
 }
+
