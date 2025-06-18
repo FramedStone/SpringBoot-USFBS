@@ -27,11 +27,6 @@ contract Booking is Management {
     bookingTransaction[] private bookings;
     mapping(address owner => bookingTransaction) private bookingOwner;
 
-    modifier freeUpStorage_ {
-        freeUpStorage();
-        _;
-    }
-
     // Events
     event bookingCreated(
         address indexed from,
@@ -70,23 +65,6 @@ contract Booking is Management {
         if(s == status.COMPLETED) return "completed";
         if(s == status.CANCELLED) return "cancelled";
         return "unknown"; 
-    }
-
-    function freeUpStorage() internal {
-        for(uint256 i=0; i<bookings.length; i++) {
-            bookingTransaction storage b = bookings[i];
-
-            if(bookings[i].status == status.APPROVED) {
-                if(block.timestamp >= b.time.endTime) {
-                    b.status = status.COMPLETED;
-                    emit bookingUpdated(msg.sender, b.bookingId, statusToString(status.APPROVED), statusToString(b.status), "updated by system (booking completed)", block.timestamp);
-                }
-            } else if(bookings[i].status == status.CANCELLED) {
-                emit bookingDeleted(msg.sender, b.bookingId, b.ipfsHash, statusToString(b.status), "deleted by system", block.timestamp);
-                delete bookings[i];
-                delete bookingOwner[b.owner];
-            }
-        }
     }
 
     function isAvailable_(
@@ -189,7 +167,7 @@ contract Booking is Management {
     function getBookedtimeSlots(
         string memory fname,
         string memory cname
-    ) external freeUpStorage_ returns(timeSlot[] memory timeSlots_) {
+    ) external view returns(timeSlot[] memory timeSlots_) {
         require(users[msg.sender] == true || admins[msg.sender] == true, "Access denied: Must be user or admin");
         require(bytes(fname).length > 0, "Facility name not provided");
         require(bytes(cname).length > 0, "Court name not provided");
@@ -234,7 +212,7 @@ contract Booking is Management {
         string memory cname,
         string memory note,
         timeSlot memory time
-    ) external isAdmin freeUpStorage_ returns(uint256 bookingId_){
+    ) external isAdmin returns(uint256 bookingId_){
         require(bytes(fname).length > 0, "Facility name not provided");
         require(bytes(cname).length > 0, "Court name not provided");
         require(time.startTime != 0 && time.endTime != 0, "Start or End time not provided");
@@ -304,7 +282,7 @@ contract Booking is Management {
     function attachBookingNote(
         uint256 bookingId,
         string memory note
-    ) external isAdmin freeUpStorage_ {
+    ) external isAdmin {
         require(bookingId != 0, "Booking not found");
         require(bytes(note).length != 0, "note not provided");
 
@@ -316,7 +294,7 @@ contract Booking is Management {
     function rejectBooking(
         uint256 bookingId,
         string memory reason
-    ) external isAdmin freeUpStorage_ returns(string memory reason_) {
+    ) external isAdmin returns(string memory reason_) {
         require(bookingId != 0, "Booking not found");
 
         bookingTransaction storage b = bookings[bookingId];
@@ -334,7 +312,7 @@ contract Booking is Management {
     }
 
     // Getters
-    function getBooking_(uint256 bookingId) external isAdmin freeUpStorage_ returns(bookingTransaction memory booking) {
+    function getBooking_(uint256 bookingId) external isAdmin view returns(bookingTransaction memory booking) {
         require(bookings.length > 0, "No bookings exist");
         require(bookingId < bookings.length, "Booking ID out of range");
         require(bookings[bookingId].bookingId != 0 || bytes(bookings[bookingId].ipfsHash).length > 0, "Booking not found");
@@ -342,7 +320,7 @@ contract Booking is Management {
         
         return bookings[bookingId];
     }
-    function getAllBookings_() external isAdmin freeUpStorage_ returns(bookingTransaction[] memory booking) {
+    function getAllBookings_() external isAdmin view returns(bookingTransaction[] memory booking) {
         require(bookings.length > 0, "Empty bookings saved in blockchain");
 
         bookingTransaction[] memory bookings_;
@@ -362,7 +340,7 @@ contract Booking is Management {
         string memory cname,
         string memory note,
         timeSlot memory time
-    ) external isUser freeUpStorage_ returns(uint256 bookingId_){
+    ) external isUser returns(uint256 bookingId_){
         require(bytes(fname).length > 0, "Facility name not provided");
         require(bytes(cname).length > 0, "Court name not provided");
         require(time.startTime != 0 && time.endTime != 0, "Start or End time not provided");
@@ -431,7 +409,7 @@ contract Booking is Management {
 
     function cancelBooking(
         uint256 bookingId
-    ) external isUser freeUpStorage_ {
+    ) external isUser {
         require(bookingId !=0, "BookingId not provided");
         require(bookings[bookingId].owner == msg.sender, "Not booking owner");
 
@@ -442,7 +420,7 @@ contract Booking is Management {
     }
 
     // Getters
-    function getBooking(uint256 bookingId) external isUser freeUpStorage_ returns(bookingTransaction memory booking) {
+    function getBooking(uint256 bookingId) external isUser view returns(bookingTransaction memory booking) {
         require(bookings.length > 0, "No bookings exist");
         require(bookingId < bookings.length, "Booking ID out of range");
         require(bookings[bookingId].bookingId != 0 || bytes(bookings[bookingId].ipfsHash).length > 0, "Booking not found");
@@ -450,7 +428,7 @@ contract Booking is Management {
 
         return bookings[bookingId];
     }
-    function getAllBookings() external isUser freeUpStorage_ returns(bookingTransaction[] memory booking) {
+    function getAllBookings() external isUser view returns(bookingTransaction[] memory booking) {
         require(bookings.length > 0, "Empty bookings found in blockchain");
 
         bookingTransaction[] memory bookings_;
