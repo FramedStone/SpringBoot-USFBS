@@ -238,6 +238,49 @@ const SystemLogs = () => {
   const extractNoteFromEvent = (originalOutput, action) => {
     if (!originalOutput) return '';
     
+    // Add this section for Announcement Added
+    if (action === 'Announcement Added') {
+      const titleMatch = originalOutput.match(/title\s*=\s*([^\n]+)/);
+      const startTimeMatch = originalOutput.match(/startTime\s*=\s*([^\n]+)/);
+      const endTimeMatch = originalOutput.match(/endTime\s*=\s*([^\n]+)/);
+      
+      let noteText = '';
+      
+      if (titleMatch) {
+        noteText += `title: ${titleMatch[1].trim()}`;
+      }
+      
+      if (startTimeMatch && endTimeMatch) {
+        try {
+          const startTimeStr = startTimeMatch[1].trim();
+          const endTimeStr = endTimeMatch[1].trim();
+          
+          // Extract date part from "2025-06-18 00:00:00 MYT"
+          const startDateMatch = startTimeStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+          const endDateMatch = endTimeStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+          
+          if (startDateMatch && endDateMatch) {
+            // Convert YYYY-MM-DD to DD/MM/YYYY format
+            const startDate = `${startDateMatch[3]}/${startDateMatch[2]}/${startDateMatch[1]}`;
+            const endDate = `${endDateMatch[3]}/${endDateMatch[2]}/${endDateMatch[1]}`;
+            
+            if (noteText) noteText += '\n';
+            noteText += `${startDate} to ${endDate}`;
+          } else {
+            // Fallback to showing the full time strings
+            if (noteText) noteText += '\n';
+            noteText += `startTime: ${startTimeStr}\nendTime: ${endTimeStr}`;
+          }
+        } catch (error) {
+          // Fallback to raw values if parsing fails
+          if (noteText) noteText += '\n';
+          noteText += `startTime: ${startTimeMatch[1].trim()}\nendTime: ${endTimeMatch[1].trim()}`;
+        }
+      }
+      
+      return noteText || 'Announcement added';
+    }
+    
     // Sport Facility CRUD with detailed parsing
     if (action === 'Sport Facility Added') {
       const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
@@ -392,12 +435,34 @@ const SystemLogs = () => {
       const newEndMatch = originalOutput.match(/newEndTime\s*=\s*([^\n]+)/);
       
       if (oldStartMatch && oldEndMatch && newStartMatch && newEndMatch) {
-        const oldStart = new Date(oldStartMatch[1]);
-        const oldEnd = new Date(oldEndMatch[1]);
-        const newStart = new Date(newStartMatch[1]);
-        const newEnd = new Date(newEndMatch[1]);
-        
-        return `Old: ${oldStart.toLocaleDateString()} to ${oldEnd.toLocaleDateString()}\nNew: ${newStart.toLocaleDateString()} to ${newEnd.toLocaleDateString()}`;
+        try {
+          const oldStartStr = oldStartMatch[1].trim();
+          const oldEndStr = oldEndMatch[1].trim();
+          const newStartStr = newStartMatch[1].trim();
+          const newEndStr = newEndMatch[1].trim();
+          
+          // Extract date parts from "2025-06-18 00:00:00 MYT" format
+          const oldStartDateMatch = oldStartStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+          const oldEndDateMatch = oldEndStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+          const newStartDateMatch = newStartStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+          const newEndDateMatch = newEndStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+          
+          if (oldStartDateMatch && oldEndDateMatch && newStartDateMatch && newEndDateMatch) {
+            // Convert YYYY-MM-DD to DD/MM/YYYY format
+            const oldStartDate = `${oldStartDateMatch[3]}/${oldStartDateMatch[2]}/${oldStartDateMatch[1]}`;
+            const oldEndDate = `${oldEndDateMatch[3]}/${oldEndDateMatch[2]}/${oldEndDateMatch[1]}`;
+            const newStartDate = `${newStartDateMatch[3]}/${newStartDateMatch[2]}/${newStartDateMatch[1]}`;
+            const newEndDate = `${newEndDateMatch[3]}/${newEndDateMatch[2]}/${newEndDateMatch[1]}`;
+            
+            return `Old: ${oldStartDate} to ${oldEndDate}\nNew: ${newStartDate} to ${newEndDate}`;
+          } else {
+            // Fallback to showing full time strings
+            return `Old: ${oldStartStr} to ${oldEndStr}\nNew: ${newStartStr} to ${newEndStr}`;
+          }
+        } catch (error) {
+          // Fallback to raw values if parsing fails
+          return `Old: ${oldStartMatch[1].trim()} to ${oldEndMatch[1].trim()}\nNew: ${newStartMatch[1].trim()} to ${newEndMatch[1].trim()}`;
+        }
       }
       return 'Time updated';
     }
