@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MMU Sports Booking - Volleyball Court</title>
+  <link rel="stylesheet" href="volleyballselect.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Jersey+10&display=swap" rel="stylesheet"/>
+</head>
+<body>
+<style>
+body {
+  background-image: url('volleyballbackground.jpeg');
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-size: 100% 100%;
+}
+</style>
+
+<div class="container">
+  <header>
+    <div class="top-bar">
+      <img src="MMU logo.png" alt="MMU Logo" class="logo" />
+      <h1>MMU SPORTS BOOKING</h1>
+      <div class="nav-right">
+        <nav>
+          <ul>
+            <li><a href="bookings.html"><img src="image/booking.png" alt="booking" width="30" height="30"/><span>Bookings</span></a></li>
+            <li><a href="contactuspage.html"><img src="image/contactus.png" alt="contactus" width="30" height="30"/><span>Contact Us</span></a></li>
+            <li><a href="Mainpage.html"><img src="image/home.png" alt="home" width="30" height="30"/><span>Home</span></a></li>
+            <li><img src="image/user.png" alt="user" width="30" height="30"/><span>1231203350</span></li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="content">
+    <div class="white-card">
+    <div class="header-row">
+      <!-- Title and location icon -->
+      <h2 class="content-title">
+        Volleyball Court &nbsp
+        <a href="Volleyballposition.html">
+          <img src="image/location.png" alt="location" width="30" height="30"/>
+        </a>
+      </h2>
+
+     <!-- Date Picker and Cart Side by Side -->
+<div class="date-cart-container">
+  <div class="date-display">
+    <input type="date" id="datePicker" class="current-date">
+  </div>
+
+  <a href="Cart.html" class="notification-link">
+    <div class="notification-bell">
+      <img src="image/cart.png" alt="Cart" class="bell-icon">
+      <div class="notification-count" id="notificationCount">0</div>
+    </div>
+  </a>
+</div>
+
+
+
+      </div>
+
+      <!-- Court Availability Table -->
+      <div class="availability-table">
+        <div class="table-header">
+          <div class="header-cell">Date: [ Please Select ]</div>
+          <div class="header-cell">Court A</div>
+          <div class="header-cell">Court B</div>
+        </div>
+
+        <!-- Time Slots -->
+        <div class="table-row">
+          <div class="time-cell">9 AM - 10 AM</div>
+          <div class="status-cell booked"></div>
+          <div class="status-cell"></div>
+        </div>
+        <div class="table-row">
+          <div class="time-cell">10 AM - 11 AM</div>
+          <div class="status-cell"></div>
+          <div class="status-cell"></div>
+        </div>
+        <div class="table-row">
+          <div class="time-cell">11 AM - 12 PM</div>
+          <div class="status-cell"></div>
+          <div class="status-cell"></div>
+        </div>
+        <div class="table-row">
+          <div class="time-cell">12 PM - 1 PM</div>
+          <div class="status-cell"></div>
+          <div class="status-cell"></div>
+        </div>
+        <div class="table-row">
+          <div class="time-cell">1 PM - 2 PM</div>
+          <div class="status-cell"></div>
+          <div class="status-cell not-available"></div>
+        </div>
+        <div class="table-row">
+          <div class="time-cell">2 PM - 3 PM</div>
+          <div class="status-cell"></div>
+          <div class="status-cell"></div>
+        </div>
+        <div class="table-row">
+          <div class="time-cell">3 PM - 4 PM</div>
+          <div class="status-cell"></div>
+          <div class="status-cell booked"></div>
+        </div>
+        <div class="table-row">
+          <div class="time-cell">4 PM - 5 PM</div>
+          <div class="status-cell"></div>
+          <div class="status-cell"></div>
+        </div>
+        <div class="table-row">
+          <div class="time-cell">5 PM - 6 PM</div>
+          <div class="status-cell not-available"></div>
+          <div class="status-cell"></div>
+        </div>
+        <div class="table-row">
+          <div class="time-cell">6 PM - 7 PM</div>
+          <div class="status-cell"></div>
+          <div class="status-cell"></div>
+        </div>
+        <div class="table-row">
+          <div class="time-cell">7 PM - 8 PM</div>
+          <div class="status-cell not-available"></div>
+          <div class="status-cell"></div>
+        </div>
+        <div class="table-row">
+          <div class="time-cell">8 PM - 9 PM</div>
+          <div class="status-cell"></div>
+          <div class="status-cell"></div>
+        </div>
+        <div class="table-row">
+          <div class="time-cell">9 PM - 10 PM</div>
+          <div class="status-cell"></div>
+          <div class="status-cell booked"></div>
+        </div>
+        <div class="table-row">
+          <div class="time-cell">10 PM - 11 PM</div>
+          <div class="status-cell"></div>
+          <div class="status-cell"></div>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-color booked"></div>
+          <span>Booked</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color not-available"></div>
+          <span>Not Available</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color available"></div>
+          <span>Available</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer Buttons -->
+  <footer class="footer">
+    <button class="btn back-btn">Back</button>
+  </footer>
+</div>
+
+<script src="volleyballselect.js"></script>
+</body>
+</html>
