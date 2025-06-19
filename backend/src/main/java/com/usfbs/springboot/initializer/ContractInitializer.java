@@ -172,8 +172,6 @@ public class ContractInitializer implements CommandLineRunner {
                     userRole
                 );
             });
-        
-        // TODO: Add similar context resolution for all other events
     }
     
     private String getCurrentUserEmail(String address) {

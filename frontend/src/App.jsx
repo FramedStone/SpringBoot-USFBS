@@ -7,6 +7,10 @@ import SystemLogs from "@pages/SystemLogs";
 import BookingManagement from "@pages/BookingManagement";
 import UserManagement from "@pages/UserManagement";
 import SportAndCourtManagement from "@pages/SportAndCourtManagement";
+import Home from "@pages/Home";
+import UserBookings from "@pages/UserBookings";
+import Cart from "@pages/Cart";
+import ContactUs from "@pages/ContactUs";
 import Toast from "@components/Toast";
 import ProtectedRoute from "@components/ProtectedRoute";
 import "./App.css";
@@ -53,6 +57,38 @@ function AppRoutes() {
               setToast={setToast}
               resetAppState={resetAppState}
             />
+          }
+        />
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute setToast={setToast} resetAppState={resetAppState} allowedRoles={["User", "Admin"]}>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bookings"
+          element={
+            <ProtectedRoute setToast={setToast} resetAppState={resetAppState} allowedRoles={["User", "Admin"]}>
+              <UserBookings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cart"
+          element={
+            <ProtectedRoute setToast={setToast} resetAppState={resetAppState} allowedRoles={["User", "Admin"]}>
+              <Cart />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contact-us"
+          element={
+            <ProtectedRoute setToast={setToast} resetAppState={resetAppState} allowedRoles={["User", "Admin"]}>
+              <ContactUs />
+            </ProtectedRoute>
           }
         />
         <Route

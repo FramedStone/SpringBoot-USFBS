@@ -15,7 +15,7 @@ import java.util.List;
     allowedHeaders = "*",
     methods = { RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS }
 )
-public class LogsController {
+public class EventLogController {
     
     @Autowired
     private EventLogService eventLogService;

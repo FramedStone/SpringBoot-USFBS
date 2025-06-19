@@ -2,19 +2,26 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWeb3Auth, useWeb3AuthDisconnect } from "@web3auth/modal/react";
 import {
-  Settings, Users, Calendar, FileText, User, LogOut, Menu, X
+  Settings, Users, Calendar, FileText, User, LogOut, Menu, X, Home, Phone, ShoppingCart
 } from "lucide-react";
 import Toast from "@components/Toast";
 import "@styles/Navbar.css";
 
-const NAV_ITEMS = [
+const ADMIN_NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: Settings, route: "/admin/dashboard" },
   { id: "users", label: "User Management", icon: Users, route: "/admin/user-management" },
   { id: "courts", label: "Sport Facility & Court Management", icon: Calendar, route: "/admin/sportfacility&court-management" },
   { id: "bookings", label: "Booking Management", icon: FileText, route: "/admin/booking-management" },
 ];
 
-export default function Navbar({ activeTab, setActiveTab }) {
+const HOME_NAV_ITEMS = [
+  { id: "home", label: "Home", icon: Home, route: "/home" },
+  { id: "bookings", label: "Bookings", icon: Calendar, route: "/bookings" },
+  { id: "cart", label: "Cart", icon: ShoppingCart, route: "/cart" },
+  { id: "contact", label: "Contact Us", icon: Phone, route: "/contact-us" },
+];
+
+export default function Navbar({ activeTab, setActiveTab, navType = "admin" }) {
   const { web3Auth } = useWeb3Auth();
   const { disconnect } = useWeb3AuthDisconnect();
   const navigate = useNavigate();
@@ -23,6 +30,10 @@ export default function Navbar({ activeTab, setActiveTab }) {
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [toast, setToast] = useState({ msg: "", type: "success" });
+
+  const navItems = navType === "home" ? HOME_NAV_ITEMS : ADMIN_NAV_ITEMS;
+  const brandText = navType === "home" ? "MMU Sport Booking" : "Admin Panel";
+  const defaultRoute = navType === "home" ? "/home" : "/admin/dashboard";
 
   useEffect(() => {
     if (!web3Auth) return;
@@ -62,8 +73,8 @@ export default function Navbar({ activeTab, setActiveTab }) {
   return (
     <>
       <nav className="dashboard-nav">
-        <div className="nav-brand" onClick={() => navigate("/admin/dashboard")} style={{ cursor: "pointer" }}>
-          <span>Admin Panel</span>
+        <div className="nav-brand" onClick={() => navigate(defaultRoute)} style={{ cursor: "pointer" }}>
+          <span>{brandText}</span>
         </div>
         <button
           className="mobile-menu-toggle"
@@ -72,7 +83,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
           {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
         <div className={`nav-tabs ${isMobileMenuOpen ? "mobile-open" : ""}`}>
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const Icon = item.icon;
             return (
               <button
@@ -101,7 +112,6 @@ export default function Navbar({ activeTab, setActiveTab }) {
             </div>
           )}
         </div>
-        {/* Desktop Profile Dropdown */}
         <div className="profile-section">
           <div className="profile-dropdown">
             <button

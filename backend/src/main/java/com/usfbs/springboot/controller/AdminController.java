@@ -1,7 +1,7 @@
 package com.usfbs.springboot.controller;
 
 import com.usfbs.springboot.dto.AnnouncementItem;
-import com.usfbs.springboot.dto.AddSportFacilityRequest;
+import com.usfbs.springboot.dto.SportFacilityRequest;
 import com.usfbs.springboot.dto.SportFacilityResponse;
 import com.usfbs.springboot.dto.SportFacilityDetailResponse;
 import com.usfbs.springboot.contracts.Management;
@@ -311,7 +311,7 @@ public class AdminController {
 
     // Sport Facility Management Endpoints
     @PostMapping("/sport-facilities")
-    public ResponseEntity<?> addSportFacility(@RequestBody AddSportFacilityRequest request) {
+    public ResponseEntity<?> addSportFacility(@RequestBody SportFacilityRequest request) {
         try {
             List<SportFacility.court> courts = request.getCourts().stream()
                 .map(courtReq -> new SportFacility.court(

@@ -4,14 +4,14 @@ import com.usfbs.springboot.contracts.SportFacility;
 import java.math.BigInteger;
 import java.util.List;
 
-public class AddSportFacilityRequest {
+public class SportFacilityRequest {
     private String facilityName;
     private String facilityLocation;
     private BigInteger facilityStatus;
     private List<CourtRequest> courts;
     
     // Constructors
-    public AddSportFacilityRequest() {}
+    public SportFacilityRequest() {}
     
     // Getters and Setters
     public String getFacilityName() { return facilityName; }

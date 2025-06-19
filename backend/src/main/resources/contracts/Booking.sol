@@ -328,13 +328,7 @@ contract Booking is Management {
     function getAllBookings_() external isAdmin view returns(bookingTransaction[] memory booking) {
         require(bookings.length > 0, "Empty bookings saved in blockchain");
 
-        bookingTransaction[] memory bookings_;
-        for(uint256 i=0; i<bookings.length; i++) {
-            if(bookings[i].owner == msg.sender) {
-                bookings_[i] = bookings[i];
-            }
-        }
-        return bookings_;
+        return bookings;
     }
 
     // user

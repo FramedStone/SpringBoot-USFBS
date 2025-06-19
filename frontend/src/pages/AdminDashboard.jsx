@@ -447,7 +447,7 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
 
   // Handle zoom functionality
   const handleImageZoom = (imageUrl, altText) => {
-    setZoomedMedia({ url: imageUrl, type: 'image', alt: altText });
+    setZoomedMedia({ url: imageUrl, type: 'image', alt: text });
   };
 
   const handlePdfZoom = (pdfUrl, title) => {
@@ -1388,7 +1388,10 @@ export default function AdminDashboard() {
             <h3>System Approved Bookings</h3>
             <div className="header-actions">
               <span className="requests-count">0 requests</span>
-              <button className="create-booking-btn">
+              <button 
+                className="create-booking-btn"
+                onClick={() => navigate("/home")}
+              >
                 <Plus size={16} />
                 Create Booking
               </button>
