@@ -472,6 +472,18 @@
   font-weight: 500;
 }
 
+.role-badge.role-system {
+  background-color: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #93c5fd;
+  font-weight: 600;
+}
+
+.role-badge.role-system:hover {
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+}
+
 .logs-table .role-cell,
 .logs-table .role-cell * {
   text-align: center !important;

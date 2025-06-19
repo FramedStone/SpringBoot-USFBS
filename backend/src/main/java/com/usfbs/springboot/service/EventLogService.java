@@ -46,9 +46,9 @@ public class EventLogService {
             this.eventType = eventType;
             this.dateAdded = LocalDateTime.now();
             
-            // Enhanced resolution logic - only real data, no placeholders
+            // Enhanced resolution logic with action-based role override
             this.email = resolveEmailFromContext(fromAddress, authService);
-            this.role = resolveRoleFromContext(fromAddress, authService);
+            this.role = resolveRoleWithActionOverride(fromAddress, action, authService);
         }
         
         private String resolveEmailFromContext(String address, AuthService authService) {
@@ -68,6 +68,16 @@ public class EventLogService {
             
             // Return blank if no real email found  
             return "-";
+        }
+        
+        private String resolveRoleWithActionOverride(String address, String action, AuthService authService) {
+            // Override role for specific system actions
+            if ("User Added".equals(action)) {
+                return "System";
+            }
+            
+            // Use normal role resolution for other actions
+            return resolveRoleFromContext(address, authService);
         }
         
         private String resolveRoleFromContext(String address, AuthService authService) {
