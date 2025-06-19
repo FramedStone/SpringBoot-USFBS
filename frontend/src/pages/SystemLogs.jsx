@@ -721,7 +721,6 @@ const SystemLogs = () => {
             Total events: {logsData.length} | 
             Filtered: {filteredAndSortedLogs.length} |
             Page: {currentPage} of {totalPages}
-            {!showEmailColumn && ' | Email column hidden (no data)'}
           </span>
         </div>
       )}
