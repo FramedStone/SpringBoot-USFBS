@@ -1,55 +1,61 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import Navbar from "@components/Navbar";
-import { X, Plus, Edit, Trash2, MapPin } from 'lucide-react';
-import { authFetch } from '@utils/authFetch';
-import Toast from '@components/Toast';
-import '@styles/SportAndCourtManagement.css';
-import Spinner from '@components/Spinner';
+import { X, Plus, Edit, Trash2, MapPin } from "lucide-react";
+import { authFetch } from "@utils/authFetch";
+import Toast from "@components/Toast";
+import "@styles/SportAndCourtManagement.css";
+import Spinner from "@components/Spinner";
 
-const DEFAULT_EARLIEST = '08:00';
-const DEFAULT_LATEST = '23:00';
+const DEFAULT_EARLIEST = "08:00";
+const DEFAULT_LATEST = "23:00";
 
 // Helper function to validate Google Maps URL
 const validateGoogleMapsUrl = (url) => {
-  if (!url || typeof url !== 'string') return false;
-  
+  if (!url || typeof url !== "string") return false;
+
   // Clean the URL by trimming whitespace
   const cleanUrl = url.trim();
-  
+
   // Google Maps URL patterns
   const googleMapsPatterns = [
     /^https?:\/\/(www\.)?google\.com\/maps/,
     /^https?:\/\/maps\.google\.com/,
     /^https?:\/\/goo\.gl\/maps/,
     /^https?:\/\/maps\.app\.goo\.gl/,
-    /^https?:\/\/(www\.)?google\.[a-z]{2,}\/maps/
+    /^https?:\/\/(www\.)?google\.[a-z]{2,}\/maps/,
   ];
-  
-  return googleMapsPatterns.some(pattern => pattern.test(cleanUrl));
+
+  return googleMapsPatterns.some((pattern) => pattern.test(cleanUrl));
 };
 
 // Enhanced main component integration
 const SportAndCourtManagement = () => {
   const [sports, setSports] = useState([]);
   const [activeTab, setActiveTab] = useState("courts");
-  const [selectedSport, setSelectedSport] = useState('');
+  const [selectedSport, setSelectedSport] = useState("");
   const [showAddSportModal, setShowAddSportModal] = useState(false);
   const [showEditSportModal, setShowEditSportModal] = useState(false);
   const [showDeleteSportModal, setShowDeleteSportModal] = useState(false);
   const [showAddCourtModal, setShowAddCourtModal] = useState(false);
   const [showEditCourtModal, setShowEditCourtModal] = useState(false);
   const [showDeleteCourtModal, setShowDeleteCourtModal] = useState(false);
-  const [showUpdateAvailabilityModal, setShowUpdateAvailabilityModal] = useState(false);
+  const [showUpdateAvailabilityModal, setShowUpdateAvailabilityModal] =
+    useState(false);
   const [selectedSportForEdit, setSelectedSportForEdit] = useState(null);
-  const [courtSort, setCourtSort] = useState({ field: 'name', order: 'asc' });
+  const [courtSort, setCourtSort] = useState({ field: "name", order: "asc" });
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [toast, setToast] = useState({ msg: "", type: "success" });
 
   const [courtStatuses, setCourtStatuses] = useState({
-    'A': { status: 'Normal', availability: Array(16).fill('Available').map((_, i) => i === 6 ? 'Booked' : 'Available') },
-    'B': { status: 'Full', availability: Array(16).fill('Booked') },
-    'C': { status: 'Maintenance', availability: Array(16).fill('Available') }
+    A: {
+      status: "Normal",
+      availability: Array(16)
+        .fill("Available")
+        .map((_, i) => (i === 6 ? "Booked" : "Available")),
+    },
+    B: { status: "Full", availability: Array(16).fill("Booked") },
+    C: { status: "Maintenance", availability: Array(16).fill("Available") },
   });
 
   const [dynamicTimeSlots, setDynamicTimeSlots] = useState([]);
@@ -65,49 +71,57 @@ const SportAndCourtManagement = () => {
   const loadSportFacilities = async () => {
     setLoading(true);
     try {
-      const res = await authFetch('/api/admin/sport-facilities');
+      const res = await authFetch("/api/admin/sport-facilities");
       if (!res.ok) {
-        throw new Error('Failed to load sport facilities');
+        throw new Error("Failed to load sport facilities");
       }
       const data = await res.json();
-      
+
       if (data.success) {
         if (data.data && data.data.length > 0) {
           const transformedSports = await Promise.all(
             data.data.map(async (facility, index) => {
               let courts = [];
-              
+
               // Fetch courts for each facility
               try {
-                const courtsRes = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(facility.name)}/courts`);
+                const courtsRes = await authFetch(
+                  `/api/admin/sport-facilities/${encodeURIComponent(facility.name)}/courts`,
+                );
                 if (courtsRes.ok) {
                   const courtsData = await courtsRes.json();
                   if (courtsData.success) {
-                    courts = courtsData.data.map(court => ({
+                    courts = courtsData.data.map((court) => ({
                       name: court.name,
                       earliest: secondsToTime(court.earliestTime),
                       latest: secondsToTime(court.latestTime),
-                      status: getStatusString(court.status)
+                      status: getStatusString(court.status),
                     }));
                   }
                 }
               } catch (err) {
-                console.error(`Error loading courts for facility ${facility.name}:`, err);
+                console.error(
+                  `Error loading courts for facility ${facility.name}:`,
+                  err,
+                );
               }
-              
+
               return {
                 id: index + 1,
                 name: facility.name,
                 location: facility.location,
                 status: facility.status,
                 courts: courts,
-                timeRange: { earliest: DEFAULT_EARLIEST, latest: DEFAULT_LATEST }
+                timeRange: {
+                  earliest: DEFAULT_EARLIEST,
+                  latest: DEFAULT_LATEST,
+                },
               };
-            })
+            }),
           );
-          
+
           setSports(transformedSports);
-          
+
           // Only set selected sport if there are sports and no current selection
           if (transformedSports.length > 0 && !selectedSport) {
             setSelectedSport(transformedSports[0].name);
@@ -115,7 +129,7 @@ const SportAndCourtManagement = () => {
         } else {
           // Handle empty data case
           setSports([]);
-          setSelectedSport('');
+          setSelectedSport("");
           setSelectedSportCourts([]);
           setCourtTimeRanges({});
           setDynamicTimeSlots([]);
@@ -123,22 +137,25 @@ const SportAndCourtManagement = () => {
       } else {
         // Handle unsuccessful response
         setSports([]);
-        setSelectedSport('');
+        setSelectedSport("");
         setSelectedSportCourts([]);
         setCourtTimeRanges({});
         setDynamicTimeSlots([]);
       }
     } catch (err) {
-      console.error('Error loading sport facilities:', err);
-      
+      console.error("Error loading sport facilities:", err);
+
       // Only show error toast if it's not a "no data" situation
-      if (!err.message.includes('No data') && !err.message.includes('not found')) {
+      if (
+        !err.message.includes("No data") &&
+        !err.message.includes("not found")
+      ) {
         setToast({ msg: err.message, type: "error" });
       }
-      
+
       // Set empty state regardless of error
       setSports([]);
-      setSelectedSport('');
+      setSelectedSport("");
       setSelectedSportCourts([]);
       setCourtTimeRanges({});
       setDynamicTimeSlots([]);
@@ -151,16 +168,16 @@ const SportAndCourtManagement = () => {
     setLoading(true);
     try {
       // Enhanced validation for location
-      if (!sportData.location || sportData.location.trim() === '') {
+      if (!sportData.location || sportData.location.trim() === "") {
         setToast({ msg: "Sport Facility location is required", type: "error" });
         return;
       }
 
       // Validate Google Maps URL
       if (!validateGoogleMapsUrl(sportData.location)) {
-        setToast({ 
-          msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)", 
-          type: "error" 
+        setToast({
+          msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)",
+          type: "error",
         });
         return;
       }
@@ -168,31 +185,31 @@ const SportAndCourtManagement = () => {
       const requestData = {
         facilityName: sportData.name,
         facilityLocation: sportData.location.trim(),
-        facilityStatus: getStatusValue(sportData.status || 'OPEN'),
-        courts: sportData.courts.map(court => ({
+        facilityStatus: getStatusValue(sportData.status || "OPEN"),
+        courts: sportData.courts.map((court) => ({
           name: court.name,
           earliestTime: timeToSeconds(court.earliest || DEFAULT_EARLIEST),
           latestTime: timeToSeconds(court.latest || DEFAULT_LATEST),
-          status: getStatusValue('OPEN')
-        }))
+          status: getStatusValue("OPEN"),
+        })),
       };
 
-      const res = await authFetch('/api/admin/sport-facilities', {
-        method: 'POST',
+      const res = await authFetch("/api/admin/sport-facilities", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify(requestData),
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        let errorMessage = errorData.error || 'Failed to add sport facility';
-        
-        if (errorMessage.includes('Sport Facility location not provided')) {
-          errorMessage = 'Please provide a valid Google Maps location link';
+        let errorMessage = errorData.error || "Failed to add sport facility";
+
+        if (errorMessage.includes("Sport Facility location not provided")) {
+          errorMessage = "Please provide a valid Google Maps location link";
         }
-        
+
         throw new Error(errorMessage);
       }
 
@@ -200,9 +217,8 @@ const SportAndCourtManagement = () => {
       setToast({ msg: result.message, type: "success" });
       setShowAddSportModal(false);
       await loadSportFacilities();
-      
     } catch (err) {
-      console.error('Error adding sport facility:', err);
+      console.error("Error adding sport facility:", err);
       setToast({ msg: err.message, type: "error" });
     } finally {
       setLoading(false);
@@ -214,52 +230,59 @@ const SportAndCourtManagement = () => {
 
   const handleEditSport = async (sportData) => {
     // Create unique request signature
-    const requestSignature = `${selectedSportForEdit.name}-${JSON.stringify(sportData.courts?.map(c => c.name).sort())}`;
-    
+    const requestSignature = `${selectedSportForEdit.name}-${JSON.stringify(sportData.courts?.map((c) => c.name).sort())}`;
+
     // Prevent duplicate requests
     if (activeRequests.has(requestSignature)) {
-      console.log('Duplicate request prevented for:', requestSignature);
+      console.log("Duplicate request prevented for:", requestSignature);
       return;
     }
-    
+
     setLoading(true);
     activeRequests.set(requestSignature, Date.now());
-    
+
     try {
       let hasChanges = false;
-      
+
       // Handle location update with validation
       if (selectedSportForEdit.location !== sportData.location) {
-        if (!sportData.location || sportData.location.trim() === '') {
-          setToast({ msg: "Sport Facility location cannot be empty", type: "error" });
-          return;
-        }
-        
-        // Validate Google Maps URL
-        if (!validateGoogleMapsUrl(sportData.location)) {
-          setToast({ 
-            msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)", 
-            type: "error" 
+        if (!sportData.location || sportData.location.trim() === "") {
+          setToast({
+            msg: "Sport Facility location cannot be empty",
+            type: "error",
           });
           return;
         }
-        
-        const res = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(selectedSportForEdit.name)}/location`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
+
+        // Validate Google Maps URL
+        if (!validateGoogleMapsUrl(sportData.location)) {
+          setToast({
+            msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)",
+            type: "error",
+          });
+          return;
+        }
+
+        const res = await authFetch(
+          `/api/admin/sport-facilities/${encodeURIComponent(selectedSportForEdit.name)}/location`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ location: sportData.location.trim() }),
           },
-          body: JSON.stringify({ location: sportData.location.trim() })
-        });
+        );
 
         if (!res.ok) {
           const errorData = await res.json();
-          let errorMessage = errorData.error || 'Failed to update facility location';
-          
-          if (errorMessage.includes('Sport Facility location not provided')) {
-            errorMessage = 'Please provide a valid Google Maps location link';
+          let errorMessage =
+            errorData.error || "Failed to update facility location";
+
+          if (errorMessage.includes("Sport Facility location not provided")) {
+            errorMessage = "Please provide a valid Google Maps location link";
           }
-          
+
           throw new Error(errorMessage);
         }
         hasChanges = true;
@@ -267,17 +290,20 @@ const SportAndCourtManagement = () => {
 
       // Handle name update
       if (selectedSportForEdit.name !== sportData.name) {
-        const res = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(selectedSportForEdit.name)}/name`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
+        const res = await authFetch(
+          `/api/admin/sport-facilities/${encodeURIComponent(selectedSportForEdit.name)}/name`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ newName: sportData.name }),
           },
-          body: JSON.stringify({ newName: sportData.name })
-        });
+        );
 
         if (!res.ok) {
           const errorData = await res.json();
-          throw new Error(errorData.error || 'Failed to update facility name');
+          throw new Error(errorData.error || "Failed to update facility name");
         }
         hasChanges = true;
       }
@@ -285,108 +311,128 @@ const SportAndCourtManagement = () => {
       // Handle court updates with single batch operation
       const originalCourts = selectedSportForEdit.courts || [];
       const newCourts = sportData.courts || [];
-      
-      const courtsToAdd = newCourts.filter(newCourt => 
-        !originalCourts.some(origCourt => origCourt.name === newCourt.name)
+
+      const courtsToAdd = newCourts.filter(
+        (newCourt) =>
+          !originalCourts.some((origCourt) => origCourt.name === newCourt.name),
       );
-      
+
       const facilityName = sportData.name;
 
       // Add new courts in SINGLE operation
       if (courtsToAdd.length > 0) {
         console.log(`Adding ${courtsToAdd.length} courts in single operation`);
-        
-        const courtRequests = courtsToAdd.map(court => ({
+
+        const courtRequests = courtsToAdd.map((court) => ({
           name: court.name,
           earliestTime: timeToSeconds(court.earliest),
           latestTime: timeToSeconds(court.latest),
-          status: getStatusValue('OPEN')
+          status: getStatusValue("OPEN"),
         }));
 
-        const addRes = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/courts`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
+        const addRes = await authFetch(
+          `/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/courts`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ courts: courtRequests }),
           },
-          body: JSON.stringify({ courts: courtRequests })
-        });
+        );
 
         if (!addRes.ok) {
           const errorData = await addRes.json();
-          throw new Error(errorData.error || 'Failed to add new courts');
+          throw new Error(errorData.error || "Failed to add new courts");
         }
         hasChanges = true;
       }
 
       // Remove courts sequentially (individual operations required)
-      const courtsToRemove = originalCourts.filter(origCourt => 
-        !newCourts.some(newCourt => newCourt.name === origCourt.name)
+      const courtsToRemove = originalCourts.filter(
+        (origCourt) =>
+          !newCourts.some((newCourt) => newCourt.name === origCourt.name),
       );
-      
+
       if (courtsToRemove.length > 0) {
         console.log(`Removing ${courtsToRemove.length} courts individually`);
-        
+
         for (const court of courtsToRemove) {
-          const deleteRes = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/courts/${encodeURIComponent(court.name)}`, {
-            method: 'DELETE'
-          });
+          const deleteRes = await authFetch(
+            `/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/courts/${encodeURIComponent(court.name)}`,
+            {
+              method: "DELETE",
+            },
+          );
 
           if (!deleteRes.ok) {
             const errorData = await deleteRes.json();
-            throw new Error(errorData.error || `Failed to delete court ${court.name}`);
+            throw new Error(
+              errorData.error || `Failed to delete court ${court.name}`,
+            );
           }
         }
         hasChanges = true;
       }
 
       // Update court times individually (required by smart contract design)
-      const courtsToUpdate = newCourts.filter(newCourt => {
-        const origCourt = originalCourts.find(orig => orig.name === newCourt.name);
-        return origCourt && (
-          origCourt.earliest !== newCourt.earliest ||
-          origCourt.latest !== newCourt.latest
+      const courtsToUpdate = newCourts.filter((newCourt) => {
+        const origCourt = originalCourts.find(
+          (orig) => orig.name === newCourt.name,
+        );
+        return (
+          origCourt &&
+          (origCourt.earliest !== newCourt.earliest ||
+            origCourt.latest !== newCourt.latest)
         );
       });
 
       if (courtsToUpdate.length > 0) {
         console.log(`Updating ${courtsToUpdate.length} courts individually`);
-        
+
         for (const court of courtsToUpdate) {
-          const updateRes = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/courts/${encodeURIComponent(court.name)}/time`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json'
+          const updateRes = await authFetch(
+            `/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/courts/${encodeURIComponent(court.name)}/time`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                earliestTime: timeToSeconds(court.earliest),
+                latestTime: timeToSeconds(court.latest),
+              }),
             },
-            body: JSON.stringify({
-              earliestTime: timeToSeconds(court.earliest),
-              latestTime: timeToSeconds(court.latest)
-            })
-          });
+          );
 
           if (!updateRes.ok) {
             const errorData = await updateRes.json();
-            throw new Error(errorData.error || `Failed to update court ${court.name} times`);
+            throw new Error(
+              errorData.error || `Failed to update court ${court.name} times`,
+            );
           }
         }
         hasChanges = true;
       }
 
       if (hasChanges) {
-        setToast({ msg: "Sport facility updated successfully", type: "success" });
+        setToast({
+          msg: "Sport facility updated successfully",
+          type: "success",
+        });
         setShowEditSportModal(false);
         setSelectedSportForEdit(null);
-        
+
         // Enhanced refresh with delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         await refreshCurrentSportData();
       } else {
         setToast({ msg: "No changes detected", type: "info" });
         setShowEditSportModal(false);
         setSelectedSportForEdit(null);
       }
-        
     } catch (err) {
-      console.error('Error updating sport facility:', err);
+      console.error("Error updating sport facility:", err);
       setToast({ msg: err.message, type: "error" });
     } finally {
       // Clean up request tracking
@@ -401,7 +447,7 @@ const SportAndCourtManagement = () => {
       // Refresh sport facilities list
       await loadSportFacilities();
       // Refresh courts for selected sport with delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
       await loadCourtsForSport(selectedSport);
     } else {
       await loadSportFacilities();
@@ -410,33 +456,35 @@ const SportAndCourtManagement = () => {
 
   const handleDeleteSport = async () => {
     if (!selectedSportForEdit) return;
-    
+
     setDeleteLoading(true);
     try {
-      const res = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(selectedSportForEdit.name)}`, {
-        method: 'DELETE'
-      });
+      const res = await authFetch(
+        `/api/admin/sport-facilities/${encodeURIComponent(selectedSportForEdit.name)}`,
+        {
+          method: "DELETE",
+        },
+      );
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to delete sport facility');
+        throw new Error(errorData.error || "Failed to delete sport facility");
       }
 
       const result = await res.json();
       setToast({ msg: result.message, type: "success" });
       setShowDeleteSportModal(false);
       setSelectedSportForEdit(null);
-      
+
       // Clear selected sport and courts when deleting
-      setSelectedSport('');
+      setSelectedSport("");
       setSelectedSportCourts([]);
       setCourtTimeRanges({});
       setDynamicTimeSlots([]);
-      
+
       await loadSportFacilities();
-      
     } catch (err) {
-      console.error('Error deleting sport facility:', err);
+      console.error("Error deleting sport facility:", err);
       setToast({ msg: err.message, type: "error" });
     } finally {
       setDeleteLoading(false);
@@ -447,11 +495,11 @@ const SportAndCourtManagement = () => {
     const slots = [];
     const start = Math.floor(earliestTime / 3600); // Convert seconds to hours
     const end = Math.floor(latestTime / 3600);
-    
+
     for (let hour = start; hour <= end; hour++) {
-      slots.push(`${hour.toString().padStart(2, '0')}:00`);
+      slots.push(`${hour.toString().padStart(2, "0")}:00`);
     }
-    
+
     return slots;
   };
 
@@ -462,11 +510,11 @@ const SportAndCourtManagement = () => {
     if (courtTimeRange && courtTimeRange.status) {
       return courtTimeRange.status;
     }
-    
+
     // Fallback to hardcoded status for backward compatibility
     const status = courtStatuses[courtName]?.status;
     if (status === "Normal") return "OPEN";
-    return status || "OPEN"; 
+    return status || "OPEN";
   };
 
   // Enhanced loadCourtTimeRanges function with proper status handling
@@ -480,14 +528,14 @@ const SportAndCourtManagement = () => {
     try {
       const timeRanges = {};
       let allTimeSlots = new Set();
-      
+
       for (const court of courts) {
         try {
           // Use the enhanced endpoint that includes bookings
           const res = await authFetch(
-            `/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/courts/${encodeURIComponent(court.name)}/time-range-with-bookings`
+            `/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/courts/${encodeURIComponent(court.name)}/time-range-with-bookings`,
           );
-          
+
           if (res.ok) {
             const data = await res.json();
             if (data.success) {
@@ -496,54 +544,82 @@ const SportAndCourtManagement = () => {
                 status: data.data.status || "OPEN",
                 available: data.data.available !== false,
                 bookedTimeSlots: data.data.bookedTimeSlots || [],
-                timeSlotAvailability: data.data.timeSlotAvailability || {}
+                timeSlotAvailability: data.data.timeSlotAvailability || {},
               };
-              
-              console.log(`Court ${court.name} loaded with ${data.data.bookedTimeSlots.length} booked slots`);
-              
-              const courtSlots = generateTimeSlots(data.data.earliestTime, data.data.latestTime);
-              courtSlots.forEach(slot => allTimeSlots.add(slot));
+
+              console.log(
+                `Court ${court.name} loaded with ${data.data.bookedTimeSlots.length} booked slots`,
+              );
+
+              const courtSlots = generateTimeSlots(
+                data.data.earliestTime,
+                data.data.latestTime,
+              );
+              courtSlots.forEach((slot) => allTimeSlots.add(slot));
             }
           } else {
-            console.error(`Failed to load time range for court ${court.name}:`, res.status);
+            console.error(
+              `Failed to load time range for court ${court.name}:`,
+              res.status,
+            );
             timeRanges[court.name] = {
-              earliestTime: timeToSeconds('08:00'),
-              latestTime: timeToSeconds('23:00'),
-              earliestTimeStr: '08:00',
-              latestTimeStr: '23:00',
+              earliestTime: timeToSeconds("08:00"),
+              latestTime: timeToSeconds("23:00"),
+              earliestTimeStr: "08:00",
+              latestTimeStr: "23:00",
               status: "UNKNOWN",
               available: false,
               bookedTimeSlots: [],
-              timeSlotAvailability: {}
+              timeSlotAvailability: {},
             };
           }
         } catch (err) {
-          console.error(`Error loading time range for court ${court.name}:`, err);
+          console.error(
+            `Error loading time range for court ${court.name}:`,
+            err,
+          );
           timeRanges[court.name] = {
-            earliestTime: timeToSeconds('08:00'),
-            latestTime: timeToSeconds('23:00'),
-            earliestTimeStr: '08:00',
-            latestTimeStr: '23:00',
+            earliestTime: timeToSeconds("08:00"),
+            latestTime: timeToSeconds("23:00"),
+            earliestTimeStr: "08:00",
+            latestTimeStr: "23:00",
             status: "ERROR",
             available: false,
             bookedTimeSlots: [],
-            timeSlotAvailability: {}
+            timeSlotAvailability: {},
           };
         }
       }
-      
+
       setCourtTimeRanges(timeRanges);
-      console.log('Updated court time ranges with booking data:', timeRanges);
-      
+      console.log("Updated court time ranges with booking data:", timeRanges);
+
       const sortedSlots = Array.from(allTimeSlots).sort();
-      setDynamicTimeSlots(sortedSlots.length > 0 ? sortedSlots : [
-        '8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00',
-        '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
-      ]);
-      
+      setDynamicTimeSlots(
+        sortedSlots.length > 0
+          ? sortedSlots
+          : [
+              "8:00",
+              "9:00",
+              "10:00",
+              "11:00",
+              "12:00",
+              "13:00",
+              "14:00",
+              "15:00",
+              "16:00",
+              "17:00",
+              "18:00",
+              "19:00",
+              "20:00",
+              "21:00",
+              "22:00",
+              "23:00",
+            ],
+      );
     } catch (err) {
-      console.error('Error loading court time ranges:', err);
-      setToast({ msg: 'Failed to load court time ranges', type: "error" });
+      console.error("Error loading court time ranges:", err);
+      setToast({ msg: "Failed to load court time ranges", type: "error" });
     }
   };
 
@@ -554,29 +630,31 @@ const SportAndCourtManagement = () => {
       setDynamicTimeSlots([]);
       return;
     }
-    
+
     setCourtsLoading(true);
     try {
-      const res = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(sportName)}/courts`);
+      const res = await authFetch(
+        `/api/admin/sport-facilities/${encodeURIComponent(sportName)}/courts`,
+      );
       if (!res.ok) {
-        throw new Error('Failed to load courts');
+        throw new Error("Failed to load courts");
       }
       const data = await res.json();
-      
+
       if (data.success) {
-        const transformedCourts = data.data.map(court => ({
+        const transformedCourts = data.data.map((court) => ({
           name: court.name,
           earliest: secondsToTime(court.earliestTime),
           latest: secondsToTime(court.latestTime),
-          status: getStatusString(court.status)
+          status: getStatusString(court.status),
         }));
         setSelectedSportCourts(transformedCourts);
-        
+
         // Load time ranges for each court
         await loadCourtTimeRanges(sportName, transformedCourts);
       }
     } catch (err) {
-      console.error('Error loading courts:', err);
+      console.error("Error loading courts:", err);
       setToast({ msg: err.message, type: "error" });
       setSelectedSportCourts([]);
       setCourtTimeRanges({});
@@ -595,55 +673,60 @@ const SportAndCourtManagement = () => {
   // Helper functions
   const getStatusValue = (statusString) => {
     const statusMap = {
-      'OPEN': 0,
-      'CLOSED': 1,
-      'MAINTENANCE': 2,
-      'BOOKED': 3
+      OPEN: 0,
+      CLOSED: 1,
+      MAINTENANCE: 2,
+      BOOKED: 3,
     };
     return statusMap[statusString] || 0;
   };
 
   const getStatusString = (statusValue) => {
     const statusMap = {
-      0: 'OPEN',
-      1: 'CLOSED',
-      2: 'MAINTENANCE',
-      3: 'BOOKED'
+      0: "OPEN",
+      1: "CLOSED",
+      2: "MAINTENANCE",
+      3: "BOOKED",
     };
-    return statusMap[statusValue] || 'OPEN';
+    return statusMap[statusValue] || "OPEN";
   };
 
   const timeToSeconds = (timeString) => {
-    const [hours, minutes] = timeString.split(':').map(Number);
+    const [hours, minutes] = timeString.split(":").map(Number);
     return hours * 3600 + minutes * 60;
   };
 
   const secondsToTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
   };
 
-  const selectedSportData = sports.find(sport => sport.name === selectedSport);
-  const courtsToDisplay = selectedSportCourts.length > 0 ? selectedSportCourts : (selectedSportData?.courts || []);
+  const selectedSportData = sports.find(
+    (sport) => sport.name === selectedSport,
+  );
+  const courtsToDisplay =
+    selectedSportCourts.length > 0
+      ? selectedSportCourts
+      : selectedSportData?.courts || [];
 
   const sortedCourts = [...courtsToDisplay].sort((a, b) => {
     const aName = a.name;
     const bName = b.name;
-    if (courtSort.field === 'name') {
-      return courtSort.order === 'asc'
+    if (courtSort.field === "name") {
+      return courtSort.order === "asc"
         ? aName.localeCompare(bName)
         : bName.localeCompare(aName);
     }
-    if (courtSort.field === 'added') {
-      const aIdx = courtsToDisplay.findIndex(c => c.name === aName);
-      const bIdx = courtsToDisplay.findIndex(c => c.name === bName);
-      return courtSort.order === 'asc' ? aIdx - bIdx : bIdx - aIdx;
+    if (courtSort.field === "added") {
+      const aIdx = courtsToDisplay.findIndex((c) => c.name === aName);
+      const bIdx = courtsToDisplay.findIndex((c) => c.name === bName);
+      return courtSort.order === "asc" ? aIdx - bIdx : bIdx - aIdx;
     }
-    if (courtSort.field === 'status') {
+    if (courtSort.field === "status") {
       const statusA = getCourtStatus(aName);
       const statusB = getCourtStatus(bName);
-      return courtSort.order === 'asc'
+      return courtSort.order === "asc"
         ? statusA.localeCompare(statusB)
         : statusB.localeCompare(statusA);
     }
@@ -653,7 +736,7 @@ const SportAndCourtManagement = () => {
   // Enhanced renderCourtTimeSlots with booking awareness
   const renderCourtTimeSlots = (courtName, status) => {
     const courtTimeRange = courtTimeRanges[courtName];
-    
+
     if (!courtTimeRange) {
       return dynamicTimeSlots.map((time, index) => (
         <td key={time} className="time-slot loading">
@@ -661,47 +744,65 @@ const SportAndCourtManagement = () => {
         </td>
       ));
     }
-    
+
     const actualStatus = courtTimeRange.status || status;
     const timeSlotAvailability = courtTimeRange.timeSlotAvailability || {};
-    
+
     return dynamicTimeSlots.map((time, index) => {
-      const timeHour = parseInt(time.split(':')[0]);
+      const timeHour = parseInt(time.split(":")[0]);
       const courtStartHour = Math.floor(courtTimeRange.earliestTime / 3600);
       const courtEndHour = Math.floor(courtTimeRange.latestTime / 3600);
-      
-      const isWithinRange = timeHour >= courtStartHour && timeHour <= courtEndHour;
+
+      const isWithinRange =
+        timeHour >= courtStartHour && timeHour <= courtEndHour;
       const slotStatus = timeSlotAvailability[time] || "UNAVAILABLE";
-      
+
       // Enhanced status handling with booking data
       const getSlotStyle = (status) => {
         switch (status) {
           case "AVAILABLE":
             return { backgroundColor: "#dcfce7", color: "#166534" };
           case "BOOKED":
-            return { backgroundColor: "#fde68a", color: "#d97706", fontWeight: "bold" };
+            return {
+              backgroundColor: "#fde68a",
+              color: "#d97706",
+              fontWeight: "bold",
+            };
           case "MAINTENANCE":
-            return { backgroundColor: "#fed7aa", color: "#ea580c", fontWeight: "bold" };
+            return {
+              backgroundColor: "#fed7aa",
+              color: "#ea580c",
+              fontWeight: "bold",
+            };
           case "CLOSED":
-            return { backgroundColor: "#fecaca", color: "#dc2626", fontWeight: "bold" };
+            return {
+              backgroundColor: "#fecaca",
+              color: "#dc2626",
+              fontWeight: "bold",
+            };
           default:
             return { backgroundColor: "#f3f4f6", color: "#6b7280" };
         }
       };
-      
+
       return (
         <td
           key={time}
           className={`time-slot ${slotStatus.toLowerCase()}`}
           style={getSlotStyle(slotStatus)}
         >
-          {slotStatus === "AVAILABLE" ? "Available" : 
-           slotStatus === "BOOKED" ? "Booked" :
-           slotStatus === "MAINTENANCE" ? "Maintenance" :
-           slotStatus === "CLOSED" ? "Closed" : "Unavailable"}
+          {slotStatus === "AVAILABLE"
+            ? "Available"
+            : slotStatus === "BOOKED"
+              ? "Booked"
+              : slotStatus === "MAINTENANCE"
+                ? "Maintenance"
+                : slotStatus === "CLOSED"
+                  ? "Closed"
+                  : "Unavailable"}
         </td>
       );
-      });
+    });
   };
 
   // Enhanced court row rendering with proper status display
@@ -709,7 +810,7 @@ const SportAndCourtManagement = () => {
     const courtName = court.name;
     const courtTimeRange = courtTimeRanges[courtName];
     const status = getCourtStatus(courtName);
-    
+
     return (
       <tr key={courtName}>
         <td className="court-name">Court {courtName}</td>
@@ -719,10 +820,9 @@ const SportAndCourtManagement = () => {
           </span>
         </td>
         <td className="time-range">
-          {courtTimeRange ? 
-            `${courtTimeRange.earliestTimeStr} - ${courtTimeRange.latestTimeStr}` : 
-            'Loading...'
-          }
+          {courtTimeRange
+            ? `${courtTimeRange.earliestTimeStr} - ${courtTimeRange.latestTimeStr}`
+            : "Loading..."}
         </td>
         {renderCourtTimeSlots(courtName, status)}
       </tr>
@@ -783,20 +883,25 @@ const SportAndCourtManagement = () => {
                   sports.map((sport) => (
                     <tr
                       key={sport.id}
-                      className={selectedSport === sport.name ? 'selected-row' : ''}
-
+                      className={
+                        selectedSport === sport.name ? "selected-row" : ""
+                      }
                       onClick={() => setSelectedSport(sport.name)}
                     >
                       <td>{sport.name}</td>
                       <td>
-                        {sport.courts && sport.courts.length > 0 
-                          ? sport.courts.map(court => court.name).join(', ')
-                          : 'No courts'
-                        }
+                        {sport.courts && sport.courts.length > 0
+                          ? sport.courts.map((court) => court.name).join(", ")
+                          : "No courts"}
                       </td>
                       <td>
                         {sport.location ? (
-                          <a href={sport.location} className="map-link" target="_blank" rel="noopener noreferrer">
+                          <a
+                            href={sport.location}
+                            className="map-link"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
                             <MapPin size={14} />
                             Google Map link
                           </a>
@@ -826,14 +931,14 @@ const SportAndCourtManagement = () => {
                             }}
                             disabled={loading || deleteLoading}
                           >
-                            {deleteLoading && selectedSportForEdit?.id === sport.id ? (
+                            {deleteLoading &&
+                            selectedSportForEdit?.id === sport.id ? (
                               <>
-
                                 <div className="button-spinner"></div>
                                 Deleting...
                               </>
                             ) : (
-                              'Delete'
+                              "Delete"
                             )}
                           </button>
                         </div>
@@ -853,43 +958,67 @@ const SportAndCourtManagement = () => {
               <h3>{selectedSport}</h3>
               <div className="sort-btn-group">
                 <button
-                  className={`sort-btn${courtSort.field === 'name' ? ' active' : ''}`}
+                  className={`sort-btn${courtSort.field === "name" ? " active" : ""}`}
                   onClick={() =>
                     setCourtSort((prev) => ({
-                      field: 'name',
-                      order: prev.field === 'name' && prev.order === 'asc' ? 'desc' : 'asc',
+                      field: "name",
+                      order:
+                        prev.field === "name" && prev.order === "asc"
+                          ? "desc"
+                          : "asc",
                     }))
                   }
                   type="button"
                   disabled={courtsLoading}
                 >
-                  Court Name {courtSort.field === 'name' ? (courtSort.order === 'asc' ? '↑' : '↓') : ''}
+                  Court Name{" "}
+                  {courtSort.field === "name"
+                    ? courtSort.order === "asc"
+                      ? "↑"
+                      : "↓"
+                    : ""}
                 </button>
                 <button
-                  className={`sort-btn${courtSort.field === 'added' ? ' active' : ''}`}
+                  className={`sort-btn${courtSort.field === "added" ? " active" : ""}`}
                   onClick={() =>
                     setCourtSort((prev) => ({
-                      field: 'added',
-                      order: prev.field === 'added' && prev.order === 'asc' ? 'desc' : 'asc',
+                      field: "added",
+                      order:
+                        prev.field === "added" && prev.order === "asc"
+                          ? "desc"
+                          : "asc",
                     }))
                   }
                   type="button"
                   disabled={courtsLoading}
                 >
-                  Court Added {courtSort.field === 'added' ? (courtSort.order === 'asc' ? '↑' : '↓') : ''}
+                  Court Added{" "}
+                  {courtSort.field === "added"
+                    ? courtSort.order === "asc"
+                      ? "↑"
+                      : "↓"
+                    : ""}
                 </button>
                 <button
-                  className={`sort-btn${courtSort.field === 'status' ? ' active' : ''}`}
+                  className={`sort-btn${courtSort.field === "status" ? " active" : ""}`}
                   onClick={() =>
                     setCourtSort((prev) => ({
-                      field: 'status',
-                      order: prev.field === 'status' && prev.order === 'asc' ? 'desc' : 'asc',
+                      field: "status",
+                      order:
+                        prev.field === "status" && prev.order === "asc"
+                          ? "desc"
+                          : "asc",
                     }))
                   }
                   type="button"
                   disabled={courtsLoading}
                 >
-                  Status {courtSort.field === 'status' ? (courtSort.order === 'asc' ? '↑' : '↓') : ''}
+                  Status{" "}
+                  {courtSort.field === "status"
+                    ? courtSort.order === "asc"
+                      ? "↑"
+                      : "↓"
+                    : ""}
                 </button>
               </div>
             </div>
@@ -905,7 +1034,9 @@ const SportAndCourtManagement = () => {
               <button
                 className="delete-btn"
                 onClick={() => setShowDeleteCourtModal(true)}
-                disabled={!selectedSport || courtsLoading || sortedCourts.length === 0}
+                disabled={
+                  !selectedSport || courtsLoading || sortedCourts.length === 0
+                }
               >
                 <Trash2 size={16} />
                 Delete Court
@@ -926,7 +1057,7 @@ const SportAndCourtManagement = () => {
                       <th>Courts</th>
                       <th>Status</th>
                       <th>Time Range</th>
-                      {dynamicTimeSlots.map(time => (
+                      {dynamicTimeSlots.map((time) => (
                         <th key={time}>{time}</th>
                       ))}
                     </tr>
@@ -934,12 +1065,17 @@ const SportAndCourtManagement = () => {
                   <tbody>
                     {sortedCourts.length === 0 ? (
                       <tr>
-                        <td colSpan={dynamicTimeSlots.length + 3} style={{ textAlign: 'center', padding: '2rem' }}>
-                          {selectedSport ? 'No courts found for this facility' : 'Please select a sport facility'}
+                        <td
+                          colSpan={dynamicTimeSlots.length + 3}
+                          style={{ textAlign: "center", padding: "2rem" }}
+                        >
+                          {selectedSport
+                            ? "No courts found for this facility"
+                            : "Please select a sport facility"}
                         </td>
                       </tr>
                     ) : (
-                      sortedCourts.map(court => renderCourtRow(court))
+                      sortedCourts.map((court) => renderCourtRow(court))
                     )}
                   </tbody>
                 </table>
@@ -948,16 +1084,7 @@ const SportAndCourtManagement = () => {
           )}
 
           <div className="legend-and-update">
-            <div className="legend">
-              <div className="legend-item">
-                <span className="legend-color available"></span>
-                Available
-              </div>
-              <div className="legend-item">
-                <span className="legend-color booked"></span>
-                Booked / Unavailable
-              </div>
-            </div>
+            <div className="legend"></div>
             <button
               className="update-availability-btn"
               onClick={() => setShowUpdateAvailabilityModal(true)}
@@ -1050,27 +1177,30 @@ const SportAndCourtManagement = () => {
 // Add Sport Modal Component
 const AddSportModal = ({ onClose, onSave }) => {
   const [formData, setFormData] = useState({
-    name: '',
+    name: "",
     courts: [],
-    location: '',
+    location: "",
   });
-  const [newCourt, setNewCourt] = useState('');
+  const [newCourt, setNewCourt] = useState("");
   const [courtTimes, setCourtTimes] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState({ msg: "", type: "success" });
 
   const addCourt = () => {
     const courtName = newCourt.trim();
-    if (courtName && !formData.courts.some(c => c.name === courtName)) {
+    if (courtName && !formData.courts.some((c) => c.name === courtName)) {
       setFormData({
         ...formData,
-        courts: [...formData.courts, { name: courtName, earliest: '08:00', latest: '23:00' }]
+        courts: [
+          ...formData.courts,
+          { name: courtName, earliest: "08:00", latest: "23:00" },
+        ],
       });
       setCourtTimes({
         ...courtTimes,
-        [courtName]: { earliest: '08:00', latest: '23:00' }
+        [courtName]: { earliest: "08:00", latest: "23:00" },
       });
-      setNewCourt('');
+      setNewCourt("");
     }
   };
 
@@ -1078,7 +1208,7 @@ const AddSportModal = ({ onClose, onSave }) => {
     const courtName = formData.courts[index].name;
     setFormData({
       ...formData,
-      courts: formData.courts.filter((_, i) => i !== index)
+      courts: formData.courts.filter((_, i) => i !== index),
     });
     const updatedCourtTimes = { ...courtTimes };
     delete updatedCourtTimes[courtName];
@@ -1090,45 +1220,43 @@ const AddSportModal = ({ onClose, onSave }) => {
       ...courtTimes,
       [courtName]: {
         ...courtTimes[courtName],
-        [field]: value
-      }
+        [field]: value,
+      },
     });
     setFormData({
       ...formData,
-      courts: formData.courts.map(court =>
-        court.name === courtName
-          ? { ...court, [field]: value }
-          : court
-      )
+      courts: formData.courts.map((court) =>
+        court.name === courtName ? { ...court, [field]: value } : court,
+      ),
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       // Enhanced validation
-      if (!formData.location || formData.location.trim() === '') {
+      if (!formData.location || formData.location.trim() === "") {
         setToast({ msg: "Sport Facility location is required", type: "error" });
         return;
       }
 
       // Validate Google Maps URL
       if (!validateGoogleMapsUrl(formData.location)) {
-        setToast({ 
-          msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)", 
-          type: "error" 
+        setToast({
+          msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)",
+          type: "error",
         });
         return;
       }
 
-      const courtsWithTimes = formData.courts.map(court => ({
+      const courtsWithTimes = formData.courts.map((court) => ({
         name: court.name,
-        earliest: court.earliest || '08:00',
-        latest: court.latest || '23:00'
+        earliest: court.earliest || "08:00",
+        latest: court.latest || "23:00",
       }));
-      
+
       await onSave({
         ...formData,
         courts: courtsWithTimes,
@@ -1143,7 +1271,11 @@ const AddSportModal = ({ onClose, onSave }) => {
       <div className="modal">
         <div className="modal-header">
           <h3>Add New Sport Facility</h3>
-          <button className="close-btn" onClick={onClose} disabled={isSubmitting}>
+          <button
+            className="close-btn"
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
             <X size={20} />
           </button>
         </div>
@@ -1153,14 +1285,18 @@ const AddSportModal = ({ onClose, onSave }) => {
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               required
               disabled={isSubmitting}
             />
           </div>
 
           <div className="form-group">
-            <label>Court Details (Each court can have its own time range)</label>
+            <label>
+              Court Details (Each court can have its own time range)
+            </label>
             <div className="court-input-group">
               <input
                 type="text"
@@ -1169,24 +1305,60 @@ const AddSportModal = ({ onClose, onSave }) => {
                 placeholder="Enter court name"
                 disabled={isSubmitting}
               />
-              <button type="button" onClick={addCourt} className="add-court-btn" disabled={isSubmitting}>Add</button>
+              <button
+                type="button"
+                onClick={addCourt}
+                className="add-court-btn"
+                disabled={isSubmitting}
+              >
+                Add
+              </button>
             </div>
             <div className="courts-list">
               {formData.courts.map((court, index) => (
-                <div key={court.name} className="court-item" style={{ flexDirection: 'column', alignItems: 'flex-start', width: '100%' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                <div
+                  key={court.name}
+                  className="court-item"
+                  style={{
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    width: "100%",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      width: "100%",
+                    }}
+                  >
                     <span style={{ fontWeight: 500 }}>{court.name}</span>
-                    <button type="button" onClick={() => removeCourt(index)} className="remove-court-btn" style={{ marginLeft: 8 }} disabled={isSubmitting}>
+                    <button
+                      type="button"
+                      onClick={() => removeCourt(index)}
+                      className="remove-court-btn"
+                      style={{ marginLeft: 8 }}
+                      disabled={isSubmitting}
+                    >
                       <X size={14} />
                     </button>
                   </div>
-                  <div className="time-range-group" style={{ marginTop: 8, width: '100%' }}>
+                  <div
+                    className="time-range-group"
+                    style={{ marginTop: 8, width: "100%" }}
+                  >
                     <div>
                       <label>Earliest Time</label>
                       <input
                         type="time"
-                        value={court.earliest || '08:00'}
-                        onChange={e => handleCourtTimeChange(court.name, 'earliest', e.target.value)}
+                        value={court.earliest || "08:00"}
+                        onChange={(e) =>
+                          handleCourtTimeChange(
+                            court.name,
+                            "earliest",
+                            e.target.value,
+                          )
+                        }
                         style={{ minWidth: 120 }}
                         disabled={isSubmitting}
                       />
@@ -1195,8 +1367,14 @@ const AddSportModal = ({ onClose, onSave }) => {
                       <label>Latest Time</label>
                       <input
                         type="time"
-                        value={court.latest || '23:00'}
-                        onChange={e => handleCourtTimeChange(court.name, 'latest', e.target.value)}
+                        value={court.latest || "23:00"}
+                        onChange={(e) =>
+                          handleCourtTimeChange(
+                            court.name,
+                            "latest",
+                            e.target.value,
+                          )
+                        }
                         style={{ minWidth: 120 }}
                         disabled={isSubmitting}
                       />
@@ -1204,7 +1382,6 @@ const AddSportModal = ({ onClose, onSave }) => {
                   </div>
                 </div>
               ))}
-
             </div>
           </div>
 
@@ -1213,24 +1390,34 @@ const AddSportModal = ({ onClose, onSave }) => {
             <input
               type="url"
               value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, location: e.target.value })
+              }
               placeholder="Google Maps link (e.g., https://maps.google.com/...)"
               required
               disabled={isSubmitting}
             />
             <small className="form-hint">
-              Please provide a valid Google Maps link. Accepted formats: maps.google.com, google.com/maps, goo.gl/maps, maps.app.goo.gl
+              Please provide a valid Google Maps link. Accepted formats:
+              maps.google.com, google.com/maps, goo.gl/maps, maps.app.goo.gl
             </small>
           </div>
 
           <div className="modal-actions">
-            <button type="button" onClick={onClose} className="cancel-btn" disabled={isSubmitting}>Cancel</button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="cancel-btn"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
             <button type="submit" className="save-btn" disabled={isSubmitting}>
-              {isSubmitting ? 'Adding...' : 'Add'}
+              {isSubmitting ? "Adding..." : "Add"}
             </button>
           </div>
         </form>
-        
+
         {toast.msg && (
           <Toast
             message={toast.msg}
@@ -1246,39 +1433,43 @@ const AddSportModal = ({ onClose, onSave }) => {
 // Edit Sport Modal Component
 const EditSportModal = ({ sport, onClose, onSave }) => {
   const [formData, setFormData] = useState({
-    name: sport?.name || '',
-    courts: sport?.courts?.map(court => ({
-      name: court.name,
-      earliest: court.earliest || '08:00',
-      latest: court.latest || '23:00',
-      status: court.status || 'OPEN'
-    })) || [],
-    location: sport?.location || '',
+    name: sport?.name || "",
+    courts:
+      sport?.courts?.map((court) => ({
+        name: court.name,
+        earliest: court.earliest || "08:00",
+        latest: court.latest || "23:00",
+        status: court.status || "OPEN",
+      })) || [],
+    location: sport?.location || "",
   });
-  const [newCourt, setNewCourt] = useState('');
+  const [newCourt, setNewCourt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState({ msg: "", type: "success" });
 
   const addCourt = () => {
     const courtName = newCourt.trim();
-    if (courtName && !formData.courts.some(c => c.name === courtName)) {
+    if (courtName && !formData.courts.some((c) => c.name === courtName)) {
       setFormData({
         ...formData,
-        courts: [...formData.courts, { 
-          name: courtName, 
-          earliest: '08:00', 
-          latest: '23:00',
-          status: 'OPEN'
-        }]
+        courts: [
+          ...formData.courts,
+          {
+            name: courtName,
+            earliest: "08:00",
+            latest: "23:00",
+            status: "OPEN",
+          },
+        ],
       });
-      setNewCourt('');
+      setNewCourt("");
     }
   };
 
   const removeCourt = (index) => {
     setFormData({
       ...formData,
-      courts: formData.courts.filter((_, i) => i !== index)
+      courts: formData.courts.filter((_, i) => i !== index),
     });
   };
 
@@ -1289,10 +1480,10 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
       }
       return court;
     });
-    
+
     setFormData({
       ...formData,
-      courts: updatedCourts
+      courts: updatedCourts,
     });
   };
 
@@ -1303,35 +1494,38 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
       }
       return court;
     });
-    
+
     setFormData({
       ...formData,
-      courts: updatedCourts
+      courts: updatedCourts,
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       // Enhanced validation for location
-      if (!formData.location || formData.location.trim() === '') {
-        setToast({ msg: "Sport Facility location cannot be empty", type: "error" });
+      if (!formData.location || formData.location.trim() === "") {
+        setToast({
+          msg: "Sport Facility location cannot be empty",
+          type: "error",
+        });
         return;
       }
 
       // Validate Google Maps URL
       if (!validateGoogleMapsUrl(formData.location)) {
-        setToast({ 
-          msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)", 
-          type: "error" 
+        setToast({
+          msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)",
+          type: "error",
         });
         return;
       }
 
       // Validate court names are unique
-      const courtNames = formData.courts.map(court => court.name.trim());
+      const courtNames = formData.courts.map((court) => court.name.trim());
       const uniqueNames = new Set(courtNames);
       if (courtNames.length !== uniqueNames.size) {
         setToast({ msg: "Court names must be unique", type: "error" });
@@ -1342,17 +1536,23 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
       for (const court of formData.courts) {
         const earliestTime = new Date(`1970-01-01T${court.earliest}:00`);
         const latestTime = new Date(`1970-01-01T${court.latest}:00`);
-        
+
         if (earliestTime >= latestTime) {
-          setToast({ msg: `Court ${court.name}: Latest time must be after earliest time`, type: "error" });
+          setToast({
+            msg: `Court ${court.name}: Latest time must be after earliest time`,
+            type: "error",
+          });
           return;
         }
       }
 
       await onSave(formData);
     } catch (error) {
-      console.error('Error in form submission:', error);
-      setToast({ msg: error.message || "Failed to update sport facility", type: "error" });
+      console.error("Error in form submission:", error);
+      setToast({
+        msg: error.message || "Failed to update sport facility",
+        type: "error",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -1360,10 +1560,14 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
 
   return (
     <div className="modal-overlay">
-      <div className="modal" style={{ maxWidth: '700px' }}>
+      <div className="modal" style={{ maxWidth: "700px" }}>
         <div className="modal-header">
           <h3>Edit Sport Facility</h3>
-          <button className="close-btn" onClick={onClose} disabled={isSubmitting}>
+          <button
+            className="close-btn"
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
             <X size={20} />
           </button>
         </div>
@@ -1373,7 +1577,9 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               required
               disabled={isSubmitting}
               placeholder="Enter sport facility name"
@@ -1385,16 +1591,20 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
             <input
               type="url"
               value={formData.location}
-              onChange={(e) => setFormData({...formData, location: e.target.value})}
+              onChange={(e) =>
+                setFormData({ ...formData, location: e.target.value })
+              }
               placeholder="Google Maps link (e.g., https://maps.google.com/...)"
               required
               disabled={isSubmitting}
             />
             <small className="form-hint">
-              Please provide a valid Google Maps link. <br></br>Accepted formats: maps.google.com, google.com/maps, goo.gl/maps, maps.app.goo.gl
+              Please provide a valid Google Maps link. <br></br>Accepted
+              formats: maps.google.com, google.com/maps, goo.gl/maps,
+              maps.app.goo.gl
             </small>
           </div>
-          
+
           <div className="form-group">
             <label>Court Details</label>
             <div className="court-input-group">
@@ -1405,19 +1615,21 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
                 placeholder="Enter new court name"
                 disabled={isSubmitting}
               />
-              <button 
-                type="button" 
-                onClick={addCourt} 
-                className="add-court-btn" 
+              <button
+                type="button"
+                onClick={addCourt}
+                className="add-court-btn"
                 disabled={isSubmitting || !newCourt.trim()}
               >
                 Add Court
               </button>
             </div>
-            
+
             <div className="existing-courts-list">
               {formData.courts.length === 0 ? (
-                <p className="no-courts-message">No courts added yet. Add courts using the form above.</p>
+                <p className="no-courts-message">
+                  No courts added yet. Add courts using the form above.
+                </p>
               ) : (
                 formData.courts.map((court, index) => (
                   <div key={index} className="court-edit-item">
@@ -1427,14 +1639,16 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
                         <input
                           type="text"
                           value={court.name}
-                          onChange={(e) => handleCourtNameChange(index, e.target.value)}
+                          onChange={(e) =>
+                            handleCourtNameChange(index, e.target.value)
+                          }
                           disabled={isSubmitting}
                           placeholder="Court name"
                         />
                       </div>
-                      <button 
-                        type="button" 
-                        onClick={() => removeCourt(index)} 
+                      <button
+                        type="button"
+                        onClick={() => removeCourt(index)}
                         className="remove-court-btn"
                         disabled={isSubmitting}
                         title="Remove this court"
@@ -1442,7 +1656,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
                         <X size={16} />
                       </button>
                     </div>
-                    
+
                     <div className="court-time-settings">
                       <div className="time-range-group">
                         <div className="time-input">
@@ -1450,7 +1664,13 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
                           <input
                             type="time"
                             value={court.earliest}
-                            onChange={(e) => handleCourtTimeChange(index, 'earliest', e.target.value)}
+                            onChange={(e) =>
+                              handleCourtTimeChange(
+                                index,
+                                "earliest",
+                                e.target.value,
+                              )
+                            }
                             disabled={isSubmitting}
                           />
                         </div>
@@ -1459,14 +1679,22 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
                           <input
                             type="time"
                             value={court.latest}
-                            onChange={(e) => handleCourtTimeChange(index, 'latest', e.target.value)}
+                            onChange={(e) =>
+                              handleCourtTimeChange(
+                                index,
+                                "latest",
+                                e.target.value,
+                              )
+                            }
                             disabled={isSubmitting}
                           />
                         </div>
                       </div>
-                      
+
                       <div className="court-status-display">
-                        <span className={`status-badge ${court.status.toLowerCase()}`}>
+                        <span
+                          className={`status-badge ${court.status.toLowerCase()}`}
+                        >
                           {court.status}
                         </span>
                       </div>
@@ -1478,15 +1706,20 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
           </div>
 
           <div className="modal-actions">
-            <button type="button" onClick={onClose} className="cancel-btn" disabled={isSubmitting}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="cancel-btn"
+              disabled={isSubmitting}
+            >
               Cancel
             </button>
             <button type="submit" className="save-btn" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving Changes...' : 'Save Changes'}
+              {isSubmitting ? "Saving Changes..." : "Save Changes"}
             </button>
           </div>
         </form>
-        
+
         {toast.msg && (
           <Toast
             message={toast.msg}
@@ -1502,9 +1735,9 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
 // Add Court Modal Component with Real Functionality
 const AddCourtModal = ({ sportName, onClose, onSave }) => {
   const [formData, setFormData] = useState({
-    courtName: '',
-    earliest: '08:00',
-    latest: '23:00'
+    courtName: "",
+    earliest: "08:00",
+    latest: "23:00",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState({ msg: "", type: "success" });
@@ -1512,7 +1745,7 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       // Frontend validation
       if (!formData.courtName.trim()) {
@@ -1522,45 +1755,55 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
 
       const earliestTime = new Date(`1970-01-01T${formData.earliest}:00`);
       const latestTime = new Date(`1970-01-01T${formData.latest}:00`);
-      
+
       if (earliestTime >= latestTime) {
-        setToast({ msg: "Latest time must be after earliest time", type: "error" });
+        setToast({
+          msg: "Latest time must be after earliest time",
+          type: "error",
+        });
         return;
       }
 
       const requestData = {
-        courts: [{
-          name: formData.courtName.trim(),
-          earliestTime: timeToSeconds(formData.earliest),
-          latestTime: timeToSeconds(formData.latest),
-          status: 0
-        }]
+        courts: [
+          {
+            name: formData.courtName.trim(),
+            earliestTime: timeToSeconds(formData.earliest),
+            latestTime: timeToSeconds(formData.latest),
+            status: 0,
+          },
+        ],
       };
 
-      const res = await authFetch(`/api/admin/sport-facilities/${encodeURIComponent(sportName)}/courts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+      const res = await authFetch(
+        `/api/admin/sport-facilities/${encodeURIComponent(sportName)}/courts`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestData),
         },
-        body: JSON.stringify(requestData)
-      });
+      );
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to add court');
+        throw new Error(errorData.error || "Failed to add court");
       }
 
       const result = await res.json();
-      setToast({ msg: result.message || "Court added successfully", type: "success" });
-      
+      setToast({
+        msg: result.message || "Court added successfully",
+        type: "success",
+      });
+
       // Close modal and refresh both sections
       setTimeout(() => {
         onSave(); // This will trigger court section refresh
         onClose();
       }, 1500);
-
     } catch (err) {
-      console.error('Error adding court:', err);
+      console.error("Error adding court:", err);
       setToast({ msg: err.message, type: "error" });
     } finally {
       setIsSubmitting(false);
@@ -1568,7 +1811,7 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
   };
 
   const timeToSeconds = (timeString) => {
-    const [hours, minutes] = timeString.split(':').map(Number);
+    const [hours, minutes] = timeString.split(":").map(Number);
     return hours * 3600 + minutes * 60;
   };
 
@@ -1577,7 +1820,11 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
       <div className="modal">
         <div className="modal-header">
           <h3>Add New Court</h3>
-          <button className="close-btn" onClick={onClose} disabled={isSubmitting}>
+          <button
+            className="close-btn"
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
             <X size={20} />
           </button>
         </div>
@@ -1591,7 +1838,9 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
             <input
               type="text"
               value={formData.courtName}
-              onChange={(e) => setFormData({ ...formData, courtName: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, courtName: e.target.value })
+              }
               required
               placeholder="Enter court name"
               disabled={isSubmitting}
@@ -1605,7 +1854,9 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
                 <input
                   type="time"
                   value={formData.earliest}
-                  onChange={(e) => setFormData({ ...formData, earliest: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, earliest: e.target.value })
+                  }
                   disabled={isSubmitting}
                 />
               </div>
@@ -1614,23 +1865,30 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
                 <input
                   type="time"
                   value={formData.latest}
-                  onChange={(e) => setFormData({ ...formData, latest: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, latest: e.target.value })
+                  }
                   disabled={isSubmitting}
                 />
               </div>
             </div>
           </div>
           <div className="modal-actions">
-            <button type="button" onClick={onClose} className="cancel-btn" disabled={isSubmitting}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="cancel-btn"
+              disabled={isSubmitting}
+            >
               Cancel
             </button>
             <button type="submit" className="save-btn" disabled={isSubmitting}>
-              {isSubmitting ? 'Adding Court...' : 'Add Court'}
+              {isSubmitting ? "Adding Court..." : "Add Court"}
             </button>
           </div>
         </form>
       </div>
-      
+
       {toast.msg && (
         <Toast
           message={toast.msg}
@@ -1644,7 +1902,7 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
 
 // Delete Court Modal Component
 const DeleteCourtModal = ({ sportName, courts, onClose, onSave }) => {
-  const [selectedCourt, setSelectedCourt] = useState('');
+  const [selectedCourt, setSelectedCourt] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState({ msg: "", type: "success" });
 
@@ -1657,28 +1915,30 @@ const DeleteCourtModal = ({ sportName, courts, onClose, onSave }) => {
     setIsDeleting(true);
     try {
       const res = await authFetch(
-        `/api/admin/sport-facilities/${encodeURIComponent(sportName)}/courts/${encodeURIComponent(selectedCourt)}`, 
+        `/api/admin/sport-facilities/${encodeURIComponent(sportName)}/courts/${encodeURIComponent(selectedCourt)}`,
         {
-          method: 'DELETE'
-        }
+          method: "DELETE",
+        },
       );
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to delete court');
+        throw new Error(errorData.error || "Failed to delete court");
       }
 
       const result = await res.json();
-      setToast({ msg: result.message || "Court deleted successfully", type: "success" });
-      
+      setToast({
+        msg: result.message || "Court deleted successfully",
+        type: "success",
+      });
+
       // Close modal and refresh both sections
       setTimeout(() => {
         onSave(); // This will trigger court section refresh
         onClose();
       }, 1500);
-
     } catch (err) {
-      console.error('Error deleting court:', err);
+      console.error("Error deleting court:", err);
       setToast({ msg: err.message, type: "error" });
     } finally {
       setIsDeleting(false);
@@ -1701,14 +1961,14 @@ const DeleteCourtModal = ({ sportName, courts, onClose, onSave }) => {
           </div>
           <div className="form-group">
             <label>Select Court to Delete *</label>
-            <select 
+            <select
               value={selectedCourt}
               onChange={(e) => setSelectedCourt(e.target.value)}
               required
               disabled={isDeleting}
             >
               <option value="">Select a court</option>
-              {courts.map(court => (
+              {courts.map((court) => (
                 <option key={court.name} value={court.name}>
                   Court {court.name}
                 </option>
@@ -1717,22 +1977,30 @@ const DeleteCourtModal = ({ sportName, courts, onClose, onSave }) => {
           </div>
 
           <div className="modal-actions">
-            <button onClick={onClose} className="cancel-btn" disabled={isDeleting}>
+            <button
+              onClick={onClose}
+              className="cancel-btn"
+              disabled={isDeleting}
+            >
               Cancel
             </button>
-            <button onClick={handleDelete} className="delete-btn" disabled={isDeleting || !selectedCourt}>
+            <button
+              onClick={handleDelete}
+              className="delete-btn"
+              disabled={isDeleting || !selectedCourt}
+            >
               {isDeleting ? (
                 <>
                   <div className="button-spinner"></div>
                   Deleting...
                 </>
               ) : (
-                'Delete Court'
+                "Delete Court"
               )}
             </button>
           </div>
         </div>
-        
+
         {toast.msg && (
           <Toast
             message={toast.msg}
@@ -1746,12 +2014,17 @@ const DeleteCourtModal = ({ sportName, courts, onClose, onSave }) => {
 };
 
 // Update Availability Modal Component
-const UpdateAvailabilityModal = ({ onClose, onSave, selectedFacility, availableCourts }) => {
+const UpdateAvailabilityModal = ({
+  onClose,
+  onSave,
+  selectedFacility,
+  availableCourts,
+}) => {
   const [formData, setFormData] = useState({
-    court: '',
-    status: 'MAINTENANCE',
-    startDate: '',
-    endDate: ''
+    court: "",
+    status: "MAINTENANCE",
+    startDate: "",
+    endDate: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState({ msg: "", type: "success" });
@@ -1759,59 +2032,66 @@ const UpdateAvailabilityModal = ({ onClose, onSave, selectedFacility, availableC
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       // Frontend validation
       if (!formData.court) {
         setToast({ msg: "Please select a court", type: "error" });
         return;
       }
-      
+
       if (!formData.startDate || !formData.endDate) {
-        setToast({ msg: "Please provide both start and end dates", type: "error" });
+        setToast({
+          msg: "Please provide both start and end dates",
+          type: "error",
+        });
         return;
       }
-      
+
       const startDate = new Date(formData.startDate);
       const endDate = new Date(formData.endDate);
-      
+
       if (startDate > endDate) {
         setToast({ msg: "End date must be after start date", type: "error" });
         return;
       }
-      
+
       // Update court status via API
       const res = await authFetch(
         `/api/admin/sport-facilities/${encodeURIComponent(selectedFacility)}/courts/${encodeURIComponent(formData.court)}/status`,
         {
-          method: 'PUT',
+          method: "PUT",
           headers: {
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             status: formData.status,
             startDate: formData.startDate,
-            endDate: formData.endDate
-          })
-        }
+            endDate: formData.endDate,
+          }),
+        },
       );
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to update court availability');
+        throw new Error(
+          errorData.error || "Failed to update court availability",
+        );
       }
 
       const result = await res.json();
-      setToast({ msg: result.message || "Court availability updated successfully", type: "success" });
-      
+      setToast({
+        msg: result.message || "Court availability updated successfully",
+        type: "success",
+      });
+
       // Close modal and refresh data
       setTimeout(() => {
         onSave();
         onClose();
       }, 1500);
-
     } catch (err) {
-      console.error('Error updating court availability:', err);
+      console.error("Error updating court availability:", err);
       setToast({ msg: err.message, type: "error" });
     } finally {
       setIsSubmitting(false);
@@ -1823,7 +2103,11 @@ const UpdateAvailabilityModal = ({ onClose, onSave, selectedFacility, availableC
       <div className="modal">
         <div className="modal-header">
           <h3>Update Court Availability</h3>
-          <button className="close-btn" onClick={onClose} disabled={isSubmitting}>
+          <button
+            className="close-btn"
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
             <X size={20} />
           </button>
         </div>
@@ -1832,17 +2116,19 @@ const UpdateAvailabilityModal = ({ onClose, onSave, selectedFacility, availableC
             <label>Sport Facility</label>
             <input type="text" value={selectedFacility} disabled />
           </div>
-          
+
           <div className="form-group">
             <label>Court *</label>
-            <select 
+            <select
               value={formData.court}
-              onChange={(e) => setFormData({ ...formData, court: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, court: e.target.value })
+              }
               required
               disabled={isSubmitting}
             >
               <option value="">Select a court</option>
-              {availableCourts.map(court => (
+              {availableCourts.map((court) => (
                 <option key={court.name} value={court.name}>
                   Court {court.name}
                 </option>
@@ -1852,9 +2138,11 @@ const UpdateAvailabilityModal = ({ onClose, onSave, selectedFacility, availableC
 
           <div className="form-group">
             <label>Status *</label>
-            <select 
+            <select
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, status: e.target.value })
+              }
               disabled={isSubmitting}
             >
               <option value="MAINTENANCE">Maintenance</option>
@@ -1869,43 +2157,58 @@ const UpdateAvailabilityModal = ({ onClose, onSave, selectedFacility, availableC
               <input
                 type="date"
                 value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, startDate: e.target.value })
+                }
                 required
                 disabled={isSubmitting}
-                min={new Date().toISOString().split('T')[0]}
+                min={new Date().toISOString().split("T")[0]}
               />
             </div>
-            
+
             <div className="form-group">
               <label>End Date *</label>
               <input
                 type="date"
                 value={formData.endDate}
-                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, endDate: e.target.value })
+                }
                 required
                 disabled={isSubmitting}
-                min={formData.startDate || new Date().toISOString().split('T')[0]}
+                min={
+                  formData.startDate || new Date().toISOString().split("T")[0]
+                }
               />
             </div>
           </div>
 
           <div className="modal-actions">
-            <button type="button" onClick={onClose} className="cancel-btn" disabled={isSubmitting}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="cancel-btn"
+              disabled={isSubmitting}
+            >
               Cancel
             </button>
-            <button type="submit" className="save-btn" disabled={isSubmitting || !formData.court}>
+            <button
+              type="submit"
+              className="save-btn"
+              disabled={isSubmitting || !formData.court}
+            >
               {isSubmitting ? (
                 <>
                   <div className="button-spinner"></div>
                   Updating...
                 </>
               ) : (
-                'Update Availability'
+                "Update Availability"
               )}
             </button>
           </div>
         </form>
-        
+
         {toast.msg && (
           <Toast
             message={toast.msg}
@@ -1919,7 +2222,13 @@ const UpdateAvailabilityModal = ({ onClose, onSave, selectedFacility, availableC
 };
 
 // Delete Confirmation Modal Component
-const DeleteConfirmModal = ({ title, message, onClose, onConfirm, isLoading = false }) => {
+const DeleteConfirmModal = ({
+  title,
+  message,
+  onClose,
+  onConfirm,
+  isLoading = false,
+}) => {
   return (
     <div className="modal-overlay">
       <div className="modal delete-modal">
@@ -1936,14 +2245,18 @@ const DeleteConfirmModal = ({ title, message, onClose, onConfirm, isLoading = fa
           <button onClick={onClose} className="cancel-btn" disabled={isLoading}>
             Cancel
           </button>
-          <button onClick={onConfirm} className="delete-btn" disabled={isLoading}>
+          <button
+            onClick={onConfirm}
+            className="delete-btn"
+            disabled={isLoading}
+          >
             {isLoading ? (
               <>
                 <div className="button-spinner"></div>
                 Deleting...
               </>
             ) : (
-              'Delete'
+              "Delete"
             )}
           </button>
         </div>

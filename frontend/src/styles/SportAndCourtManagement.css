@@ -3,7 +3,7 @@
   padding: 20px;
   max-width: 1400px;
   margin: 0 auto;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background-color: #f8fafc;
   min-height: 100vh;
 }
@@ -41,7 +41,7 @@
 }
 
 .loading-spinner::before {
-  content: '';
+  content: "";
   width: 16px;
   height: 16px;
   border: 2px solid #e5e7eb;
@@ -140,7 +140,8 @@
   transform: translateY(-1px);
 }
 
-.edit-btn, .delete-btn {
+.edit-btn,
+.delete-btn {
   padding: 6px 12px;
   border: none;
   border-radius: 6px;
@@ -209,7 +210,7 @@
 
 .sort-btn-group {
   display: flex;
-  gap: 10px; 
+  gap: 10px;
 }
 
 .sort-btn-group .sort-btn {
@@ -222,7 +223,10 @@
   font-weight: 500;
   cursor: pointer;
   margin: 0;
-  transition: background 0.15s, color 0.15s, border 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border 0.15s;
 }
 
 .sort-btn-group .sort-btn.active,
@@ -244,7 +248,7 @@
   width: 100%;
   border-collapse: collapse;
   background: white;
-  table-layout: fixed; 
+  table-layout: fixed;
 }
 
 .facilities-table th {
@@ -255,7 +259,7 @@
   color: #475569;
   border-bottom: 1px solid #e2e8f0;
   font-size: 14px;
-  width: 25%; 
+  width: 25%;
 }
 
 .facilities-table td {
@@ -263,8 +267,8 @@
   border-bottom: 1px solid #f1f5f9;
   font-size: 14px;
   color: #334155;
-  width: 25%; 
-  word-wrap: break-word; 
+  width: 25%;
+  word-wrap: break-word;
 }
 
 .facilities-table tr:hover {
@@ -463,28 +467,6 @@
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: #475569;
-}
-
-.legend-color {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-}
-
-.legend-color.available {
-  background-color: #dcfce7;
-}
-
-.legend-color.booked {
-  background-color: #fee2e2;
 }
 
 .update-availability-btn {
@@ -726,7 +708,8 @@
   border-radius: 0 0 12px 12px;
 }
 
-.cancel-btn, .save-btn {
+.cancel-btn,
+.save-btn {
   padding: 10px 20px;
   border: none;
   border-radius: 6px;
@@ -927,17 +910,17 @@
     flex-direction: column;
     gap: 12px;
   }
-  
+
   .court-name-input {
     margin-right: 0;
   }
-  
+
   .court-time-settings {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
   }
-  
+
   .time-range-group {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -954,7 +937,7 @@
   .schedule-table {
     min-width: 1000px;
   }
-  
+
   .schedule-table th,
   .schedule-table td {
     padding: 6px 8px;
@@ -966,62 +949,62 @@
   .sport-management-container {
     padding: 16px;
   }
-  
+
   .sport-facilities-section,
   .courts-section {
     padding: 16px;
   }
-  
+
   .section-header {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
   }
-  
+
   .section-header h2,
   .section-header h3 {
     text-align: center;
   }
-  
+
   .court-actions {
     justify-content: center;
     flex-wrap: wrap;
   }
-  
+
   .legend-and-update {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
   }
-  
+
   .legend {
     justify-content: center;
   }
-  
+
   .time-range-group {
     grid-template-columns: 1fr;
     gap: 12px;
   }
-  
+
   .court-input-group {
     flex-direction: column;
   }
-  
+
   .modal {
     margin: 10px;
     max-width: none;
   }
-  
+
   .modal-actions {
     flex-direction: column;
   }
-  
+
   .facilities-table th,
   .facilities-table td {
     padding: 8px 12px;
     font-size: 12px;
   }
-  
+
   .action-buttons {
     flex-direction: column;
     gap: 4px;
@@ -1032,31 +1015,31 @@
   .sport-management-container {
     padding: 12px;
   }
-  
+
   .sport-facilities-section,
   .courts-section {
     padding: 12px;
   }
-  
+
   .section-header h2 {
     font-size: 20px;
   }
-  
+
   .section-header h3 {
     font-size: 18px;
   }
-  
+
   .schedule-table th,
   .schedule-table td {
     padding: 4px 6px;
     font-size: 9px;
   }
-  
+
   .modal-form,
   .modal-body {
     padding: 16px;
   }
-  
+
   .modal-actions {
     padding: 16px;
   }
@@ -1195,11 +1178,11 @@
   .modal-form {
     padding: 16px;
   }
-  
+
   .modal-actions {
     padding: 16px;
   }
-  
+
   .modal-form .time-range-group {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -1210,7 +1193,7 @@
   .modal-form {
     padding: 12px;
   }
-  
+
   .modal-actions {
     padding: 12px;
   }
