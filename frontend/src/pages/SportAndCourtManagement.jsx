@@ -2199,7 +2199,6 @@ const UpdateAvailabilityModal = ({
             >
               {isSubmitting ? (
                 <>
-                  <div className="button-spinner"></div>
                   Updating...
                 </>
               ) : (

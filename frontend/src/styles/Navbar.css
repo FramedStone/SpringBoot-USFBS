@@ -240,7 +240,7 @@
   }
 }
 
-/* Hide burger menu by default, only show on mobile */
+
 .mobile-menu-toggle {
   display: none;
 }

@@ -203,8 +203,8 @@
 
 .logs-container {
   min-height: 200px;
-  max-height: none; /* Remove max-height to prevent scrolling */
-  overflow: hidden; /* Hide overflow instead of scroll */
+  max-height: none; 
+  overflow: hidden; 
   display: flex;
   flex-direction: column;
 }
@@ -248,7 +248,7 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Match Action Type colors from SystemLogs.css */
+
 .log-error,
 .log-item.log-delete {
   background-color: #ffebee;
@@ -313,7 +313,7 @@
   text-align: center;
 }
 
-/* Add smooth animations for dynamic log updates */
+
 @keyframes slideIn {
   from {
     opacity: 0;
