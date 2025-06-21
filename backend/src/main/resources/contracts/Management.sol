@@ -13,6 +13,7 @@ contract Management {
     mapping(string => Announcement) private announcements;
 
     mapping(address => bool) internal admins;
+    address[] private users_;
     mapping(address => bool) internal users;
     mapping(address => bool) private bannedUsers;
 
@@ -93,6 +94,7 @@ contract Management {
     function addUser(address user) public isAdmin {
         require(user != address(0), "User address not provided");
 
+        users_.push(user);
         users[user] = true;
         emit userAdded(
             msg.sender,
@@ -105,7 +107,6 @@ contract Management {
         require(users[user] == true, "User not found (system)");
 
         bannedUsers[user] = true;
-        delete users[user];
         emit userBanned(
             msg.sender,
             user,
@@ -126,6 +127,10 @@ contract Management {
     }
 
     // Getters
+    function getUsers() external view returns(address[] memory userList) {
+        require(users_.length > 0, "No registered users found in blockchain");
+        return users_;
+    }
     function getUser(address user) external view isAdmin returns(bool isRegistered) {
         return users[user];
     }
