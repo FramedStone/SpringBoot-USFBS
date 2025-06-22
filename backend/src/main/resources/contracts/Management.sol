@@ -30,6 +30,7 @@ contract Management {
     event userAdded(
         address indexed from,
         address indexed user,
+        string note,
         uint256 timestamp
     );
     event userBanned(
@@ -99,6 +100,7 @@ contract Management {
         emit userAdded(
             msg.sender,
             user,
+            string(abi.encodePacked(user)),
             block.timestamp
         );
     }
@@ -110,7 +112,7 @@ contract Management {
         emit userBanned(
             msg.sender,
             user,
-            "User banned by admin",
+            string(abi.encodePacked(user)),
             block.timestamp
         );
     }
@@ -121,7 +123,7 @@ contract Management {
         emit userUnbanned(
             msg.sender,
             user,
-            "User unbanned by admin",
+            string(abi.encodePacked(user)),
             block.timestamp
         );
     }
