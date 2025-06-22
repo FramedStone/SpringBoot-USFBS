@@ -108,7 +108,6 @@ const SystemLogs = () => {
     'Announcement IPFS Hash Modified': true, 
     'Announcement Time Modified': true,
     'Announcement Title Modified': true,
-    'Announcement Requested': true,
     'User Added': true,
     'User Banned': true,
     'User Unbanned': true,
@@ -118,8 +117,6 @@ const SystemLogs = () => {
     'Court Added': true,
     'Court Modified': true,
     'Court Deleted': true,
-    'Facility Details Requested': true,
-    'Court Details Requested': true
   });
   const [sortBy, setSortBy] = useState({
     field: 'timestamp',   
@@ -512,7 +509,7 @@ const SystemLogs = () => {
     
     const noteActions = [
       'User Banned', 'User Unbanned', 'Booking Created', 'Booking Updated', 
-      'Booking Deleted', 'Facility Details Requested', 'Court Details Requested'
+      'Booking Deleted'
     ];
     
     if (noteActions.includes(action)) {
@@ -560,7 +557,6 @@ const SystemLogs = () => {
       'Announcement IPFS Hash Modified': true, 
       'Announcement Time Modified': true,
       'Announcement Title Modified': true,
-      'Announcement Requested': true,
       'User Added': true,
       'User Banned': true,
       'User Unbanned': true,
@@ -570,8 +566,6 @@ const SystemLogs = () => {
       'Court Added': true,
       'Court Modified': true,
       'Court Deleted': true,
-      'Facility Details Requested': true,
-      'Court Details Requested': true
     });
     setSortBy({
       field: 'timestamp',   
@@ -591,7 +585,6 @@ const SystemLogs = () => {
       'Announcement IPFS Hash Modified': true, 
       'Announcement Time Modified': true,
       'Announcement Title Modified': true,
-      'Announcement Requested': true,
       'User Added': true,
       'User Banned': true,
       'User Unbanned': true,
@@ -601,8 +594,6 @@ const SystemLogs = () => {
       'Court Added': true,
       'Court Modified': true,
       'Court Deleted': true,
-      'Facility Details Requested': true,
-      'Court Details Requested': true
     });
     setSortBy({
       field: 'timestamp',   
@@ -629,10 +620,6 @@ const SystemLogs = () => {
     
     if (actionLower.includes('deleted') || actionLower.includes('removed')) {
       return 'delete';
-    }
-    
-    if (actionLower.includes('requested') || actionLower.includes('details')) {
-      return 'read';
     }
     
     return 'read';
@@ -820,7 +807,7 @@ const SystemLogs = () => {
               <div className="action-group">
                 <h4 className="action-group-title">Booking</h4>
                 <div className="checkbox-group">
-                  {['Booking Created', 'Booking Updated', 'Booking Deleted', 'Booking Requested'].map(action => (
+                  {['Booking Created', 'Booking Updated', 'Booking Deleted'].map(action => (
                     <label key={action} className="checkbox-label">
                       <input
                         type="checkbox"
@@ -839,8 +826,7 @@ const SystemLogs = () => {
                 <div className="checkbox-group">
                   {[
                     'Sport Facility Added', 'Sport Facility Modified', 'Sport Facility Deleted',
-                    'Court Added', 'Court Modified', 'Court Deleted',
-                    'Facility Details Requested', 'Court Details Requested'
+                    'Court Added', 'Court Modified', 'Court Deleted'
                   ].map(action => (
                     <label key={action} className="checkbox-label">
                       <input
@@ -860,8 +846,7 @@ const SystemLogs = () => {
                 <div className="checkbox-group">
                   {[
                     'Announcement Added', 'Announcement Deleted', 'Announcement Modified',
-                    'Announcement IPFS Hash Modified', 'Announcement Time Modified', 
-                    'Announcement Title Modified', 'Announcement Requested'
+                    'Announcement IPFS Hash Modified', 'Announcement Time Modified'
                   ].map(action => (
                     <label key={action} className="checkbox-label">
                       <input
