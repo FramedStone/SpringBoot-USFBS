@@ -129,6 +129,7 @@ contract Management {
         string memory reason
     ) external isAdmin {
         require(user != address(0), "User address not provided");
+        require(bannedUsers[user] == true, "User is not banned");
         require(bytes(reason).length > 0, "Unban reason not provided");
 
         bannedUsers[user] = false;
