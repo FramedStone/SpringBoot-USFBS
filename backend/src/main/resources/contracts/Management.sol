@@ -264,7 +264,7 @@ contract Management {
         emit announcementDeleted(msg.sender, ipfsHash, block.timestamp);
     }
 
-    function getAnnouncements() external isAdmin view returns(Announcement[] memory anns_) {
+    function getAnnouncements() external view returns(Announcement[] memory anns_) {
         require(announcements_.length > 0, "No Announcement found in blockchain");
 
         return announcements_;

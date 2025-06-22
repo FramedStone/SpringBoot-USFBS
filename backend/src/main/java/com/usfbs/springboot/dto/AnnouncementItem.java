@@ -8,6 +8,8 @@ import java.time.format.DateTimeFormatter;
 
 public class AnnouncementItem {
     
+    private static final String DEFAULT_GATEWAY_URL = "https://gateway.pinata.cloud";
+    
     @JsonProperty("ipfsHash")
     private String ipfsHash;
     
@@ -96,6 +98,15 @@ public class AnnouncementItem {
         this.blockchainEndDate = blockchainEndDate;
     }
 
+    // getter for fileUrl
+    @JsonProperty("fileUrl")
+    public String getFileUrl() {
+        if (fileCid == null || fileCid.trim().isEmpty()) {
+            return null;
+        }
+        return DEFAULT_GATEWAY_URL + "/ipfs/" + fileCid;
+    }
+
     // Helper methods for date formatting
     @JsonProperty("formattedStartDate")
     public String getFormattedStartDate() {
@@ -133,6 +144,7 @@ public class AnnouncementItem {
                 ", title='" + title + '\'' +
                 ", dateRange='" + getDateRange() + '\'' +
                 ", fileCid='" + fileCid + '\'' +
+                ", fileUrl='" + getFileUrl() + '\'' +
                 '}';
     }
 }
