@@ -87,11 +87,6 @@ contract Management {
         string ipfsHash,
         uint256 timestamp
     );
-    event announcementRequested(
-        address indexed from,
-        string ipfsHash,
-        uint256 timestamp
-    );
 
     // Main functions
     constructor(address[] memory admins_) {
