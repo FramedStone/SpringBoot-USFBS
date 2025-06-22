@@ -776,5 +776,277 @@ public class AdminController {
             ));
         }
     }
+
+    @PostMapping(
+        value = "/bookings/create",
+        consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> createBooking(
+        @RequestParam("facilityName") String facilityName,
+        @RequestParam("courtName") String courtName,
+        @RequestParam("userAddress") String userAddress,
+        @RequestParam("startTime") long startTime,
+        @RequestParam("endTime") long endTime,
+        @RequestParam("eventDescription") String eventDescription,
+        @RequestParam(value = "receiptFile", required = false) MultipartFile receiptFile
+    ) {
+        try {
+            // Validate required parameters
+            if (facilityName == null || facilityName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Facility name is required"
+                ));
+            }
+            
+            if (courtName == null || courtName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Court name is required"
+                ));
+            }
+            
+            if (userAddress == null || userAddress.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "User address is required"
+                ));
+            }
+            
+            if (eventDescription == null || eventDescription.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Event description is required"
+                ));
+            }
+            
+            if (startTime >= endTime) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "End time must be after start time"
+                ));
+            }
+
+            // Validate file if provided
+            if (receiptFile != null && !receiptFile.isEmpty()) {
+                // Check file size (max 10MB)
+                if (receiptFile.getSize() > 10 * 1024 * 1024) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "Receipt file size cannot exceed 10MB"
+                    ));
+                }
+                
+                // Check file type
+                String contentType = receiptFile.getContentType();
+                if (contentType == null || 
+                    (!contentType.startsWith("image/") && 
+                     !contentType.equals("application/pdf"))) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "Receipt file must be an image or PDF"
+                    ));
+                }
+            }
+
+            String txHash = adminService.createBooking(
+                facilityName, courtName, userAddress, 
+                startTime, endTime, eventDescription, receiptFile
+            );
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Booking created successfully",
+                "txHash", txHash,
+                "facilityName", facilityName,
+                "courtName", courtName,
+                "userAddress", userAddress,
+                "startTime", startTime,
+                "endTime", endTime,
+                "eventDescription", eventDescription,
+                "hasReceiptFile", receiptFile != null && !receiptFile.isEmpty()
+            ));
+
+        } catch (Exception e) {
+            logger.error("Error creating booking: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/bookings/{manifestCid}/details")
+    public ResponseEntity<?> getBookingDetails(@PathVariable String manifestCid) {
+        try {
+            if (manifestCid == null || manifestCid.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Manifest CID is required"
+                ));
+            }
+
+            Map<String, Object> bookingDetails = adminService.getBookingWithDetails(manifestCid);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", bookingDetails,
+                "message", "Booking details retrieved successfully"
+            ));
+
+        } catch (Exception e) {
+            logger.error("Error getting booking details: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/bookings")
+    public ResponseEntity<?> getAllBookings(
+        @RequestParam(value = "facilityName", required = false) String facilityName,
+        @RequestParam(value = "courtName", required = false) String courtName,
+        @RequestParam(value = "status", required = false) String status,
+        @RequestParam(value = "userAddress", required = false) String userAddress
+    ) {
+        try {
+            List<Map<String, Object>> bookings;
+            
+            // Use filtering if any filter parameters are provided
+            if (facilityName != null || courtName != null || status != null || userAddress != null) {
+                bookings = adminService.getBookingsWithFilter(facilityName, courtName, status, userAddress);
+            } else {
+                bookings = adminService.getAllBookings();
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", bookings,
+                "count", bookings.size(),
+                "message", String.format("Retrieved %d bookings", bookings.size())
+            ));
+            
+        } catch (Exception e) {
+            logger.error("Error getting bookings: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/bookings/{bookingId}")
+    public ResponseEntity<?> getBooking(@PathVariable Long bookingId) {
+        try {
+            if (bookingId == null || bookingId < 0) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Valid booking ID is required"
+                ));
+            }
+            
+            Map<String, Object> booking = adminService.getBookingById(bookingId);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", booking,
+                "message", "Booking details retrieved successfully"
+            ));
+            
+        } catch (Exception e) {
+            logger.error("Error getting booking {}: {}", bookingId, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/bookings/{bookingId}/reject")
+    public ResponseEntity<?> rejectBooking(
+        @PathVariable Long bookingId,
+        @RequestBody Map<String, String> request
+    ) {
+        try {
+            String reason = request.get("reason");
+            
+            if (reason == null || reason.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Rejection reason is required"
+                ));
+            }
+            
+            String result = adminService.rejectBooking(bookingId, reason);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result,
+                "bookingId", bookingId,
+                "reason", reason
+            ));
+            
+        } catch (Exception e) {
+            logger.error("Error rejecting booking {}: {}", bookingId, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/bookings/{bookingId}/note")
+    public ResponseEntity<?> attachBookingNote(
+        @PathVariable Long bookingId,
+        @RequestBody Map<String, String> request
+    ) {
+        try {
+            String note = request.get("note");
+            
+            if (note == null || note.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Note content is required"
+                ));
+            }
+            
+            String result = adminService.attachBookingNote(bookingId, note);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result,
+                "bookingId", bookingId,
+                "note", note
+            ));
+            
+        } catch (Exception e) {
+            logger.error("Error attaching note to booking {}: {}", bookingId, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/bookings/update-status")
+    public ResponseEntity<?> updateAllBookingStatus() {
+        try {
+            String result = adminService.updateAllBookingStatus();
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result
+            ));
+            
+        } catch (Exception e) {
+            logger.error("Error updating booking statuses: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
 }
 

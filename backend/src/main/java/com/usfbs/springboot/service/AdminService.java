@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Service
 public class AdminService {
@@ -1349,4 +1350,597 @@ public class AdminService {
             return null;
         }
     }
+
+    /**
+     * Creates a booking for admin with IPFS integration
+     */
+    public String createBooking(String facilityName, String courtName, String userAddress,
+                          long startTime, long endTime, String eventDescription,
+                          MultipartFile receiptFile) throws Exception {
+    try {
+        // Validate inputs
+        if (facilityName == null || facilityName.trim().isEmpty()) {
+            throw new Exception("Facility name is required");
+        }
+        if (courtName == null || courtName.trim().isEmpty()) {
+            throw new Exception("Court name is required");
+        }
+        if (userAddress == null || userAddress.trim().isEmpty()) {
+            throw new Exception("User address is required");
+        }
+        if (startTime >= endTime) {
+            throw new Exception("End time must be after start time");
+        }
+        if (eventDescription == null || eventDescription.trim().isEmpty()) {
+            throw new Exception("Event description is required");
+        }
+
+        // Step 1: Upload receipt file to IPFS first
+        String receiptFileCid = null;
+        if (receiptFile != null && !receiptFile.isEmpty()) {
+            receiptFileCid = pinataUtil.uploadFileToIPFS(
+                receiptFile.getBytes(),
+                receiptFile.getOriginalFilename()
+            );
+            logger.info("Receipt file uploaded to IPFS with CID: {}", receiptFileCid);
+        }
+
+        // Step 2: Create booking manifest with initial data using HashMap
+        Map<String, Object> bookingManifest = new HashMap<>();
+        bookingManifest.put("facilityName", facilityName);
+        bookingManifest.put("courtName", courtName);
+        bookingManifest.put("userAddress", userAddress);
+        bookingManifest.put("startTime", startTime);
+        bookingManifest.put("endTime", endTime);
+        bookingManifest.put("eventDescription", eventDescription);
+        bookingManifest.put("receiptFileCid", receiptFileCid != null ? receiptFileCid : "null");
+        bookingManifest.put("status", "PENDING");
+        bookingManifest.put("createdAt", System.currentTimeMillis());
+
+        // Step 3: Upload manifest to IPFS
+        String manifestFileName = sanitizeFileName(
+            String.format("booking-%s-%s-%d", facilityName, courtName, System.currentTimeMillis())
+        ) + "-manifest.json";
+        String manifestCid = pinataUtil.uploadJsonToIPFS(bookingManifest, manifestFileName);
+        logger.info("Booking manifest uploaded to IPFS with CID: {}", manifestCid);
+
+        // Step 4: Create timeSlot object for blockchain call
+        Booking.timeSlot timeSlot = new Booking.timeSlot(
+            BigInteger.valueOf(startTime),
+            BigInteger.valueOf(endTime)
+        );
+
+        // Step 5: Call blockchain function with correct parameters
+        TransactionReceipt receipt = bookingContract.createBooking_(
+            facilityName,
+            courtName,
+            userAddress,
+            eventDescription,
+            timeSlot
+        ).send();
+
+        if (!receipt.isStatusOK()) {
+            // Cleanup IPFS files if blockchain transaction failed
+            try {
+                pinataUtil.unpinFromIPFS(manifestCid);
+                if (receiptFileCid != null) {
+                    pinataUtil.unpinFromIPFS(receiptFileCid);
+                }
+                logger.warn("Cleaned up IPFS files due to failed blockchain transaction");
+            } catch (Exception e) {
+                logger.warn("Failed to cleanup IPFS files: {}", e.getMessage());
+            }
+            throw new Exception("Blockchain transaction failed");
+        }
+
+        // Step 6: Update IPFS manifest with successful blockchain data using HashMap
+        Map<String, Object> updatedManifest = new HashMap<>();
+        updatedManifest.put("facilityName", facilityName);
+        updatedManifest.put("courtName", courtName);
+        updatedManifest.put("userAddress", userAddress);
+        updatedManifest.put("startTime", startTime);
+        updatedManifest.put("endTime", endTime);
+        updatedManifest.put("eventDescription", eventDescription);
+        updatedManifest.put("receiptFileCid", receiptFileCid != null ? receiptFileCid : "null");
+        updatedManifest.put("status", "CONFIRMED");
+        updatedManifest.put("blockchainTxHash", receipt.getTransactionHash());
+        updatedManifest.put("blockNumber", receipt.getBlockNumber().toString());
+        updatedManifest.put("createdAt", System.currentTimeMillis());
+        updatedManifest.put("confirmedAt", System.currentTimeMillis());
+
+        // Step 7: Upload updated manifest to IPFS
+        String updatedManifestFileName = sanitizeFileName(
+            String.format("booking-confirmed-%s-%s-%d", facilityName, courtName, System.currentTimeMillis())
+        ) + "-manifest.json";
+        String updatedManifestCid = pinataUtil.uploadJsonToIPFS(updatedManifest, updatedManifestFileName);
+
+        // Step 8: Cleanup old manifest
+        try {
+            pinataUtil.unpinFromIPFS(manifestCid);
+            logger.info("Cleaned up old manifest CID: {}", manifestCid);
+        } catch (Exception e) {
+            logger.warn("Failed to cleanup old manifest: {}", e.getMessage());
+        }
+
+        logger.info("Booking created successfully for user {} at {}/{} with updated manifest CID: {}", 
+                   userAddress, facilityName, courtName, updatedManifestCid);
+
+        return receipt.getTransactionHash();
+
+    } catch (Exception e) {
+        logger.error("Error creating booking: {}", e.getMessage());
+        throw new Exception("Failed to create booking: " + e.getMessage());
+    }
+}
+
+/**
+ * Gets booking details with IPFS data integration
+ */
+public Map<String, Object> getBookingWithDetails(String manifestCid) throws Exception {
+    try {
+        // Fetch manifest from IPFS
+        String manifestJson = pinataUtil.fetchFromIPFS(manifestCid);
+        Map<String, Object> manifest = _parseJsonToMap(manifestJson);
+
+        // Add receipt file URL if available
+        String receiptFileCid = (String) manifest.get("receiptFileCid");
+        if (receiptFileCid != null && !receiptFileCid.equals("null")) {
+            String receiptUrl = _getFileUrl(receiptFileCid);
+            manifest.put("receiptFileUrl", receiptUrl);
+        }
+
+        // Format time fields for readability
+        Object startTime = manifest.get("startTime");
+        Object endTime = manifest.get("endTime");
+        if (startTime instanceof Number && endTime instanceof Number) {
+            manifest.put("startTimeStr", secondsToTimeString(((Number) startTime).longValue()));
+            manifest.put("endTimeStr", secondsToTimeString(((Number) endTime).longValue()));
+        }
+
+        logger.info("Retrieved booking details from IPFS manifest: {}", manifestCid);
+        return manifest;
+
+    } catch (Exception e) {
+        logger.error("Error getting booking details from IPFS: {}", e.getMessage());
+        throw new Exception("Failed to get booking details: " + e.getMessage());
+    }
+}
+
+/**
+ * Parses JSON string to Map for booking manifest processing
+ */
+private Map<String, Object> _parseJsonToMap(String jsonString) throws Exception {
+    try {
+        // Simple JSON parser implementation using existing PinataManifest pattern
+        Map<String, Object> result = new HashMap<>();
+        
+        // Remove curly braces and split by commas
+        String cleaned = jsonString.replaceAll("[{}]", "").trim();
+        String[] pairs = cleaned.split(",");
+        
+        for (String pair : pairs) {
+            String[] keyValue = pair.split(":", 2);
+            if (keyValue.length == 2) {
+                String key = keyValue[0].trim().replaceAll("\"", "");
+                String value = keyValue[1].trim().replaceAll("\"", "");
+                
+                // Try to parse numbers
+                try {
+                    if (value.contains(".")) {
+                        result.put(key, Double.parseDouble(value));
+                    } else {
+                        result.put(key, Long.parseLong(value));
+                    }
+                } catch (NumberFormatException e) {
+                    result.put(key, value);
+                }
+            }
+        }
+        
+        return result;
+    } catch (Exception e) {
+        throw new Exception("Failed to parse JSON to Map: " + e.getMessage());
+    }
+}
+
+/**
+ * Gets public file URL for IPFS content
+ */
+private String _getFileUrl(String cid) {
+    // TODO: Get gateway URL from environment variable
+    String pinataGateway = "gateway.pinata.cloud"; 
+    return String.format("https://%s/ipfs/%s", pinataGateway, cid);
+}
+
+/**
+ * Gets a specific booking by ID for admin using blockchain contract
+ */
+public Map<String, Object> getBookingById(Long bookingId) throws Exception {
+    try {
+        if (bookingId == null || bookingId < 0) {
+            throw new Exception("Valid booking ID is required");
+        }
+
+        // Call blockchain function to get booking transaction using admin method
+        Booking.bookingTransaction booking = bookingContract.getBooking_(BigInteger.valueOf(bookingId)).send();
+        
+        Map<String, Object> bookingDetails = new HashMap<>();
+        bookingDetails.put("bookingId", booking.bookingId.longValue());
+        bookingDetails.put("owner", booking.owner);
+        bookingDetails.put("facilityName", booking.facilityName);
+        bookingDetails.put("courtName", booking.courtName);
+        bookingDetails.put("note", booking.note);
+        bookingDetails.put("status", _getBookingStatusString(booking.status));
+        bookingDetails.put("startTime", booking.time.startTime.longValue());
+        bookingDetails.put("endTime", booking.time.endTime.longValue());
+        bookingDetails.put("startTimeStr", secondsToTimeString(booking.time.startTime.longValue()));
+        bookingDetails.put("endTimeStr", secondsToTimeString(booking.time.endTime.longValue()));
+        bookingDetails.put("ipfsHash", booking.ipfsHash);
+
+        // Add user email if available
+        String email = authService.getUserEmailByAddress(booking.owner);
+        bookingDetails.put("userEmail", email);
+        
+        // Calculate duration
+        long duration = booking.time.endTime.longValue() - booking.time.startTime.longValue();
+        bookingDetails.put("duration", duration);
+        bookingDetails.put("durationStr", _formatDuration(duration));
+
+        // Try to fetch additional details from IPFS if hash is available
+        if (booking.ipfsHash != null && !booking.ipfsHash.trim().isEmpty()) {
+            try {
+                Map<String, Object> ipfsDetails = getBookingWithDetails(booking.ipfsHash);
+                bookingDetails.put("ipfsDetails", ipfsDetails);
+                
+                // Add receipt file URL if available
+                String receiptUrl = (String) ipfsDetails.get("receiptFileUrl");
+                if (receiptUrl != null) {
+                    bookingDetails.put("receiptFileUrl", receiptUrl);
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to fetch IPFS details for booking {}: {}", bookingId, e.getMessage());
+                bookingDetails.put("ipfsDetails", null);
+                bookingDetails.put("ipfsError", e.getMessage());
+            }
+        }
+
+        logger.info("Retrieved booking details for ID: {}", bookingId);
+        return bookingDetails;
+
+    } catch (Exception e) {
+        logger.error("Error getting booking {}: {}", bookingId, e.getMessage());
+        throw new Exception("Failed to get booking: " + e.getMessage());
+    }
+}
+
+
+/**
+ * Attaches a note to an existing booking
+ */
+public String attachBookingNote(Long bookingId, String note) throws Exception {
+    try {
+        if (bookingId == null || bookingId < 0) {
+            throw new Exception("Valid booking ID is required");
+        }
+        
+        if (note == null || note.trim().isEmpty()) {
+            throw new Exception("Note content is required");
+        }
+
+        // Call blockchain function to attach note
+        TransactionReceipt receipt = bookingContract.attachBookingNote(
+            BigInteger.valueOf(bookingId), 
+            note
+        ).send();
+        
+        if (receipt.isStatusOK()) {
+            logger.info("Note attached to booking {} successfully", bookingId);
+            return String.format("Note has been attached to booking %d successfully", bookingId);
+        }
+        
+        return "Failed to attach note to booking";
+
+    } catch (Exception e) {
+        logger.error("Error attaching note to booking {}: {}", bookingId, e.getMessage());
+        throw new Exception("Failed to attach booking note: " + e.getMessage());
+    }
+}
+
+/**
+ * Updates the booking status to check for completed bookings
+ */
+public String updateAllBookingStatus() throws Exception {
+    try {
+        // Call blockchain function to update all booking statuses
+        TransactionReceipt receipt = bookingContract.updateAllBookingStatus_().send();
+        
+        if (receipt.isStatusOK()) {
+            logger.info("All booking statuses updated successfully");
+            return "All booking statuses have been updated successfully";
+        }
+        
+        return "Failed to update booking statuses";
+
+    } catch (Exception e) {
+        logger.error("Error updating all booking statuses: {}", e.getMessage());
+        throw new Exception("Failed to update booking statuses: " + e.getMessage());
+    }
+}
+
+/**
+ * Gets all bookings from blockchain
+ */
+public List<Map<String, Object>> getAllBookings() throws Exception {
+    try {
+        // Call blockchain function to get all booking transactions
+        List<Object> rawBookings = bookingContract.getAllBookings_().send();
+        
+        List<Map<String, Object>> bookingsList = new ArrayList<>();
+        
+        for (Object obj : rawBookings) {
+            try {
+                Map<String, Object> bookingDetails = new HashMap<>();
+                
+                if (obj instanceof Booking.bookingTransaction) {
+                    Booking.bookingTransaction booking = (Booking.bookingTransaction) obj;
+                    bookingDetails = _processBookingDirect(booking);
+                } else {
+                    bookingDetails = _extractBookingFromObject(obj);
+                }
+                
+                if (bookingDetails != null && !bookingDetails.isEmpty()) {
+                    bookingsList.add(bookingDetails);
+                }
+                
+            } catch (Exception e) {
+                logger.warn("Failed to process booking object: {}", e.getMessage());
+                continue;
+            }
+        }
+        
+        logger.info("Retrieved {} bookings from blockchain", bookingsList.size());
+        return bookingsList;
+        
+    } catch (Exception e) {
+        if (e.getMessage().contains("Empty bookings saved in blockchain")) {
+            logger.info("No bookings found in blockchain - returning empty list");
+            return new ArrayList<>();
+        }
+        
+        logger.error("Error getting all bookings: {}", e.getMessage());
+        throw new Exception("Failed to get bookings: " + e.getMessage());
+    }
+}
+
+/**
+ * Gets bookings with optional filtering
+ */
+public List<Map<String, Object>> getBookingsWithFilter(String facilityName, String courtName, String status, String userAddress) throws Exception {
+    try {
+        List<Map<String, Object>> allBookings = getAllBookings();
+        
+        return allBookings.stream()
+            .filter(booking -> {
+                if (facilityName != null && !facilityName.equals(booking.get("facilityName"))) {
+                    return false;
+                }
+                if (courtName != null && !courtName.equals(booking.get("courtName"))) {
+                    return false;
+                }
+                if (status != null && !status.equals(booking.get("status"))) {
+                    return false;
+                }
+                if (userAddress != null && !userAddress.equals(booking.get("owner"))) {
+                    return false;
+                }
+                return true;
+            })
+            .collect(Collectors.toList());
+            
+    } catch (Exception e) {
+        logger.error("Error filtering bookings: {}", e.getMessage());
+        throw new Exception("Failed to filter bookings: " + e.getMessage());
+    }
+}
+
+/**
+ * Processes booking object directly when proper casting is possible
+ */
+private Map<String, Object> _processBookingDirect(Booking.bookingTransaction booking) throws Exception {
+    Map<String, Object> bookingDetails = new HashMap<>();
+    bookingDetails.put("bookingId", booking.bookingId.longValue());
+    bookingDetails.put("owner", booking.owner);
+    bookingDetails.put("facilityName", booking.facilityName);
+    bookingDetails.put("courtName", booking.courtName);
+    bookingDetails.put("note", booking.note);
+    bookingDetails.put("status", _getBookingStatusString(booking.status));
+    bookingDetails.put("startTime", booking.time.startTime.longValue());
+    bookingDetails.put("endTime", booking.time.endTime.longValue());
+    bookingDetails.put("startTimeStr", secondsToTimeString(booking.time.startTime.longValue()));
+    bookingDetails.put("endTimeStr", secondsToTimeString(booking.time.endTime.longValue()));
+    bookingDetails.put("ipfsHash", booking.ipfsHash);
+
+    // Add user email if available
+    String email = authService.getUserEmailByAddress(booking.owner);
+    bookingDetails.put("userEmail", email);
+    
+    // Calculate duration
+    long duration = booking.time.endTime.longValue() - booking.time.startTime.longValue();
+    bookingDetails.put("duration", duration);
+    bookingDetails.put("durationStr", _formatDuration(duration));
+
+    return bookingDetails;
+}
+
+/**
+ * Extracts booking data from object using reflection for classloader compatibility
+ */
+private Map<String, Object> _extractBookingFromObject(Object obj) throws Exception {
+    try {
+        Class<?> bookingClass = obj.getClass();
+        
+        java.lang.reflect.Field ownerField = bookingClass.getDeclaredField("owner");
+        java.lang.reflect.Field bookingIdField = bookingClass.getDeclaredField("bookingId");
+        java.lang.reflect.Field ipfsHashField = bookingClass.getDeclaredField("ipfsHash");
+        java.lang.reflect.Field facilityNameField = bookingClass.getDeclaredField("facilityName");
+        java.lang.reflect.Field courtNameField = bookingClass.getDeclaredField("courtName");
+        java.lang.reflect.Field noteField = bookingClass.getDeclaredField("note");
+        java.lang.reflect.Field timeField = bookingClass.getDeclaredField("time");
+        java.lang.reflect.Field statusField = bookingClass.getDeclaredField("status");
+        
+        ownerField.setAccessible(true);
+        bookingIdField.setAccessible(true);
+        ipfsHashField.setAccessible(true);
+        facilityNameField.setAccessible(true);
+        courtNameField.setAccessible(true);
+        noteField.setAccessible(true);
+        timeField.setAccessible(true);
+        statusField.setAccessible(true);
+        
+        String owner = (String) ownerField.get(obj);
+        BigInteger bookingId = (BigInteger) bookingIdField.get(obj);
+        String ipfsHash = (String) ipfsHashField.get(obj);
+        String facilityName = (String) facilityNameField.get(obj);
+        String courtName = (String) courtNameField.get(obj);
+        String note = (String) noteField.get(obj);
+        Object timeObj = timeField.get(obj);
+        Object statusObj = statusField.get(obj);
+        
+        // Extract time data
+        Class<?> timeClass = timeObj.getClass();
+        java.lang.reflect.Field startTimeField = timeClass.getDeclaredField("startTime");
+        java.lang.reflect.Field endTimeField = timeClass.getDeclaredField("endTime");
+        
+        startTimeField.setAccessible(true);
+        endTimeField.setAccessible(true);
+        
+        BigInteger startTime = (BigInteger) startTimeField.get(timeObj);
+        BigInteger endTime = (BigInteger) endTimeField.get(timeObj);
+        
+        Map<String, Object> bookingDetails = new HashMap<>();
+        bookingDetails.put("bookingId", bookingId.longValue());
+        bookingDetails.put("owner", owner);
+        bookingDetails.put("facilityName", facilityName);
+        bookingDetails.put("courtName", courtName);
+        bookingDetails.put("note", note);
+        bookingDetails.put("status", _getBookingStatusFromEnum(statusObj));
+        bookingDetails.put("startTime", startTime.longValue());
+        bookingDetails.put("endTime", endTime.longValue());
+        bookingDetails.put("startTimeStr", secondsToTimeString(startTime.longValue()));
+        bookingDetails.put("endTimeStr", secondsToTimeString(endTime.longValue()));
+        bookingDetails.put("ipfsHash", ipfsHash);
+
+        // Add user email if available
+        String email = authService.getUserEmailByAddress(owner);
+        bookingDetails.put("userEmail", email);
+        
+        // Calculate duration
+        long duration = endTime.longValue() - startTime.longValue();
+        bookingDetails.put("duration", duration);
+        bookingDetails.put("durationStr", _formatDuration(duration));
+        
+        return bookingDetails;
+        
+    } catch (Exception e) {
+        logger.error("Failed to extract booking data using reflection: {}", e.getMessage());
+        throw new Exception("Failed to extract booking data: " + e.getMessage());
+    }
+}
+
+/**
+ * Converts booking status BigInteger to string
+ */
+private String _getBookingStatusString(BigInteger status) {
+    if (status == null) {
+        return "UNKNOWN";
+    }
+    
+    int statusValue = status.intValue();
+    switch (statusValue) {
+        case 0: return "APPROVED";
+        case 1: return "PENDING";
+        case 2: return "REJECTED";
+        case 3: return "COMPLETED";
+        case 4: return "CANCELLED";
+        default: return "UNKNOWN";
+    }
+}
+
+/**
+ * Converts booking status enum object to string
+ */
+private String _getBookingStatusFromEnum(Object statusObj) {
+    if (statusObj == null) {
+        return "UNKNOWN";
+    }
+    
+    try {
+        // Get enum ordinal value
+        java.lang.reflect.Method ordinalMethod = statusObj.getClass().getMethod("ordinal");
+        int ordinal = (Integer) ordinalMethod.invoke(statusObj);
+        
+        switch (ordinal) {
+            case 0: return "APPROVED";
+            case 1: return "PENDING";
+            case 2: return "REJECTED";
+            case 3: return "COMPLETED";
+            case 4: return "CANCELLED";
+            default: return "UNKNOWN";
+        }
+    } catch (Exception e) {
+        logger.warn("Failed to extract status from enum: {}", e.getMessage());
+        return "UNKNOWN";
+    }
+}
+
+/**
+ * Formats duration in seconds to human-readable string
+ */
+private String _formatDuration(long durationSeconds) {
+    if (durationSeconds <= 0) {
+        return "0 hours";
+    }
+    
+    long hours = durationSeconds / 3600;
+    long minutes = (durationSeconds % 3600) / 60;
+    
+    if (hours > 0 && minutes > 0) {
+        return String.format("%d hour%s %d minute%s", 
+            hours, hours == 1 ? "" : "s", 
+            minutes, minutes == 1 ? "" : "s");
+    } else if (hours > 0) {
+        return String.format("%d hour%s", hours, hours == 1 ? "" : "s");
+    } else {
+        return String.format("%d minute%s", minutes, minutes == 1 ? "" : "s");
+    }
+}
+
+/**
+ * Rejects a booking with admin privileges
+ */
+public String rejectBooking(Long bookingId, String reason) throws Exception {
+    try {
+        if (bookingId == null || bookingId < 0) {
+            throw new Exception("Valid booking ID is required");
+        }
+        
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new Exception("Rejection reason is required");
+        }
+
+        // Call blockchain function to reject booking
+        TransactionReceipt receipt = bookingContract.rejectBooking(BigInteger.valueOf(bookingId), reason).send();
+        
+        if (receipt.isStatusOK()) {
+            logger.info("Booking {} rejected successfully with reason: {}", bookingId, reason);
+            return String.format("Booking %d has been rejected. Reason: %s", bookingId, reason);
+        }
+        
+        return "Failed to reject booking";
+
+    } catch (Exception e) {
+        logger.error("Error rejecting booking {}: {}", bookingId, e.getMessage());
+        throw new Exception("Failed to reject booking: " + e.getMessage());
+    }
+}
 }

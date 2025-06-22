@@ -459,7 +459,7 @@ public class ContractInitializer implements CommandLineRunner {
                     "Sport Facility Modified",
                     event.from,
                     event.timestamp,
-                    "",
+                    originalOutput, 
                     "FACILITY"
                 );
             }, error -> {

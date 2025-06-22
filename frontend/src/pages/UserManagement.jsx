@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from "@components/Navbar";
 import Toast from "@components/Toast";
+import Spinner from "@components/Spinner";
 import { authFetch } from "@utils/authFetch";
 import '@styles/UserManagement.css';
 
@@ -207,7 +208,7 @@ const UserManagement = () => {
         <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
         <div className="um-user-management-content">
           <div className="um-loading">
-            <p>Loading users...</p>
+            <Spinner />
           </div>
         </div>
       </div>
