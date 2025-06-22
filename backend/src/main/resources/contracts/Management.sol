@@ -107,27 +107,35 @@ contract Management {
         );
     }
     
-    function banUser(address user) external isAdmin {
+    function banUser(
+        address user,
+        string memory reason
+    ) external isAdmin {
         require(user != address(0), "User address not provided");
         require(users[user] == true, "User not found (system)");
+        require(bytes(reason).length > 0, "Ban reason not provided");
 
         bannedUsers[user] = true;
         emit userBanned(
             msg.sender,
             user,
-            Strings.toString(user),
+            string(abi.encodePacked(Strings.toString(user), " - Reason: ", reason)),
             block.timestamp
         );
     }
     
-    function unbanUser(address user) external isAdmin {
+    function unbanUser(
+        address user,
+        string memory reason
+    ) external isAdmin {
         require(user != address(0), "User address not provided");
+        require(bytes(reason).length > 0, "Unban reason not provided");
 
         bannedUsers[user] = false;
         emit userUnbanned(
             msg.sender,
             user,
-            Strings.toString(user),
+            string(abi.encodePacked(Strings.toString(user), " - Reason: ", reason)),
             block.timestamp
         );
     }
