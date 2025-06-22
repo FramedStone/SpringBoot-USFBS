@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT 
 pragma solidity 0.8.19;
 
+import "./Strings.sol";
+
 contract Management {
     // Variable & Modifier Initialization
     struct Announcement {
@@ -100,10 +102,11 @@ contract Management {
         emit userAdded(
             msg.sender,
             user,
-            string(abi.encodePacked(user)),
+            Strings.toString(user),
             block.timestamp
         );
     }
+    
     function banUser(address user) external isAdmin {
         require(user != address(0), "User address not provided");
         require(users[user] == true, "User not found (system)");
@@ -112,10 +115,11 @@ contract Management {
         emit userBanned(
             msg.sender,
             user,
-            string(abi.encodePacked(user)),
+            Strings.toString(user),
             block.timestamp
         );
     }
+    
     function unbanUser(address user) external isAdmin {
         require(user != address(0), "User address not provided");
 
@@ -123,7 +127,7 @@ contract Management {
         emit userUnbanned(
             msg.sender,
             user,
-            string(abi.encodePacked(user)),
+            Strings.toString(user),
             block.timestamp
         );
     }
