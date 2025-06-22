@@ -1,0 +1,464 @@
+.court-booking-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.court-booking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.court-booking-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.court-booking-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #4a5568;
+}
+
+.court-booking-back-btn:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+}
+
+.court-booking-title-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.court-booking-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0;
+}
+
+.court-booking-location-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.court-booking-date-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.court-booking-date-input {
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  min-width: 150px;
+}
+
+.court-booking-date-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.court-booking-table-container {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.court-booking-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.court-booking-table th {
+  background: #f7fafc;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #2d3748;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.court-booking-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.court-booking-row:hover {
+  background: #f9fafb;
+}
+
+.court-booking-name {
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.court-booking-time-range {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #4a5568;
+  font-size: 0.875rem;
+}
+
+.court-status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.court-status-badge.open {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.court-status-badge.closed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.court-status-badge.maintenance {
+  background: #fed7aa;
+  color: #92400e;
+}
+
+.court-status-badge.booked {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.court-status-badge.unknown {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.court-booking-btn {
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.court-booking-btn:hover {
+  background: #5a67d8;
+}
+
+.court-booking-btn.disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.court-booking-btn.disabled:hover {
+  background: #a0aec0;
+}
+
+.court-booking-empty {
+  text-align: center;
+  color: #718096;
+  font-style: italic;
+  padding: 2rem;
+}
+
+.court-booking-error {
+  text-align: center;
+  padding: 2rem;
+  color: #718096;
+}
+
+.court-booking-error h3 {
+  color: #4a5568;
+  margin-bottom: 0.5rem;
+}
+
+.court-booking-retry-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.court-booking-retry-btn:hover {
+  background: #5a67d8;
+}
+
+.court-booking-skeleton-title,
+.court-booking-skeleton-date,
+.court-booking-table-skeleton,
+.court-booking-row-skeleton {
+  display: none;
+}
+
+.court-booking-container .court-booking-title {
+  text-align: center;
+}
+
+.court-booking-schedule-container {
+  margin: 2rem 0;
+}
+
+.court-booking-table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.court-booking-schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  min-width: 1000px;
+}
+
+.court-booking-schedule-table th {
+  background-color: #f8fafc;
+  padding: 12px 8px;
+  text-align: center;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 12px;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.court-name-header,
+.court-status-header,
+.court-time-range-header {
+  text-align: left !important;
+  min-width: 120px;
+}
+
+.time-slot-header {
+  min-width: 80px;
+}
+
+.court-booking-schedule-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  border-right: 1px solid #f1f5f9;
+  text-align: center;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.court-name {
+  font-weight: 500;
+  color: #1e293b;
+  text-align: left !important;
+  background-color: #fafafa;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+}
+
+.court-status {
+  text-align: left !important;
+  background-color: #fafafa;
+}
+
+.court-time-range {
+  text-align: left !important;
+  font-size: 10px;
+  color: #6b7280;
+  background-color: #fafafa;
+}
+
+.court-time-slot {
+  padding: 8px;
+  text-align: center;
+  font-size: 10px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+  min-width: 80px;
+  font-weight: 500;
+  cursor: default;
+}
+
+.court-time-slot.bookable {
+  cursor: pointer;
+  transform: scale(1);
+}
+
+.court-time-slot.bookable:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 2;
+  position: relative;
+}
+
+.court-time-slot.available {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.court-time-slot.booked {
+  background-color: #fde68a;
+  color: #d97706;
+  font-weight: bold;
+}
+
+.court-time-slot.closed {
+  background-color: #fecaca;
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.court-time-slot.maintenance {
+  background-color: #fed7aa;
+  color: #ea580c;
+  font-weight: bold;
+}
+
+.court-time-slot.unavailable {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.court-time-slot.loading {
+  background-color: #f9fafb;
+  color: #9ca3af;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Legend Styles */
+.court-booking-legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #4a5568;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.legend-color.available {
+  background-color: #dcfce7;
+}
+
+.legend-color.booked {
+  background-color: #fde68a;
+}
+
+.legend-color.maintenance {
+  background-color: #fed7aa;
+}
+
+.legend-color.closed {
+  background-color: #fecaca;
+}
+
+.legend-color.unavailable {
+  background-color: #f3f4f6;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .court-booking-schedule-table {
+    min-width: 900px;
+  }
+
+  .court-booking-schedule-table th,
+  .court-booking-schedule-table td {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .court-booking-container {
+    padding: 1rem;
+  }
+
+  .court-booking-legend {
+    gap: 1rem;
+  }
+
+  .legend-item {
+    font-size: 0.75rem;
+  }
+
+  .legend-color {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .court-booking-schedule-table th,
+  .court-booking-schedule-table td {
+    padding: 4px 6px;
+    font-size: 9px;
+  }
+
+  .court-booking-legend {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}

@@ -210,7 +210,7 @@ contract SportFacility is Management {
     // Sport Facility getters
     function getSportFacility(
         string memory fname
-    ) external isUser view returns(
+    ) external view returns(
         string memory name,
         string memory location,
         status facilityStatus,

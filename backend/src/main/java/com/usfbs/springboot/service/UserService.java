@@ -1,7 +1,10 @@
 package com.usfbs.springboot.service;
 
 import com.usfbs.springboot.contracts.Management;
+import com.usfbs.springboot.contracts.SportFacility;
 import com.usfbs.springboot.dto.AnnouncementItem;
+import com.usfbs.springboot.dto.SportFacilityResponse;
+import com.usfbs.springboot.dto.SportFacilityDetailResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +24,9 @@ public class UserService {
     
     @Autowired
     private Management managementContract;
+    
+    @Autowired
+    private SportFacility sportFacilityContract;
     
     @Value("${pinata.gateway.url:https://gateway.pinata.cloud}")
     private String pinataGatewayUrl;
@@ -164,6 +170,140 @@ public class UserService {
             
         } catch (Exception e) {
             logger.warn("Failed to resolve IPFS manifest for hash {}: {}", item.getIpfsHash(), e.getMessage());
+        }
+    }
+
+    /**
+     * Gets all sport facilities from blockchain for users
+     */
+    public List<SportFacilityResponse> getSportFacilities() throws Exception {
+        try {
+            logger.info("Fetching sport facilities for user from blockchain");
+            
+            org.web3j.tuples.generated.Tuple3<List<String>, List<String>, List<java.math.BigInteger>> result = 
+                sportFacilityContract.getAllSportFacility().send();
+            
+            List<String> names = result.component1();
+            List<String> locations = result.component2();
+            List<java.math.BigInteger> statuses = result.component3();
+            
+            List<SportFacilityResponse> facilities = new ArrayList<>();
+            
+            for (int i = 0; i < names.size(); i++) {
+                SportFacilityResponse facility = new SportFacilityResponse(
+                    names.get(i),
+                    locations.get(i),
+                    _convertStatusToString(statuses.get(i))
+                );
+                
+                facilities.add(facility);
+            }
+
+            logger.info("Successfully retrieved {} sport facilities for user", facilities.size());
+            return facilities;
+
+        } catch (Exception e) {
+            if (e.getMessage().contains("No Sport Facility found in blockchain")) {
+                logger.info("No sport facilities found in blockchain for user");
+                return new ArrayList<>();
+            }
+            
+            logger.error("Error getting sport facilities for user: {}", e.getMessage());
+            throw new Exception("Failed to get sport facilities: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Convert status enum from blockchain to string
+     */
+    private String _convertStatusToString(java.math.BigInteger status) {
+        switch (status.intValue()) {
+            case 0: return "OPEN";
+            case 1: return "CLOSED";
+            case 2: return "MAINTENANCE";
+            case 3: return "BOOKED";
+            default: return "UNKNOWN";
+        }
+    }
+
+    /**
+     * Gets all courts from a specific sport facility for users
+     */
+    public SportFacilityDetailResponse getSportFacilityWithCourts(String facilityName) throws Exception {
+        try {
+            logger.info("Fetching sport facility '{}' with courts for user from blockchain", facilityName);
+            
+            if (facilityName == null || facilityName.trim().isEmpty()) {
+                throw new IllegalArgumentException("Facility name cannot be empty");
+            }
+            
+            // Get facility details including courts from blockchain - use correct type signature
+            org.web3j.tuples.generated.Tuple4<String, String, java.math.BigInteger, List<SportFacility.court>> result = 
+                sportFacilityContract.getSportFacility(facilityName).send();
+            
+            String name = result.component1();
+            String location = result.component2();
+            java.math.BigInteger statusEnum = result.component3();
+            List<SportFacility.court> courts = result.component4();
+            
+            // Create response
+            SportFacilityDetailResponse response = new SportFacilityDetailResponse();
+            response.setName(name);
+            response.setLocation(location);
+            response.setStatus(_convertStatusToString(statusEnum));
+            response.setCourts(courts);
+
+            logger.info("Successfully retrieved sport facility '{}' with {} courts for user", facilityName, courts.size());
+            return response;
+
+        } catch (Exception e) {
+            if (e.getMessage().contains("Sport Facility not found")) {
+                logger.warn("Sport facility '{}' not found", facilityName);
+                throw new Exception("Sport facility '" + facilityName + "' not found");
+            }
+            
+            logger.error("Error getting sport facility '{}' with courts for user: {}", facilityName, e.getMessage());
+            throw new Exception("Failed to get sport facility details: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Convert raw court object to SportFacility.court
+     */
+    private SportFacility.court _convertToCourtObject(Object obj) {
+        try {
+            // Try direct casting first
+            if (obj instanceof SportFacility.court) {
+                return (SportFacility.court) obj;
+            }
+            
+            // Use reflection as fallback
+            Class<?> courtClass = obj.getClass();
+            
+            java.lang.reflect.Field nameField = courtClass.getDeclaredField("name");
+            java.lang.reflect.Field earliestTimeField = courtClass.getDeclaredField("earliestTime");
+            java.lang.reflect.Field latestTimeField = courtClass.getDeclaredField("latestTime");
+            java.lang.reflect.Field statusField = courtClass.getDeclaredField("status");
+            
+            nameField.setAccessible(true);
+            earliestTimeField.setAccessible(true);
+            latestTimeField.setAccessible(true);
+            statusField.setAccessible(true);
+            
+            String name = (String) nameField.get(obj);
+            java.math.BigInteger earliestTime = (java.math.BigInteger) earliestTimeField.get(obj);
+            java.math.BigInteger latestTime = (java.math.BigInteger) latestTimeField.get(obj);
+            java.math.BigInteger status = (java.math.BigInteger) statusField.get(obj);
+            
+            if (name == null || name.trim().isEmpty()) {
+                return null;
+            }
+
+            return new SportFacility.court(name, earliestTime, latestTime, status);
+            
+        } catch (Exception e) {
+            logger.warn("Failed to convert court object: {}", e.getMessage());
+            return null;
         }
     }
 }

@@ -1,5 +1,8 @@
 .facility-section {
   margin-bottom: 3rem;
+  max-width: 1200px;
+  margin: 0 auto 3rem auto;
+  padding: 0 2rem;
 }
 
 .facility-section h2 {
@@ -14,7 +17,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
-  padding: 0 1rem;
+  justify-content: center;
 }
 
 .facility-card {
@@ -48,26 +51,24 @@
 
 .facility-content {
   padding: 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .facility-title {
   font-size: 1.25rem;
   font-weight: 600;
   color: #2d3748;
-  margin-bottom: 0.75rem;
-}
-
-.facility-location {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #718096;
   margin-bottom: 1rem;
-  font-size: 0.875rem;
+  text-align: center;
 }
 
 .facility-status {
   margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: center;
 }
 
 .status-badge {
@@ -89,7 +90,7 @@
 }
 
 .status-badge.maintenance {
-  background: #fef3c7;
+  background: #fed7aa;
   color: #92400e;
 }
 
@@ -112,6 +113,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  max-width: 200px;
 }
 
 .facility-book-btn:hover {
@@ -121,6 +123,21 @@
 .facility-book-btn:disabled {
   background: #a0aec0;
   cursor: not-allowed;
+}
+
+.facility-retry-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.facility-retry-btn:hover {
+  background: #5a67d8;
 }
 
 .facility-card-skeleton {
@@ -147,16 +164,6 @@
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
   border-radius: 4px;
-  margin-bottom: 0.75rem;
-}
-
-.facility-location-skeleton {
-  height: 1rem;
-  width: 60%;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-  border-radius: 4px;
   margin-bottom: 1rem;
 }
 
@@ -172,6 +179,8 @@
   text-align: center;
   padding: 3rem 2rem;
   color: #718096;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 .facility-empty h3 {
@@ -189,12 +198,21 @@
 }
 
 @media (max-width: 768px) {
+  .facility-section {
+    padding: 0 1rem;
+  }
+  
   .facility-grid {
     grid-template-columns: 1fr;
-    padding: 0;
   }
   
   .facility-section h2 {
     font-size: 1.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .facility-section {
+    padding: 0 0.5rem;
   }
 }
