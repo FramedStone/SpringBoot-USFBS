@@ -458,6 +458,27 @@
   cursor: not-allowed;
 }
 
+.um-confirm-unban-btn {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.um-confirm-unban-btn:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+.um-confirm-unban-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
 .um-address-mobile-wrap {
   display: none;
   align-items: center;
@@ -468,4 +489,40 @@
 .um-copy-btn svg,
 .um-copy-btn-label {
   display: none !important;
+}
+
+/* Loading state */
+.um-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  font-size: 16px;
+  color: #6b7280;
+}
+
+/* Disabled button states */
+.um-ban-btn:disabled,
+.um-unban-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #9ca3af !important;
+}
+
+.um-ban-btn:disabled:hover,
+.um-unban-btn:disabled:hover {
+  background-color: #9ca3af !important;
+}
+
+/* Modal loading states */
+.um-modal input:disabled,
+.um-modal textarea:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+/* Status column styling */
+.um-status-cell {
+  font-weight: 500;
+  font-size: 13px;
 }

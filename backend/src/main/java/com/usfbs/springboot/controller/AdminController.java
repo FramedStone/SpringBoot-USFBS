@@ -669,5 +669,112 @@ public class AdminController {
             ));
         }
     }
+
+    // User Management Endpoints
+    @GetMapping("/users")
+    public ResponseEntity<?> getUsers() {
+        try {
+            List<Map<String, Object>> users = adminService.getAllUsers();
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", users
+            ));
+        } catch (Exception e) {
+            logger.error("Error getting users: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/users/ban")
+    public ResponseEntity<?> banUser(@RequestBody Map<String, String> request) {
+        try {
+            String userAddress = request.get("userAddress");
+            String reason = request.get("reason");
+            
+            if (userAddress == null || userAddress.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "User address is required"
+                ));
+            }
+            
+            if (reason == null || reason.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Ban reason is required"
+                ));
+            }
+            
+            String result = adminService.banUser(userAddress, reason);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result,
+                "bannedUser", userAddress,
+                "reason", reason
+            ));
+        } catch (Exception e) {
+            logger.error("Error banning user: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/users/unban")
+    public ResponseEntity<?> unbanUser(@RequestBody Map<String, String> request) {
+        try {
+            String userAddress = request.get("userAddress");
+            String reason = request.get("reason");
+            
+            if (userAddress == null || userAddress.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "User address is required"
+                ));
+            }
+            
+            if (reason == null || reason.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Unban reason is required"
+                ));
+            }
+            
+            String result = adminService.unbanUser(userAddress, reason);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", result,
+                "unbannedUser", userAddress,
+                "reason", reason
+            ));
+        } catch (Exception e) {
+            logger.error("Error unbanning user: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/users/{userAddress}/status")
+    public ResponseEntity<?> getUserStatus(@PathVariable String userAddress) {
+        try {
+            Map<String, Object> userStatus = adminService.getUserStatus(userAddress);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", userStatus
+            ));
+        } catch (Exception e) {
+            logger.error("Error getting user status: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
 }
 

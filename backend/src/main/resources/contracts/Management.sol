@@ -15,7 +15,12 @@ contract Management {
     mapping(string => Announcement) private announcements;
 
     mapping(address => bool) internal admins;
-    address[] private users_;
+
+    struct User {
+        address userAddress;
+        string bannedReason;
+    }
+    User[] private users_;
     mapping(address => bool) internal users;
     mapping(address => bool) private bannedUsers;
 
@@ -97,7 +102,7 @@ contract Management {
     function addUser(address user) public isAdmin {
         require(user != address(0), "User address not provided");
 
-        users_.push(user);
+        users_.push(User(user, "-"));
         users[user] = true;
         emit userAdded(
             msg.sender,
@@ -116,6 +121,12 @@ contract Management {
         require(bytes(reason).length > 0, "Ban reason not provided");
 
         bannedUsers[user] = true;
+        for(uint256 i=0; i<users_.length; i++) {
+            if(users_[i].userAddress == user) {
+                users_[i].bannedReason = reason;
+                break;
+            }
+        }
         emit userBanned(
             msg.sender,
             user,
@@ -133,6 +144,12 @@ contract Management {
         require(bytes(reason).length > 0, "Unban reason not provided");
 
         bannedUsers[user] = false;
+        for(uint256 i=0; i<users_.length; i++) {
+            if(users_[i].userAddress == user) {
+                users_[i].bannedReason = "-";
+                break;
+            }
+        }
         emit userUnbanned(
             msg.sender,
             user,
@@ -142,7 +159,7 @@ contract Management {
     }
 
     // Getters
-    function getUsers() external view returns(address[] memory userList) {
+    function getUsers() external view returns(User[] memory userList) {
         require(users_.length > 0, "No registered users found in blockchain");
         return users_;
     }

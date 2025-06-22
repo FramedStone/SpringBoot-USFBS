@@ -52,18 +52,178 @@ public class AdminService {
     @Autowired
     private RawTransactionManager rawTransactionManager;
 
+    @Autowired
+    private AuthService authService;
+
     public void addUser(String userAddress) throws Exception {
         managementContract.addUser(userAddress).send();
     }
 
-    public void banUser(String userAddress) throws Exception {
-        managementContract.banUser(userAddress).send();
+    /**
+     * Gets all users from the blockchain
+     */
+    public List<Map<String, Object>> getAllUsers() throws Exception {
+        try {
+            // Get User structs instead of just addresses
+            RemoteFunctionCall<List> usersCall = managementContract.getUsers();
+            List<Object> rawResult = usersCall.send();
+            
+            List<Map<String, Object>> users = new ArrayList<>();
+            
+            for (Object obj : rawResult) {
+                Map<String, Object> userInfo = new HashMap<>();
+                
+                try {
+                    // Extract User struct data using reflection
+                    String userAddress = _extractUserAddress(obj);
+                    String bannedReason = _extractBannedReason(obj);
+                    
+                    userInfo.put("userAddress", userAddress);
+                    
+                    // Get status from contract
+                    boolean isRegistered = managementContract.getUser(userAddress).send();
+                    boolean isBanned = managementContract.getBannedUser(userAddress).send();
+                    
+                    userInfo.put("isRegistered", isRegistered);
+                    userInfo.put("isBanned", isBanned);
+                    userInfo.put("status", determineUserStatus(isRegistered, isBanned));
+                    
+                    // Add ban reason from blockchain
+                    if (isBanned && bannedReason != null && !bannedReason.equals("-")) {
+                        userInfo.put("banReason", bannedReason);
+                    } else {
+                        userInfo.put("banReason", null);
+                    }
+                    
+                    // Add email from AuthService cache if available
+                    String email = authService.getUserEmailByAddress(userAddress);
+                    userInfo.put("email", email);
+                    
+                } catch (Exception e) {
+                    // If we can't get status, mark as unknown
+                    userInfo.put("isRegistered", false);
+                    userInfo.put("isBanned", false);
+                    userInfo.put("status", "UNKNOWN");
+                    userInfo.put("banReason", null);
+                    userInfo.put("email", "Unknown");
+                    logger.warn("Could not determine status for user: {}", e.getMessage());
+                }
+                
+                users.add(userInfo);
+            }
+            
+            logger.info("Retrieved {} users from blockchain with ban reasons", users.size());
+            return users;
+            
+        } catch (Exception e) {
+            if (e.getMessage().contains("No registered users found in blockchain")) {
+                logger.info("No users found in blockchain - returning empty list");
+                return new ArrayList<>();
+            }
+            
+            logger.error("Error getting all users: {}", e.getMessage());
+            throw new Exception("Failed to get users: " + e.getMessage());
+        }
     }
 
-    public void unbanUser(String userAddress) throws Exception {
-        managementContract.unbanUser(userAddress).send();
+    /**
+     * Gets user status (registered and banned status)
+     */
+    public Map<String, Object> getUserStatus(String userAddress) throws Exception {
+        try {
+            boolean isRegistered = managementContract.getUser(userAddress).send();
+            boolean isBanned = managementContract.getBannedUser(userAddress).send();
+            
+            Map<String, Object> status = new HashMap<>();
+            status.put("userAddress", userAddress);
+            status.put("isRegistered", isRegistered);
+            status.put("isBanned", isBanned);
+            status.put("status", determineUserStatus(isRegistered, isBanned));
+            
+            logger.info("Retrieved status for user {}: registered={}, banned={}", 
+                       userAddress, isRegistered, isBanned);
+            
+            return status;
+            
+        } catch (Exception e) {
+            logger.error("Error getting user status for {}: {}", userAddress, e.getMessage());
+            throw new Exception("Failed to get user status: " + e.getMessage());
+        }
     }
 
+
+    /**
+     * Bans a user with a reason
+     */
+    public String banUser(String userAddress, String reason) throws Exception {
+        try {
+            // Validate inputs
+            if (userAddress == null || userAddress.trim().isEmpty()) {
+                throw new Exception("User address is required");
+            }
+            if (reason == null || reason.trim().isEmpty()) {
+                throw new Exception("Ban reason is required");
+            }
+            
+            TransactionReceipt receipt = managementContract.banUser(userAddress, reason).send();
+            
+            if (receipt.isStatusOK()) {
+                logger.info("User {} banned successfully with reason: {}", userAddress, reason);
+                return String.format("User '%s' has been banned successfully", userAddress);
+            }
+            
+            return "Failed to ban user";
+            
+        } catch (Exception e) {
+            logger.error("Error banning user {}: {}", userAddress, e.getMessage());
+            throw new Exception("Failed to ban user: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Unbans a user with a reason
+     */
+    public String unbanUser(String userAddress, String reason) throws Exception {
+        try {
+            // Validate inputs
+            if (userAddress == null || userAddress.trim().isEmpty()) {
+                throw new Exception("User address is required");
+            }
+            if (reason == null || reason.trim().isEmpty()) {
+                throw new Exception("Unban reason is required");
+            }
+            
+            TransactionReceipt receipt = managementContract.unbanUser(userAddress, reason).send();
+            
+            if (receipt.isStatusOK()) {
+                logger.info("User {} unbanned successfully with reason: {}", userAddress, reason);
+                return String.format("User '%s' has been unbanned successfully", userAddress);
+            }
+            
+            return "Failed to unban user";
+            
+        } catch (Exception e) {
+            logger.error("Error unbanning user {}: {}", userAddress, e.getMessage());
+            throw new Exception("Failed to unban user: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Determines user status based on registration and ban status
+     */
+    private String determineUserStatus(boolean isRegistered, boolean isBanned) {
+        if (isBanned) {
+            return "BANNED";
+        } else if (isRegistered) {
+            return "ACTIVE";
+        } else {
+            return "NOT_REGISTERED";
+        }
+    }
+
+    /**
+     * Uploads an announcement with a file and metadata
+     */
     public String uploadAnnouncement(MultipartFile file, String title, long startDate, long endDate) throws Exception {
         // Pin raw file to get CID
         String fileCid = pinataUtil.uploadFileToIPFS(
@@ -93,6 +253,9 @@ public class AdminService {
         return receipt.getTransactionHash();
     }
 
+    /**
+     * Updates an existing announcement with a new file and metadata
+     */
     public String updateAnnouncement(String oldIpfsHash, MultipartFile newFile, String newTitle, 
                                    long newStartDate, long newEndDate) throws Exception {
         try {
@@ -150,6 +313,9 @@ public class AdminService {
         }
     }
 
+    /**
+     * Updates only the metadata of an existing announcement
+     */
     public String updateAnnouncementMetadata(String ipfsHash, String newTitle, 
                                            long newStartDate, long newEndDate) throws Exception {
         try {
@@ -208,6 +374,9 @@ public class AdminService {
         }
     }
 
+    /**
+     * Updates only the time range of an existing announcement
+     */
     public String updateAnnouncementTimeOnly(String ipfsHash, long newStartDate, long newEndDate) throws Exception {
         try {
             // Update time in blockchain only
@@ -226,6 +395,9 @@ public class AdminService {
         }
     }
 
+    /**
+     * Deletes an announcement and cleans up associated IPFS files
+     */
     public String deleteAnnouncement(String ipfsHash) throws Exception {
         try {
             // Get manifest to extract file CID for cleanup
@@ -255,6 +427,9 @@ public class AdminService {
         }
     }
 
+    /**
+     * Retrieves all announcements from the blockchain
+     */
     public List<AnnouncementItem> getAllAnnouncements() throws Exception {
         try {
             // Use the correct Web3j pattern for view functions
@@ -385,10 +560,16 @@ public class AdminService {
         }
     }
 
+    /**
+     * Fetches manifest JSON from IPFS using the Pinata utility
+     */
     public String fetchManifestFromIPFS(String ipfsHash) throws Exception {
         return pinataUtil.fetchFromIPFS(ipfsHash);
     }
 
+    /**
+     * Parses manifest JSON string into PinataManifest object
+     */
     public PinataManifest parseManifest(String manifestJson) throws Exception {
         return pinataUtil.parseManifest(manifestJson);
     }
@@ -1136,5 +1317,36 @@ public class AdminService {
     }
     
     return availability;
+    }
+
+    /**
+     * Extracts user address from User struct object
+     */
+    private String _extractUserAddress(Object userStruct) throws Exception {
+        try {
+            Class<?> userClass = userStruct.getClass();
+            java.lang.reflect.Field userAddressField = userClass.getDeclaredField("userAddress");
+            userAddressField.setAccessible(true);
+            return (String) userAddressField.get(userStruct);
+        } catch (Exception e) {
+            logger.error("Failed to extract user address: {}", e.getMessage());
+            throw new Exception("Failed to extract user address from struct");
+        }
+    }
+
+    /**
+     * Extracts banned reason from User struct object
+     */
+    private String _extractBannedReason(Object userStruct) throws Exception {
+        try {
+            Class<?> userClass = userStruct.getClass();
+            java.lang.reflect.Field bannedReasonField = userClass.getDeclaredField("bannedReason");
+            bannedReasonField.setAccessible(true);
+            String reason = (String) bannedReasonField.get(userStruct);
+            return reason != null && !reason.trim().isEmpty() && !reason.equals("-") ? reason : null;
+        } catch (Exception e) {
+            logger.warn("Failed to extract banned reason: {}", e.getMessage());
+            return null;
+        }
     }
 }

@@ -166,7 +166,7 @@ public class ContractInitializer implements CommandLineRunner {
                     "User Added", 
                     event.from,
                     DateTimeUtil.formatTimestamp(event.timestamp),
-                    event.toString(),
+                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
                     "MANAGEMENT_EVENT",
                     userEmail,
                     userRole
@@ -587,22 +587,23 @@ public class ContractInitializer implements CommandLineRunner {
                 String originalOutput = ">>> [userAdded] event received:\n" +
                                        "    from           = " + event.from + "\n" +
                                        "    user           = " + event.user + "\n" +
+                                       "    note           = " + event.note + "\n" +
                                        "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
-                
-                System.out.println(originalOutput);
-                
-                eventLogService.addEventLog(
-                    "",
-                    "User Added",
-                    event.from,
-                    event.timestamp,
-                    "",
-                    "MANAGEMENT"
-                );
-            }, error -> {
-                System.err.println("Error in userAdded subscription: " + error.getMessage());
-                error.printStackTrace();
-            });
+
+    System.out.println(originalOutput);
+    
+    eventLogService.addEventLog(
+        "",
+        "User Added",
+        event.from,
+        event.timestamp,
+        originalOutput, // Store the full original output instead of just the note
+        "MANAGEMENT"
+    );
+}, error -> {
+    System.err.println("Error in userAdded subscription: " + error.getMessage());
+    error.printStackTrace();
+});
 
             // Add missing announcementRequested event with original output
             managementContract.announcementRequestedEventFlowable(

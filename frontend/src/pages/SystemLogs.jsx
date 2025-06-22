@@ -237,6 +237,50 @@ const SystemLogs = () => {
   const extractNoteFromEvent = (originalOutput, action) => {
     if (!originalOutput) return '';
     
+    // User management events - show blockchain address and reason
+    if (['User Added', 'User Banned', 'User Unbanned'].includes(action)) {
+      // Extract user address
+      const userMatch = originalOutput.match(/user\s*=\s*(0x[a-fA-F0-9]{40})/);
+      let noteText = '';
+      
+      if (userMatch) {
+        noteText = `Address: ${userMatch[1].trim()}`;
+      } else {
+        // Fallback patterns for address extraction
+        const noteMatch = originalOutput.match(/note\s*=\s*(0x[a-fA-F0-9]{40})/);
+        const hexAddressMatch = originalOutput.match(/(0x[a-fA-F0-9]{40})/);
+        
+        if (noteMatch) {
+          noteText = `Address: ${noteMatch[1].trim()}`;
+        } else if (hexAddressMatch) {
+          noteText = `Address: ${hexAddressMatch[1]}`;
+        } else {
+          noteText = 'User management action';
+        }
+      }
+      
+      // Extract reason for both ban and unban actions
+      if (action === 'User Banned' || action === 'User Unbanned') {
+        // Pattern: "note = 0xa44369c7...ae2954fc - Reason: test"
+        const noteReasonMatch = originalOutput.match(/note\s*=\s*[^\s]+ - Reason:\s*(.+)/);
+        if (noteReasonMatch) {
+          const reason = noteReasonMatch[1].trim();
+          const reasonLabel = action === 'User Banned' ? 'Ban Reason' : 'Unban Reason';
+          noteText += `\n${reasonLabel}: ${reason}`;
+        } else {
+          // Alternative pattern for direct reason extraction
+          const directReasonMatch = originalOutput.match(/Reason:\s*([^\n\r]+)/);
+          if (directReasonMatch) {
+            const reason = directReasonMatch[1].trim();
+            const reasonLabel = action === 'User Banned' ? 'Ban Reason' : 'Unban Reason';
+            noteText += `\n${reasonLabel}: ${reason}`;
+          }
+        }
+      }
+      
+      return noteText;
+    }
+    
     // Add this section for Announcement Added
     if (action === 'Announcement Added') {
       const titleMatch = originalOutput.match(/title\s*=\s*([^\n]+)/);
@@ -867,7 +911,7 @@ const SystemLogs = () => {
               <th className="cid-cell">Current IPFS Hash</th>
               <th className="action-cell">Event Action</th>
               <th className={`email-cell email-header ${!showEmailColumn ? 'hidden' : ''}`}>
-                User Email
+                Email
               </th>
               <th className="role-cell">Role</th>
               <th 
