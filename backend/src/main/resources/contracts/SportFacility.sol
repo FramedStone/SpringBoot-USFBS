@@ -313,6 +313,8 @@ contract SportFacility is Management {
         if(cstatus != courtToUpdate.status) {
             courtToUpdate.status = cstatus;
         }
+        string memory tempStatus = statusToString(cstatus);
+
         emit courtModified(
             msg.sender,
             fname,
@@ -323,7 +325,7 @@ contract SportFacility is Management {
             earliestTime,
             latestTime,
             statusToString(temp.status),
-            statusToString(cstatus),
+            tempStatus,
             block.timestamp
         );
     }
