@@ -105,9 +105,6 @@ const SystemLogs = () => {
     'Announcement Added': true,
     'Announcement Deleted': true,
     'Announcement Modified': true,
-    'Announcement IPFS Hash Modified': true, 
-    'Announcement Time Modified': true,
-    'Announcement Title Modified': true,
     'User Added': true,
     'User Banned': true,
     'User Unbanned': true,
@@ -184,11 +181,13 @@ const SystemLogs = () => {
   const extractOldIpfsHash = (originalOutput, action) => {
     if (!originalOutput) return '-';
     
-    if (action === 'Announcement IPFS Hash Modified') {
-      const oldHashMatch = originalOutput.match(/ipfsHash_\s*=\s*([^\s\n,]+)/);
+    if (action === 'Announcement Modified') {
+      // Look for oldIpfsHash pattern first
+      const oldHashMatch = originalOutput.match(/oldIpfsHash\s*=\s*([^\s\n,]+)/);
       if (oldHashMatch) return oldHashMatch[1];
       
-      const oldHashMatch2 = originalOutput.match(/oldIpfsHash\s*=\s*([^\s\n,]+)/);
+      // Fallback to ipfsHash_ pattern
+      const oldHashMatch2 = originalOutput.match(/ipfsHash_\s*=\s*([^\s\n,]+)/);
       if (oldHashMatch2) return oldHashMatch2[1];
     }
     
@@ -197,23 +196,25 @@ const SystemLogs = () => {
       if (oldDataMatch) return oldDataMatch[1];
     }
     
-    if (action === 'Announcement Title Modified' || action === 'Announcement Time Modified') {
+    // For other actions, only show IPFS hash if it's not an announcement event
+    if (!action.includes('Announcement')) {
       const ipfsHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)/);
       return ipfsHashMatch ? ipfsHashMatch[1] : '-';
     }
     
-    const ipfsHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)/);
-    return ipfsHashMatch ? ipfsHashMatch[1] : '-';
+    return '-';
   };
 
   const extractNewIpfsHash = (originalOutput, action, fallbackHash) => {
     if (!originalOutput) return fallbackHash || '-';
     
-    if (action === 'Announcement IPFS Hash Modified') {
-      const newHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)(?!_)/);
+    if (action === 'Announcement Modified') {
+      // Look for newIpfsHash pattern first
+      const newHashMatch = originalOutput.match(/newIpfsHash\s*=\s*([^\s\n,]+)/);
       if (newHashMatch) return newHashMatch[1];
       
-      const newHashMatch2 = originalOutput.match(/newIpfsHash\s*=\s*([^\s\n,]+)/);
+      // Fallback to non-underscore ipfsHash
+      const newHashMatch2 = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)(?!_)/);
       if (newHashMatch2) return newHashMatch2[1];
       
       if (fallbackHash) return fallbackHash;
@@ -224,8 +225,9 @@ const SystemLogs = () => {
       if (newDataMatch) return newDataMatch[1];
     }
     
-    if (action === 'Announcement Title Modified' || action === 'Announcement Time Modified') {
-      return '-';
+    // For announcement events, use fallback hash but don't extract from output
+    if (action.includes('Announcement')) {
+      return fallbackHash || '-';
     }
     
     return fallbackHash || '-';
@@ -234,6 +236,111 @@ const SystemLogs = () => {
   const extractNoteFromEvent = (originalOutput, action) => {
     if (!originalOutput) return '';
     
+    // Handle unified announcement modified event - NO IPFS HASHES IN NOTE
+    if (action === 'Announcement Modified') {
+      const oldTitleMatch = originalOutput.match(/oldTitle\s*=\s*([^\n]+)/);
+      const newTitleMatch = originalOutput.match(/newTitle\s*=\s*([^\n]+)/);
+      const oldStartMatch = originalOutput.match(/oldStartTime\s*=\s*([^\n]+)/);
+      const oldEndMatch = originalOutput.match(/oldEndTime\s*=\s*([^\n]+)/);
+      const newStartMatch = originalOutput.match(/newStartTime\s*=\s*([^\n]+)/);
+      const newEndMatch = originalOutput.match(/newEndTime\s*=\s*([^\n]+)/);
+      
+      let noteLines = [];
+      
+      // Show title changes if they exist
+      if (oldTitleMatch && newTitleMatch) {
+        const oldTitle = oldTitleMatch[1].trim();
+        const newTitle = newTitleMatch[1].trim();
+        if (oldTitle !== newTitle) {
+          noteLines.push(`oldTitle: ${oldTitle}`);
+          noteLines.push(`newTitle: ${newTitle}`);
+        }
+      }
+      
+      // Show date changes if they exist
+      if (oldStartMatch && oldEndMatch && newStartMatch && newEndMatch) {
+        const oldStart = oldStartMatch[1].trim();
+        const oldEnd = oldEndMatch[1].trim();
+        const newStart = newStartMatch[1].trim();
+        const newEnd = newEndMatch[1].trim();
+        
+        if (oldStart !== newStart || oldEnd !== newEnd) {
+          const formatDateFromContract = (dateStr) => {
+            try {
+              const dateMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/);
+              if (dateMatch) {
+                const [, year, month, day] = dateMatch;
+                return `${day}/${month}/${year}`;
+              }
+              return dateStr;
+            } catch (error) {
+              return dateStr;
+            }
+          };
+          
+          const formattedOldStart = formatDateFromContract(oldStart);
+          const formattedOldEnd = formatDateFromContract(oldEnd);
+          const formattedNewStart = formatDateFromContract(newStart);
+          const formattedNewEnd = formatDateFromContract(newEnd);
+          
+          noteLines.push(`oldDate: ${formattedOldStart} to ${formattedOldEnd}`);
+          noteLines.push(`newDate: ${formattedNewStart} to ${formattedNewEnd}`);
+        }
+      }
+      
+      return noteLines.length > 0 ? noteLines.join('\n') : 'Announcement updated';
+    }
+    
+    // For Announcement Added - show title and date range only
+    if (action === 'Announcement Added') {
+      const titleMatch = originalOutput.match(/title\s*=\s*([^\n]+)/);
+      const startTimeMatch = originalOutput.match(/startTime\s*=\s*([^\n]+)/);
+      const endTimeMatch = originalOutput.match(/endTime\s*=\s*([^\n]+)/);
+      
+      let noteLines = [];
+      
+      if (titleMatch) {
+        noteLines.push(`title: ${titleMatch[1].trim()}`);
+      }
+      
+      if (startTimeMatch && endTimeMatch) {
+        try {
+          const startTimeStr = startTimeMatch[1].trim();
+          const endTimeStr = endTimeMatch[1].trim();
+          
+          // Format dates from contract format "2025-06-23 00:00:00" to "23/06/2025"
+          const formatDateFromContract = (dateStr) => {
+            try {
+              const dateMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/);
+              if (dateMatch) {
+                const [, year, month, day] = dateMatch;
+                return `${day}/${month}/${year}`;
+              }
+              return dateStr;
+            } catch (error) {
+              return dateStr;
+            }
+          };
+          
+          const formattedStartDate = formatDateFromContract(startTimeStr);
+          const formattedEndDate = formatDateFromContract(endTimeStr);
+          
+          noteLines.push(`${formattedStartDate} to ${formattedEndDate}`);
+          
+        } catch (error) {
+          // Fallback to raw values if parsing fails
+          noteLines.push(`${startTimeMatch[1].trim()} to ${endTimeMatch[1].trim()}`);
+        }
+      }
+      
+      return noteLines.length > 0 ? noteLines.join('\n') : 'New announcement added';
+    }
+
+    // For Announcement Deleted - NO IPFS hash in note
+    if (action === 'Announcement Deleted') {
+      return 'Announcement deleted';
+    }
+
     // User management events - show blockchain address and reason
     if (['User Added', 'User Banned', 'User Unbanned'].includes(action)) {
       // Extract user address
@@ -241,16 +348,16 @@ const SystemLogs = () => {
       let noteText = '';
       
       if (userMatch) {
-        noteText = `Address: ${userMatch[1].trim()}`;
+        noteText = `${userMatch[1].trim()}`;
       } else {
         // Fallback patterns for address extraction
         const noteMatch = originalOutput.match(/note\s*=\s*(0x[a-fA-F0-9]{40})/);
         const hexAddressMatch = originalOutput.match(/(0x[a-fA-F0-9]{40})/);
         
         if (noteMatch) {
-          noteText = `Address: ${noteMatch[1].trim()}`;
+          noteText = `${noteMatch[1].trim()}`;
         } else if (hexAddressMatch) {
-          noteText = `Address: ${hexAddressMatch[1]}`;
+          noteText = `${hexAddressMatch[1]}`;
         } else {
           noteText = 'User management action';
         }
@@ -262,15 +369,13 @@ const SystemLogs = () => {
         const noteReasonMatch = originalOutput.match(/note\s*=\s*[^\s]+ - Reason:\s*(.+)/);
         if (noteReasonMatch) {
           const reason = noteReasonMatch[1].trim();
-          const reasonLabel = action === 'User Banned' ? 'Ban Reason' : 'Unban Reason';
-          noteText += `\n${reasonLabel}: ${reason}`;
+          noteText += `\nReason: ${reason}`;
         } else {
           // Alternative pattern for direct reason extraction
           const directReasonMatch = originalOutput.match(/Reason:\s*([^\n\r]+)/);
           if (directReasonMatch) {
             const reason = directReasonMatch[1].trim();
-            const reasonLabel = action === 'User Banned' ? 'Ban Reason' : 'Unban Reason';
-            noteText += `\n${reasonLabel}: ${reason}`;
+            noteText += `\nReason: ${reason}`;
           }
         }
       }
@@ -278,62 +383,15 @@ const SystemLogs = () => {
       return noteText;
     }
     
-    // Add this section for Announcement Added
-    if (action === 'Announcement Added') {
-      const titleMatch = originalOutput.match(/title\s*=\s*([^\n]+)/);
-      const startTimeMatch = originalOutput.match(/startTime\s*=\s*([^\n]+)/);
-      const endTimeMatch = originalOutput.match(/endTime\s*=\s*([^\n]+)/);
-      
-      let noteText = '';
-      
-      if (titleMatch) {
-        noteText += `title: ${titleMatch[1].trim()}`;
-      }
-      
-      if (startTimeMatch && endTimeMatch) {
-        try {
-          const startTimeStr = startTimeMatch[1].trim();
-          const endTimeStr = endTimeMatch[1].trim();
-          
-          // Extract date part from "2025-06-18 00:00:00 MYT"
-          const startDateMatch = startTimeStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-          const endDateMatch = endTimeStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-          
-          if (startDateMatch && endDateMatch) {
-            // Convert YYYY-MM-DD to DD/MM/YYYY format
-            const startDate = `${startDateMatch[3]}/${startDateMatch[2]}/${startDateMatch[1]}`;
-            const endDate = `${endDateMatch[3]}/${endDateMatch[2]}/${endDateMatch[1]}`;
-            
-            if (noteText) noteText += '\n';
-            noteText += `${startDate} to ${endDate}`;
-          } else {
-            // Fallback to showing the full time strings
-            if (noteText) noteText += '\n';
-            noteText += `startTime: ${startTimeStr}\nendTime: ${endTimeStr}`;
-          }
-        } catch (error) {
-          // Fallback to raw values if parsing fails
-          if (noteText) noteText += '\n';
-          noteText += `startTime: ${startTimeMatch[1].trim()}\nendTime: ${endTimeMatch[1].trim()}`;
-        }
-      }
-      
-      return noteText || 'Announcement added';
-    }
-    
     // Sport Facility CRUD with detailed parsing
     if (action === 'Sport Facility Added') {
       const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
       const locationMatch = originalOutput.match(/location\s*=\s*([^\n]+)/);
-      const statusMatch = originalOutput.match(/status\s*=\s*([^\n]+)/);
-      const courtsMatch = originalOutput.match(/courts\s*=\s*([^\n]+)/);
       
       if (facilityMatch && locationMatch) {
         const facilityName = facilityMatch[1].trim();
         const location = locationMatch[1].trim();
-        const status = statusMatch ? statusMatch[1].trim() : 'N/A';
-        const courts = courtsMatch ? courtsMatch[1].trim() : 'N/A';
-        return `facilityName: ${facilityName}\nlocation: ${location}\nstatus: ${status}\ncourts: ${courts}`;
+        return `Facility: ${facilityName}\nLocation: ${location}`;
       }
       
       // Fallback to note extraction
@@ -341,7 +399,7 @@ const SystemLogs = () => {
       if (noteMatch) {
         const facilityName = noteMatch[1].trim();
         const location = noteMatch[2].trim();
-        return `facilityName: ${facilityName}\nlocation: ${location}`;
+        return `Facility: ${facilityName}\nLocation: ${location}`;
       }
       
       return 'Sport facility added';
@@ -349,21 +407,12 @@ const SystemLogs = () => {
     
     if (action === 'Sport Facility Modified') {
       const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
-      const oldDataMatch = originalOutput.match(/oldData\s*=\s*([^\n]+)/);
       const newDataMatch = originalOutput.match(/newData\s*=\s*([^\n]+)/);
       
-      if (facilityMatch && oldDataMatch && newDataMatch) {
+      if (facilityMatch && newDataMatch) {
         const facilityName = facilityMatch[1].trim();
-        const oldData = oldDataMatch[1].trim();
         const newData = newDataMatch[1].trim();
-        return `facilityName: ${facilityName}\n${oldData} → ${newData}`;
-      }
-      
-      // Fallback to basic note extraction
-      const noteMatch = originalOutput.match(/Facility\s+([^\s]+)\s+modified/);
-      if (noteMatch) {
-        const facilityName = noteMatch[1].trim();
-        return `facilityName: ${facilityName}`;
+        return `Facility: ${facilityName}\nChanges: ${newData}`;
       }
       
       return 'Sport facility modified';
@@ -374,14 +423,7 @@ const SystemLogs = () => {
       
       if (facilityMatch) {
         const facilityName = facilityMatch[1].trim();
-        return `facilityName: ${facilityName}`;
-      }
-      
-      // Fallback to note extraction
-      const noteMatch = originalOutput.match(/Facility\s+([^\s]+)\s+deleted/);
-      if (noteMatch) {
-        const facilityName = noteMatch[1].trim();
-        return `facilityName: ${facilityName}`;
+        return `Facility: ${facilityName}`;
       }
       
       return 'Sport facility deleted';
@@ -395,15 +437,7 @@ const SystemLogs = () => {
       if (facilityMatch && courtMatch) {
         const facilityName = facilityMatch[1].trim();
         const courtName = courtMatch[1].trim();
-        return `facilityName: ${facilityName}\ncourtName: ${courtName}`;
-      }
-      
-      // If structured parsing fails, try to extract from the note passed by ContractInitializer
-      const noteMatch = originalOutput.match(/Court\s+([^\s]+)\s+added\s+to\s+facility:\s+([^\n]+)/);
-      if (noteMatch) {
-        const courtName = noteMatch[1].trim();
-        const facilityName = noteMatch[2].trim();
-        return `facilityName: ${facilityName}\ncourtName: ${courtName}`;
+        return `Facility: ${facilityName}\nCourt: ${courtName}`;
       }
       
       return 'Court added';
@@ -412,24 +446,13 @@ const SystemLogs = () => {
     if (action === 'Court Modified') {
       const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
       const courtMatch = originalOutput.match(/courtName\s*=\s*([^\n]+)/);
-      const oldDataMatch = originalOutput.match(/oldData\s*=\s*([^\n]+)/);
       const newDataMatch = originalOutput.match(/newData\s*=\s*([^\n]+)/);
       
-      if (facilityMatch && courtMatch && oldDataMatch && newDataMatch) {
+      if (facilityMatch && courtMatch && newDataMatch) {
         const facilityName = facilityMatch[1].trim();
         const courtName = courtMatch[1].trim();
-        const oldData = oldDataMatch[1].trim();
         const newData = newDataMatch[1].trim();
-        return `facilityName: ${facilityName}\ncourtName: ${courtName}\n${oldData} → ${newData}`;
-      }
-      
-      // If structured parsing fails, try to extract from the note passed by ContractInitializer
-      const noteMatch = originalOutput.match(/Court\s+([^\s]+)\s+in\s+facility:\s+([^\s]+)\s+modified\s+-\s+([^\n]+)/);
-      if (noteMatch) {
-        const courtName = noteMatch[1].trim();
-        const facilityName = noteMatch[2].trim();
-        const changes = noteMatch[3].trim();
-        return `facilityName: ${facilityName}\ncourtName: ${courtName}\n${changes}`;
+        return `Facility: ${facilityName}\nCourt: ${courtName}\nChanges: ${newData}`;
       }
       
       return 'Court modified';
@@ -442,69 +465,10 @@ const SystemLogs = () => {
       if (facilityMatch && courtMatch) {
         const facilityName = facilityMatch[1].trim();
         const courtName = courtMatch[1].trim();
-        return `facilityName: ${facilityName}\ncourtName: ${courtName}`;
-      }
-      
-      // If structured parsing fails, try to extract from the note passed by ContractInitializer
-      const noteMatch = originalOutput.match(/Court\s+([^\s]+)\s+deleted\s+from\s+facility:\s+([^\n]+)/);
-      if (noteMatch) {
-        const courtName = noteMatch[1].trim();
-        const facilityName = noteMatch[2].trim();
-        return `facilityName: ${facilityName}\ncourtName: ${courtName}`;
+        return `Facility: ${facilityName}\nCourt: ${courtName}`;
       }
       
       return 'Court deleted';
-    }
-    
-    if (action === 'Announcement Title Modified') {
-      const oldTitleMatch = originalOutput.match(/oldTitle\s*=\s*([^\n]+)/);
-      const newTitleMatch = originalOutput.match(/newTitle\s*=\s*([^\n]+)/);
-      
-      if (oldTitleMatch && newTitleMatch) {
-        const oldTitle = oldTitleMatch[1].trim();
-        const newTitle = newTitleMatch[1].trim();
-        return `${oldTitle} → ${newTitle}`;
-      }
-      return 'Title updated';
-    }
-    
-    if (action === 'Announcement Time Modified') {
-      const oldStartMatch = originalOutput.match(/oldStartTime\s*=\s*([^\n]+)/);
-      const oldEndMatch = originalOutput.match(/oldEndTime\s*=\s*([^\n]+)/);
-      const newStartMatch = originalOutput.match(/newStartTime\s*=\s*([^\n]+)/);
-      const newEndMatch = originalOutput.match(/newEndTime\s*=\s*([^\n]+)/);
-      
-      if (oldStartMatch && oldEndMatch && newStartMatch && newEndMatch) {
-        try {
-          const oldStartStr = oldStartMatch[1].trim();
-          const oldEndStr = oldEndMatch[1].trim();
-          const newStartStr = newStartMatch[1].trim();
-          const newEndStr = newEndMatch[1].trim();
-          
-          // Extract date parts from "2025-06-18 00:00:00 MYT" format
-          const oldStartDateMatch = oldStartStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-          const oldEndDateMatch = oldEndStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-          const newStartDateMatch = newStartStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-          const newEndDateMatch = newEndStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-          
-          if (oldStartDateMatch && oldEndDateMatch && newStartDateMatch && newEndDateMatch) {
-            // Convert YYYY-MM-DD to DD/MM/YYYY format
-            const oldStartDate = `${oldStartDateMatch[3]}/${oldStartDateMatch[2]}/${oldStartDateMatch[1]}`;
-            const oldEndDate = `${oldEndDateMatch[3]}/${oldEndDateMatch[2]}/${oldEndDateMatch[1]}`;
-            const newStartDate = `${newStartDateMatch[3]}/${newStartDateMatch[2]}/${newStartDateMatch[1]}`;
-            const newEndDate = `${newEndDateMatch[3]}/${newEndDateMatch[2]}/${newEndDateMatch[1]}`;
-            
-            return `Old: ${oldStartDate} to ${oldEndDate}\nNew: ${newStartDate} to ${newEndDate}`;
-          } else {
-            // Fallback to showing full time strings
-            return `Old: ${oldStartStr} to ${oldEndStr}\nNew: ${newStartStr} to ${newEndStr}`;
-          }
-        } catch (error) {
-          // Fallback to raw values if parsing fails
-          return `Old: ${oldStartMatch[1].trim()} to ${oldEndMatch[1].trim()}\nNew: ${newStartMatch[1].trim()} to ${newEndMatch[1].trim()}`;
-        }
-      }
-      return 'Time updated';
     }
     
     const noteActions = [
@@ -554,9 +518,6 @@ const SystemLogs = () => {
       'Announcement Added': true,
       'Announcement Deleted': true,
       'Announcement Modified': true,
-      'Announcement IPFS Hash Modified': true, 
-      'Announcement Time Modified': true,
-      'Announcement Title Modified': true,
       'User Added': true,
       'User Banned': true,
       'User Unbanned': true,
@@ -582,9 +543,6 @@ const SystemLogs = () => {
       'Announcement Added': true,
       'Announcement Deleted': true,
       'Announcement Modified': true,
-      'Announcement IPFS Hash Modified': true, 
-      'Announcement Time Modified': true,
-      'Announcement Title Modified': true,
       'User Added': true,
       'User Banned': true,
       'User Unbanned': true,
@@ -845,8 +803,9 @@ const SystemLogs = () => {
                 <h4 className="action-group-title">Announcement</h4>
                 <div className="checkbox-group">
                   {[
-                    'Announcement Added', 'Announcement Deleted', 'Announcement Modified',
-                    'Announcement IPFS Hash Modified', 'Announcement Time Modified'
+                    'Announcement Added', 'Announcement Deleted', 'Announcement Modified'
+                    // Removed these old specific events:
+                    // 'Announcement IPFS Hash Modified', 'Announcement Time Modified', 'Announcement Title Modified'
                   ].map(action => (
                     <label key={action} className="checkbox-label">
                       <input
