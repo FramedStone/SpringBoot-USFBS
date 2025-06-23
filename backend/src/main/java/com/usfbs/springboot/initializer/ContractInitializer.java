@@ -278,6 +278,7 @@ public class ContractInitializer implements CommandLineRunner {
                 System.out.println("Management Deployment TX hash = " + deploymentReceipt.getTransactionHash());
             }
 
+            // Booking Contract Events
             bookingContract.bookingCreatedEventFlowable(
                 DefaultBlockParameterName.EARLIEST,
                 DefaultBlockParameterName.LATEST
@@ -335,7 +336,82 @@ public class ContractInitializer implements CommandLineRunner {
                 error.printStackTrace();
             });
 
-            // Management.sol events - Updated to use only announcementModified
+            // Management Contract Events
+            managementContract.userAddedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [userAdded] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    user           = " + event.user + "\n" +
+                                       "    note           = " + event.note + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    "",
+                    "User Added",
+                    event.from,
+                    event.timestamp,
+                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
+                    "MANAGEMENT"
+                );
+            }, error -> {
+                System.err.println("Error in userAdded subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            managementContract.userBannedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [userBanned] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    user           = " + event.user + "\n" +
+                                       "    note           = " + event.note + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    "",
+                    "User Banned",
+                    event.from,
+                    event.timestamp,
+                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
+                    "MANAGEMENT"
+                );
+            }, error -> {
+                System.err.println("Error in userBanned subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            managementContract.userUnbannedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [userUnbanned] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    user           = " + event.user + "\n" +
+                                       "    note           = " + event.note + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    "",
+                    "User Unbanned",
+                    event.from,
+                    event.timestamp,
+                    event.note != null && !event.note.trim().isEmpty() ? event.note : "",
+                    "MANAGEMENT"
+                );
+            }, error -> {
+                System.err.println("Error in userUnbanned subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
             managementContract.announcementAddedEventFlowable(
                 DefaultBlockParameterName.EARLIEST,
                 DefaultBlockParameterName.LATEST
@@ -363,7 +439,6 @@ public class ContractInitializer implements CommandLineRunner {
                 error.printStackTrace();
             });
 
-            // Updated to handle the unified announcementModified event
             managementContract.announcementModifiedEventFlowable(
                 DefaultBlockParameterName.EARLIEST,
                 DefaultBlockParameterName.LATEST
@@ -382,7 +457,6 @@ public class ContractInitializer implements CommandLineRunner {
                 
                 System.out.println(originalOutput);
                 
-                // Always use unified "Announcement Modified" event type
                 eventLogService.addEventLog(
                     event.ipfsHash,
                     "Announcement Modified",
@@ -417,6 +491,175 @@ public class ContractInitializer implements CommandLineRunner {
                 );
             }, error -> {
                 System.err.println("Error in announcementDeleted subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            // SportFacility Contract Events
+            sportFacilityContract.sportFacilityAddedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [sportFacilityAdded] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    facilityName   = " + event.facilityName + "\n" +
+                                       "    location       = " + event.Location + "\n" +
+                                       "    imageIPFS      = " + event.imageIPFS + "\n" +
+                                       "    status         = " + event.status + "\n" +
+                                       "    courts         = " + event.courts + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    event.imageIPFS,
+                    "Sport Facility Added",
+                    event.from,
+                    event.timestamp,
+                    "Facility: " + event.facilityName + " at " + event.Location,
+                    "SPORT_FACILITY"
+                );
+            }, error -> {
+                System.err.println("Error in sportFacilityAdded subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            sportFacilityContract.sportFacilityModifiedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [sportFacilityModified] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    oldFacilityName = " + event.fname_ + "\n" +
+                                       "    newFacilityName = " + event.fname + "\n" +
+                                       "    oldLocation    = " + event.flocation_ + "\n" +
+                                       "    newLocation    = " + event.flocation + "\n" +
+                                       "    oldImageIPFS   = " + event.fimageIPFS_ + "\n" +
+                                       "    newImageIPFS   = " + event.fimageIPFS + "\n" +
+                                       "    oldStatus      = " + event.fstatus_ + "\n" +
+                                       "    newStatus      = " + event.fstatus + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    event.fimageIPFS,
+                    "Sport Facility Modified",
+                    event.from,
+                    event.timestamp,
+                    originalOutput,
+                    "SPORT_FACILITY"
+                );
+            }, error -> {
+                System.err.println("Error in sportFacilityModified subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            sportFacilityContract.sportFacilityDeletedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [sportFacilityDeleted] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    facilityName   = " + event.facilityName + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    "",
+                    "Sport Facility Deleted",
+                    event.from,
+                    event.timestamp,
+                    "Facility: " + event.facilityName,
+                    "SPORT_FACILITY"
+                );
+            }, error -> {
+                System.err.println("Error in sportFacilityDeleted subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            sportFacilityContract.courtAddedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [courtAdded] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    facilityName   = " + event.facilityName + "\n" +
+                                       "    courtName      = " + event.courtName + "\n" +
+                                       "    earliestTime   = " + safeFormatBookingTime(event.earliestTime) + "\n" +
+                                       "    latestTime     = " + safeFormatBookingTime(event.latestTime) + "\n" +
+                                       "    status         = " + event.status + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    "",
+                    "Court Added",
+                    event.from,
+                    event.timestamp,
+                    "Court: " + event.courtName + " at " + event.facilityName,
+                    "SPORT_FACILITY"
+                );
+            }, error -> {
+                System.err.println("Error in courtAdded subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            sportFacilityContract.courtModifiedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [courtModified] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    facilityName   = " + event.fname + "\n" +
+                                       "    oldCourtName   = " + event.cname_ + "\n" +
+                                       "    newCourtName   = " + event.cname + "\n" +
+                                       "    oldEarliestTime = " + safeFormatBookingTime(event.earliestTime_) + "\n" +
+                                       "    oldLatestTime  = " + safeFormatBookingTime(event.latestTime_) + "\n" +
+                                       "    newEarliestTime = " + safeFormatBookingTime(event.earliestTime) + "\n" +
+                                       "    newLatestTime  = " + safeFormatBookingTime(event.latestTime) + "\n" +
+                                       "    oldStatus      = " + event.status_ + "\n" +
+                                       "    newStatus      = " + event.status + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    "",
+                    "Court Modified",
+                    event.from,
+                    event.timestamp,
+                    originalOutput,
+                    "SPORT_FACILITY"
+                );
+            }, error -> {
+                System.err.println("Error in courtModified subscription: " + error.getMessage());
+                error.printStackTrace();
+            });
+
+            sportFacilityContract.courtDeletedEventFlowable(
+                DefaultBlockParameterName.EARLIEST,
+                DefaultBlockParameterName.LATEST
+            ).subscribe(event -> {
+                String originalOutput = ">>> [courtDeleted] event received:\n" +
+                                       "    from           = " + event.from + "\n" +
+                                       "    facilityName   = " + event.facilityName + "\n" +
+                                       "    courtName      = " + event.courtName + "\n" +
+                                       "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
+                
+                System.out.println(originalOutput);
+                
+                eventLogService.addEventLog(
+                    "",
+                    "Court Deleted",
+                    event.from,
+                    event.timestamp,
+                    "Court: " + event.courtName + " at " + event.facilityName,
+                    "SPORT_FACILITY"
+                );
+            }, error -> {
+                System.err.println("Error in courtDeleted subscription: " + error.getMessage());
                 error.printStackTrace();
             });
 
