@@ -6,8 +6,8 @@ import "./Strings.sol";
 contract Management {
     // Variable & Modifier Initialization
     struct Announcement {
-        // string message;
         string  ipfsHash;
+        string title;
         uint256 startTime;
         uint256 endTime;
     }
@@ -56,26 +56,17 @@ contract Management {
     event announcementAdded(
         address indexed from,
         string ipfsHash,
+        string title,
         uint256 startTime,
         uint256 endTime,
         uint256 timestamp
     );
-    event announcementIpfsHashModified(
+    event announcementModified(
         address indexed from,
         string ipfsHash_,
         string ipfsHash,
-        uint256 timestamp
-    );
-    event announcementTitleModified(
-        address indexed from,
-        string ipfsHash,
-        string oldTitle,
-        string newTitle,
-        uint256 timestamp
-    );
-    event announcementTimeModified(
-        address indexed from,
-        string ipfsHash,
+        string title_,
+        string title,
         uint256 startTime_,
         uint256 endTime_,
         uint256 startTime,
@@ -168,11 +159,13 @@ contract Management {
     // Announcement CRUD
     function addAnnouncement(
         string memory ipfsHash,
+        string memory title,
         uint256 startTime,
         uint256 endTime
     ) external isAdmin {
         require(startTime != 0, "startTime not provided");
         require(endTime   != 0, "endTime not provided");
+        require(bytes(title).length != 0, "title not provided");
 
         // Check for duplicated ipfsHash
         for (uint256 i = 0; i < announcements_.length; i++) {
@@ -191,58 +184,48 @@ contract Management {
         }
 
         if(aId != announcements_.length) {
-            announcements_[aId] = (Announcement(ipfsHash, startTime, endTime));
+            announcements_[aId] = (Announcement(ipfsHash, title, startTime, endTime));
         } else {
-            announcements_.push(Announcement(ipfsHash, startTime, endTime));
+            announcements_.push(Announcement(ipfsHash, title, startTime, endTime));
         }
-        emit announcementAdded(msg.sender, ipfsHash, startTime, endTime, block.timestamp);
+        emit announcementAdded(msg.sender, ipfsHash, title, startTime, endTime, block.timestamp);
     }
 
-    function updateAnnouncementIpfsHash(
+    function updateAnnouncement(
         string memory ipfsHash_,
-        string memory ipfsHash
+        string memory ipfsHash,
+        string memory title,
+        uint256 startTime,
+        uint256 endTime
     ) external isAdmin {
         require(bytes(ipfsHash).length != 0, "ipfsHash not provided");
 
         for (uint256 i = 0; i < announcements_.length; i++) {
             if (keccak256(bytes(announcements_[i].ipfsHash)) == keccak256(bytes(ipfsHash_))) {
+                Announcement memory temp = announcements_[i];
+
                 announcements_[i].ipfsHash = ipfsHash;
-                emit announcementIpfsHashModified(msg.sender, ipfsHash_, ipfsHash, block.timestamp);
-                break;
-            }
-        }
-    }
-
-    function updateAnnouncementTitle(
-        string memory ipfsHash,
-        string memory oldTitle,
-        string memory newTitle
-    ) external isAdmin {
-        require(bytes(newTitle).length != 0, "newTitle not provided");
-        emit announcementTitleModified(
-            msg.sender,
-            ipfsHash,
-            oldTitle,
-            newTitle,
-            block.timestamp
-        );
-    }
-
-    function updateAnnouncementTime(
-        string memory ipfsHash,
-        uint256 startTime,
-        uint256 endTime
-    ) external isAdmin {
-        require(startTime != 0, "startTime not provided");
-        require(endTime != 0, "endTime not provided");
-
-        for (uint256 i = 0; i < announcements_.length; i++) {
-            if (keccak256(bytes(announcements_[i].ipfsHash)) == keccak256(bytes(ipfsHash))) {
-                uint256 oldStart = announcements_[i].startTime;
-                uint256 oldEnd = announcements_[i].endTime;
-                announcements_[i].startTime = startTime;
-                announcements_[i].endTime = endTime;
-                emit announcementTimeModified(msg.sender, ipfsHash, oldStart, oldEnd, startTime, endTime, block.timestamp);
+                if(bytes(title).length != 0) {
+                    announcements_[i].title = title;
+                }
+                if(startTime != 0) {
+                    announcements_[i].startTime = startTime;
+                }
+                if(endTime !=0) {
+                    announcements_[i].endTime = endTime;
+                }
+                emit announcementModified(
+                    msg.sender, 
+                    ipfsHash_, 
+                    ipfsHash, 
+                    temp.title, 
+                    title, 
+                    temp.startTime, 
+                    temp.endTime, 
+                    startTime, 
+                    endTime, 
+                    block.timestamp
+                );
                 break;
             }
         }
