@@ -315,96 +315,96 @@ public class ContractInitializer implements CommandLineRunner {
             //     error.printStackTrace();
             // });
             
-            bookingContract.bookingDeletedEventFlowable(
-                DefaultBlockParameterName.EARLIEST,
-                DefaultBlockParameterName.LATEST
-            ).subscribe(event -> {
-                String output = ">>> [bookingDeleted] event received:\n" +
-                               "    from        = " + event.from + "\n" +
-                               "    ipfsHash    = " + event.ipfsHash + "\n" +
-                               "    timestamp   = " + safeFormatTimestamp(event.timestamp) + "\n";
-                System.out.println(output);
+            // bookingContract.bookingDeletedEventFlowable(
+            //     DefaultBlockParameterName.EARLIEST,
+            //     DefaultBlockParameterName.LATEST
+            // ).subscribe(event -> {
+            //     String output = ">>> [bookingDeleted] event received:\n" +
+            //                    "    from        = " + event.from + "\n" +
+            //                    "    ipfsHash    = " + event.ipfsHash + "\n" +
+            //                    "    timestamp   = " + safeFormatTimestamp(event.timestamp) + "\n";
+            //     System.out.println(output);
             
-                eventLogService.addEventLog(
-                    event.ipfsHash,
-                    "Booking Deleted",
-                    event.from,
-                    event.timestamp,
-                    "",
-                    "BOOKING"
-                );
-            }, error -> {
-                System.err.println("Error in bookingDeleted subscription: " + error.getMessage());
-                error.printStackTrace();
-            });
+            //     eventLogService.addEventLog(
+            //         event.ipfsHash,
+            //         "Booking Deleted",
+            //         event.from,
+            //         event.timestamp,
+            //         "",
+            //         "BOOKING"
+            //     );
+            // }, error -> {
+            //     System.err.println("Error in bookingDeleted subscription: " + error.getMessage());
+            //     error.printStackTrace();
+            // });
             
-            bookingContract.bookingRejectedEventFlowable(
-                DefaultBlockParameterName.EARLIEST,
-                DefaultBlockParameterName.LATEST
-            ).subscribe(event -> {
-                String output = ">>> [bookingRejected] event received:\n" +
-                               "    from        = " + event.from + "\n" +
-                               "    ipfsHash    = " + event.ipfsHash + "\n" +
-                               "    reason      = " + event.reason + "\n" +
-                               "    timestamp   = " + safeFormatTimestamp(event.timestamp) + "\n";
-                System.out.println(output);
+            // bookingContract.bookingRejectedEventFlowable(
+            //     DefaultBlockParameterName.EARLIEST,
+            //     DefaultBlockParameterName.LATEST
+            // ).subscribe(event -> {
+            //     String output = ">>> [bookingRejected] event received:\n" +
+            //                    "    from        = " + event.from + "\n" +
+            //                    "    ipfsHash    = " + event.ipfsHash + "\n" +
+            //                    "    reason      = " + event.reason + "\n" +
+            //                    "    timestamp   = " + safeFormatTimestamp(event.timestamp) + "\n";
+            //     System.out.println(output);
             
-                eventLogService.addEventLog(
-                    event.ipfsHash,
-                    "Booking Rejected",
-                    event.from,
-                    event.timestamp,
-                    event.reason,
-                    "BOOKING"
-                );
-            }, error -> {
-                System.err.println("Error in bookingRejected subscription: " + error.getMessage());
-                error.printStackTrace();
-            });
+            //     eventLogService.addEventLog(
+            //         event.ipfsHash,
+            //         "Booking Rejected",
+            //         event.from,
+            //         event.timestamp,
+            //         event.reason,
+            //         "BOOKING"
+            //     );
+            // }, error -> {
+            //     System.err.println("Error in bookingRejected subscription: " + error.getMessage());
+            //     error.printStackTrace();
+            // });
             
-            bookingContract.bookingCompletedEventFlowable(
-                DefaultBlockParameterName.EARLIEST,
-                DefaultBlockParameterName.LATEST
-            ).subscribe(event -> {
-                String output = ">>> [bookingCompleted] event received:\n" +
-                               "    ipfsHash    = " + event.ipfsHash + "\n" +
-                               "    timestamp   = " + safeFormatTimestamp(event.timestamp) + "\n";
-                System.out.println(output);
+            // bookingContract.bookingCompletedEventFlowable(
+            //     DefaultBlockParameterName.EARLIEST,
+            //     DefaultBlockParameterName.LATEST
+            // ).subscribe(event -> {
+            //     String output = ">>> [bookingCompleted] event received:\n" +
+            //                    "    ipfsHash    = " + event.ipfsHash + "\n" +
+            //                    "    timestamp   = " + safeFormatTimestamp(event.timestamp) + "\n";
+            //     System.out.println(output);
             
-                eventLogService.addEventLog(
-                    event.ipfsHash,
-                    "Booking Completed",
-                    "",
-                    event.timestamp,
-                    "",
-                    "BOOKING"
-                );
-            }, error -> {
-                System.err.println("Error in bookingCompleted subscription: " + error.getMessage());
-                error.printStackTrace();
-            });
+            //     eventLogService.addEventLog(
+            //         event.ipfsHash,
+            //         "Booking Completed",
+            //         "",
+            //         event.timestamp,
+            //         "",
+            //         "BOOKING"
+            //     );
+            // }, error -> {
+            //     System.err.println("Error in bookingCompleted subscription: " + error.getMessage());
+            //     error.printStackTrace();
+            // });
             
-            bookingContract.bookingCancelledEventFlowable(
-                DefaultBlockParameterName.EARLIEST,
-                DefaultBlockParameterName.LATEST
-            ).subscribe(event -> {
-                String output = ">>> [bookingCancelled] event received:\n" +
-                               "    ipfsHash    = " + event.ipfsHash + "\n" +
-                               "    timestamp   = " + safeFormatTimestamp(event.timestamp) + "\n";
-                System.out.println(output);
+            // bookingContract.bookingCancelledEventFlowable(
+            //     DefaultBlockParameterName.EARLIEST,
+            //     DefaultBlockParameterName.LATEST
+            // ).subscribe(event -> {
+            //     String output = ">>> [bookingCancelled] event received:\n" +
+            //                    "    ipfsHash    = " + event.ipfsHash + "\n" +
+            //                    "    timestamp   = " + safeFormatTimestamp(event.timestamp) + "\n";
+            //     System.out.println(output);
             
-                eventLogService.addEventLog(
-                    event.ipfsHash,
-                    "Booking Cancelled",
-                    "",
-                    event.timestamp,
-                    "",
-                    "BOOKING"
-                );
-            }, error -> {
-                System.err.println("Error in bookingCancelled subscription: " + error.getMessage());
-                error.printStackTrace();
-            });
+            //     eventLogService.addEventLog(
+            //         event.ipfsHash,
+            //         "Booking Cancelled",
+            //         "",
+            //         event.timestamp,
+            //         "",
+            //         "BOOKING"
+            //     );
+            // }, error -> {
+            //     System.err.println("Error in bookingCancelled subscription: " + error.getMessage());
+            //     error.printStackTrace();
+            // });
             
             // ...existing code...
 

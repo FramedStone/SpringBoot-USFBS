@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
+import org.web3j.tuples.generated.Tuple7;
 
 @RestController
 @RequestMapping("/api/user")
@@ -209,7 +210,28 @@ public class UserController {
                     "error", "ipfsHash is required"
                 ));
             }
-            Map<String, Object> booking = userService.getBookingByIpfsHash(userAddress, ipfsHash);
+
+            // Use the new tuple-based contract return type
+            org.web3j.tuples.generated.Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> bookingTuple =
+                userService.getBookingTupleByIpfsHash(userAddress, ipfsHash);
+
+            if (bookingTuple == null) {
+                return ResponseEntity.status(404).body(Map.of(
+                    "success", false,
+                    "error", "Booking not found"
+                ));
+            }
+
+            Map<String, Object> booking = Map.of(
+                "owner", bookingTuple.component1(),
+                "ipfsHash", bookingTuple.component2(),
+                "facilityName", bookingTuple.component3(),
+                "courtName", bookingTuple.component4(),
+                "startTime", bookingTuple.component5(),
+                "endTime", bookingTuple.component6(),
+                "status", bookingTuple.component7().toString()
+            );
+
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "data", booking
@@ -305,10 +327,54 @@ public class UserController {
                     "error", "ipfsHash is required"
                 ));
             }
+
+            // Fetch booking details BEFORE cancelling on-chain using tuple-based method
+            Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> bookingTuple =
+                userService.getBookingTupleByIpfsHash(userAddress, ipfsHash);
+
+            if (bookingTuple == null) {
+                return ResponseEntity.status(404).body(Map.of(
+                    "success", false,
+                    "error", "Booking not found"
+                ));
+            }
+
+            Map<String, Object> booking = Map.of(
+                "facilityName", bookingTuple.component3(),
+                "courtName", bookingTuple.component4(),
+                "startTime", bookingTuple.component5(),
+                "endTime", bookingTuple.component6(),
+                "status", "cancelled",
+                "userAddress", bookingTuple.component1()
+            );
+
+            // Format file name as booking-{yyyyMMdd}.json based on startTime
+            Long startTime = bookingTuple.component5() != null ? bookingTuple.component5().longValue() : null;
+            java.time.LocalDate bookingDate = startTime != null
+                ? java.time.Instant.ofEpochSecond(startTime)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDate()
+                : java.time.LocalDate.now();
+            String fileName = String.format("booking-%s.json", bookingDate.toString().replace("-", ""));
+
+            // Upload new JSON to IPFS
+            String newIpfsHash = pinataUtil.uploadJsonToIPFS(booking, fileName);
+
+            // Cancel booking on-chain (get txHash and event)
             String txHash = userService.cancelBooking(userAddress, ipfsHash);
+
+            // Unpin old IPFS hash
+            pinataUtil.unpinFromIPFS(ipfsHash);
+
+            // Update the new IPFS hash on-chain
+            if (newIpfsHash != null && !newIpfsHash.equals(ipfsHash)) {
+                userService.updateBookingIPFSHash(ipfsHash, newIpfsHash);
+            }
+
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "txHash", txHash,
+                "ipfsHash", newIpfsHash != null ? newIpfsHash : ipfsHash,
                 "message", "Booking cancelled successfully"
             ));
         } catch (Exception e) {

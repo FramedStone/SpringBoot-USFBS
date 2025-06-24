@@ -24,6 +24,7 @@ import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
+import org.web3j.tuples.generated.Tuple7;
 
 @Service
 public class UserService {
@@ -400,6 +401,26 @@ public class UserService {
             return bookingMap;
         } catch (Exception e) {
             logger.error("Error getting booking by ipfsHash for user: {}", e.getMessage());
+            throw new RuntimeException("Failed to get booking: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Gets a booking tuple by ipfsHash for the current user.
+     */
+    public Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> getBookingTupleByIpfsHash(String userAddress, String ipfsHash) {
+        try {
+            // getBooking returns (address, string, string, string, uint256, uint256, uint8)
+            Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> tuple =
+                bookingContract.getBooking(ipfsHash).send();
+
+            // Only allow access if the booking belongs to the user
+            if (!tuple.component1().equalsIgnoreCase(userAddress)) {
+                throw new RuntimeException("Access denied: not booking owner");
+            }
+            return tuple;
+        } catch (Exception e) {
+            logger.error("Error getting booking tuple by ipfsHash for user: {}", e.getMessage());
             throw new RuntimeException("Failed to get booking: " + e.getMessage());
         }
     }

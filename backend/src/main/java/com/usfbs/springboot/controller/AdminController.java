@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.HashMap;
+import org.web3j.tuples.generated.Tuple7;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -718,7 +719,27 @@ public class AdminController {
             if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "error", "ipfsHash is required"));
             }
-            Map<String, Object> booking = adminService.getBookingByIpfsHash(ipfsHash);
+            // Call the contract function which returns a tuple, not a struct
+            Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> bookingTuple =
+                adminService.getBookingTupleByIpfsHash(ipfsHash);
+
+            if (bookingTuple == null) {
+                return ResponseEntity.status(404).body(Map.of(
+                    "success", false,
+                    "error", "Booking not found"
+                ));
+            }
+
+            Map<String, Object> booking = Map.of(
+                "owner", bookingTuple.component1(),
+                "ipfsHash", bookingTuple.component2(),
+                "facilityName", bookingTuple.component3(),
+                "courtName", bookingTuple.component4(),
+                "startTime", bookingTuple.component5(),
+                "endTime", bookingTuple.component6(),
+                "status", bookingTuple.component7().toString()
+            );
+
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "data", booking
@@ -841,22 +862,62 @@ public class AdminController {
     }
 
     @PostMapping("/bookings/{ipfsHash}/complete")
-    public ResponseEntity<?> completeBooking(
-        @PathVariable String oldIpfsHash,
-        @RequestBody Map<String, Object> request
-    ) {
+    public ResponseEntity<?> completeBooking(@PathVariable String ipfsHash) {
         try {
-            String newIpfsHash = (String) request.get("newIpfsHash");
-            if (oldIpfsHash == null || oldIpfsHash.trim().isEmpty() || newIpfsHash == null || newIpfsHash.trim().isEmpty()) {
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "error", "Both oldIpfsHash and newIpfsHash are required"
+                    "error", "ipfsHash is required"
                 ));
             }
-            String txHash = adminService.completeBooking(oldIpfsHash, newIpfsHash);
+            // Use tuple-based fetch
+            Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> bookingTuple =
+                adminService.getBookingTupleByIpfsHash(ipfsHash);
+
+            if (bookingTuple == null) {
+                return ResponseEntity.status(404).body(Map.of(
+                    "success", false,
+                    "error", "Booking not found"
+                ));
+            }
+
+            // Build booking map with userAddress included and status "completed"
+            Map<String, Object> booking = Map.of(
+                "facilityName", bookingTuple.component3(),
+                "courtName", bookingTuple.component4(),
+                "startTime", bookingTuple.component5(),
+                "endTime", bookingTuple.component6(),
+                "status", "completed",
+                "userAddress", bookingTuple.component1()
+            );
+
+            // Format file name as booking-{yyyyMMdd}.json based on startTime
+            Long startTime = bookingTuple.component5() != null ? bookingTuple.component5().longValue() : null;
+            java.time.LocalDate bookingDate = startTime != null
+                ? java.time.Instant.ofEpochSecond(startTime)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDate()
+                : java.time.LocalDate.now();
+            String fileName = String.format("booking-%s.json", bookingDate.toString().replace("-", ""));
+
+            // Upload new JSON to IPFS
+            String newIpfsHash = pinataUtil.uploadJsonToIPFS(booking, fileName);
+
+            // Complete booking on-chain (get txHash and event)
+            String txHash = adminService.completeBooking(ipfsHash, newIpfsHash);
+
+            // Unpin old IPFS hash
+            pinataUtil.unpinFromIPFS(ipfsHash);
+
+            // Update the new IPFS hash on-chain (optional, if not already done in completeBooking)
+            if (newIpfsHash != null && !newIpfsHash.equals(ipfsHash)) {
+                adminService.updateBookingIPFSHash(ipfsHash, newIpfsHash);
+            }
+
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "txHash", txHash,
+                "ipfsHash", newIpfsHash != null ? newIpfsHash : ipfsHash,
                 "message", "Booking completed successfully"
             ));
         } catch (Exception e) {
@@ -887,10 +948,56 @@ public class AdminController {
                     "error", "Rejection reason is required"
                 ));
             }
+
+            // Use tuple-based fetch
+            Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> bookingTuple =
+                adminService.getBookingTupleByIpfsHash(ipfsHash);
+
+            if (bookingTuple == null) {
+                return ResponseEntity.status(404).body(Map.of(
+                    "success", false,
+                    "error", "Booking not found"
+                ));
+            }
+
+            // Build booking map with userAddress and status "rejected"
+            Map<String, Object> booking = Map.of(
+                "facilityName", bookingTuple.component3(),
+                "courtName", bookingTuple.component4(),
+                "startTime", bookingTuple.component5(),
+                "endTime", bookingTuple.component6(),
+                "status", "rejected",
+                "userAddress", bookingTuple.component1(),
+                "rejectionReason", reason
+            );
+
+            // Format file name as booking-{yyyyMMdd}.json based on startTime
+            Long startTime = bookingTuple.component5() != null ? bookingTuple.component5().longValue() : null;
+            java.time.LocalDate bookingDate = startTime != null
+                ? java.time.Instant.ofEpochSecond(startTime)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDate()
+                : java.time.LocalDate.now();
+            String fileName = String.format("booking-%s.json", bookingDate.toString().replace("-", ""));
+
+            // Upload new JSON to IPFS
+            String newIpfsHash = pinataUtil.uploadJsonToIPFS(booking, fileName);
+
+            // Reject booking on-chain (get txHash and event)
             String txHash = adminService.rejectBooking(ipfsHash, reason);
+
+            // Unpin old IPFS hash
+            pinataUtil.unpinFromIPFS(ipfsHash);
+
+            // Update the new IPFS hash on-chain
+            if (newIpfsHash != null && !newIpfsHash.equals(ipfsHash)) {
+                adminService.updateBookingIPFSHash(ipfsHash, newIpfsHash);
+            }
+
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "txHash", txHash,
+                "ipfsHash", newIpfsHash != null ? newIpfsHash : ipfsHash,
                 "message", "Booking rejected successfully"
             ));
         } catch (Exception e) {
@@ -911,10 +1018,54 @@ public class AdminController {
                     "error", "ipfsHash is required"
                 ));
             }
+            // Use tuple-based fetch
+            Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> bookingTuple =
+                adminService.getBookingTupleByIpfsHash(ipfsHash);
+
+            if (bookingTuple == null) {
+                return ResponseEntity.status(404).body(Map.of(
+                    "success", false,
+                    "error", "Booking not found"
+                ));
+            }
+
+            // Build booking map
+            Map<String, Object> booking = Map.of(
+                "facilityName", bookingTuple.component3(),
+                "courtName", bookingTuple.component4(),
+                "startTime", bookingTuple.component5(),
+                "endTime", bookingTuple.component6(),
+                "status", "cancelled",
+                "userAddress", bookingTuple.component1()
+            );
+
+            // Format file name as booking-{yyyyMMdd}.json based on startTime
+            Long startTime = bookingTuple.component5() != null ? bookingTuple.component5().longValue() : null;
+            java.time.LocalDate bookingDate = startTime != null
+                ? java.time.Instant.ofEpochSecond(startTime)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDate()
+                : java.time.LocalDate.now();
+            String fileName = String.format("booking-%s.json", bookingDate.toString().replace("-", ""));
+
+            // Upload new JSON to IPFS
+            String newIpfsHash = pinataUtil.uploadJsonToIPFS(booking, fileName);
+
+            // Cancel booking on-chain (get txHash and event)
             String txHash = adminService.cancelBooking(ipfsHash);
+
+            // Unpin old IPFS hash
+            pinataUtil.unpinFromIPFS(ipfsHash);
+
+            // Update the new IPFS hash on-chain
+            if (newIpfsHash != null && !newIpfsHash.equals(ipfsHash)) {
+                adminService.updateBookingIPFSHash(ipfsHash, newIpfsHash);
+            }
+
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "txHash", txHash,
+                "ipfsHash", newIpfsHash != null ? newIpfsHash : ipfsHash,
                 "message", "Booking cancelled successfully"
             ));
         } catch (Exception e) {

@@ -19,6 +19,7 @@ import org.web3j.tuples.generated.Tuple2;
 import org.web3j.tuples.generated.Tuple3;
 import org.web3j.tuples.generated.Tuple4;
 import org.web3j.tuples.generated.Tuple5;
+import org.web3j.tuples.generated.Tuple7;
 import org.web3j.tx.RawTransactionManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -1167,6 +1168,19 @@ public class AdminService {
         } catch (Exception e) {
             logger.error("Error updating booking IPFS hash: {}", e.getMessage());
             throw new RuntimeException("Failed to update booking IPFS hash: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Gets a booking tuple by ipfsHash (admin only).
+     */
+    public Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> getBookingTupleByIpfsHash(String ipfsHash) {
+        try {
+            // getBooking_ returns (address, string, string, string, uint256, uint256, uint8)
+            return bookingContract.getBooking_(ipfsHash).send();
+        } catch (Exception e) {
+            logger.error("Error getting booking tuple by ipfsHash: {}", e.getMessage());
+            throw new RuntimeException("Failed to get booking tuple: " + e.getMessage());
         }
     }
 }

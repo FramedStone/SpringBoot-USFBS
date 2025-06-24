@@ -172,9 +172,25 @@ contract Booking is Management {
 
     function getBooking_(
         string memory ipfsHash
-    ) external isAdmin view returns(bookingTransaction memory booking) {
-        return bookings[ipfsHash];
+    ) external isAdmin view returns(
+        address owner,
+        string memory ipfsHash_,
+        string memory fname,
+        string memory cname,
+        uint256 startTime,
+        uint256 endTime,
+        uint8 status_
+    ) {
+        bookingTransaction memory booking = bookings[ipfsHash];
+        owner = booking.owner;
+        ipfsHash_ = booking.ipfsHash;
+        fname = booking.fname;
+        cname = booking.cname;
+        startTime = booking.time.startTime;
+        endTime = booking.time.endTime;
+        status_ = uint8(booking.status);
     }
+
     function getAllBookings_() external isAdmin view returns(bookingTransaction[] memory bookingList) {
         require(bookings_.length > 0, "No bookings saved in blockchain");
         return bookings_; 
@@ -182,10 +198,26 @@ contract Booking is Management {
     
     function getBooking(
         string memory ipfsHash
-    ) external view returns(bookingTransaction memory booking) {
+    ) external view returns(
+        address owner,
+        string memory ipfsHash_,
+        string memory fname,
+        string memory cname,
+        uint256 startTime,
+        uint256 endTime,
+        uint8 status_
+    ) {
         require(bookings[ipfsHash].owner == msg.sender, "Access Denied (not booking owner)");
-        return bookings[ipfsHash];
+        bookingTransaction memory booking = bookings[ipfsHash];
+        owner = booking.owner;
+        ipfsHash_ = booking.ipfsHash;
+        fname = booking.fname;
+        cname = booking.cname;
+        startTime = booking.time.startTime;
+        endTime = booking.time.endTime;
+        status_ = uint8(booking.status);
     }
+
     function getAllBookings() external view returns(bookingTransaction[] memory bookingList) {
         uint256 count = 0;
         for (uint256 i = 0; i < bookings_.length; i++) {
@@ -251,6 +283,7 @@ contract Booking is Management {
         string memory ipfsHash_,
         string memory ipfsHash
     ) external isAdmin {
+        require(bookings[ipfsHash_].status == status.APPROVED, "Booking status not currently APPROVED");
         updateBooking_(ipfsHash_, ipfsHash, status.COMPLETED);
         emit bookingCompleted(ipfsHash, block.timestamp);
     }
@@ -259,6 +292,7 @@ contract Booking is Management {
         string memory ipfsHash,
         string memory reason
     ) external isAdmin {
+        require(bookings[ipfsHash_].status == status.APPROVED, "Booking status not currently APPROVED");
         updateBooking_(ipfsHash_, ipfsHash, status.REJECTED);
         emit bookingRejected(msg.sender, ipfsHash, reason, block.timestamp);
     }
