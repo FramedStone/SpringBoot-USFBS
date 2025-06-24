@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import Navbar from "@components/Navbar";
 import Toast from "@components/Toast";
-import Spinner from "@components/Spinner";
 import AnnouncementCarousel from "@components/AnnouncementCarousel";
 import SportFacilityCard from "@components/SportFacilityCard";
 import '@styles/Home.css';

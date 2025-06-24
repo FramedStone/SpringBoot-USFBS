@@ -48,9 +48,9 @@ export default function Login() {
           if (role === "Admin") {
             navigate("/admin/dashboard", { replace: true });
           } else if (role === "Moderator") {
-            navigate("/moderator/events", { replace: true });
+            navigate("/logs", { replace: true });
           } else {
-            navigate("/user/bookings", { replace: true });
+            navigate("/bookings", { replace: true });
           }
         }
       } catch (err) {

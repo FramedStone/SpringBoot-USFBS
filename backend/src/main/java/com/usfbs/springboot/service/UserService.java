@@ -430,10 +430,8 @@ public class UserService {
      */
     public List<Map<String, Object>> getAllBookings(String userAddress) {
         try {
-            // Call Booking contract's getAllBookings (returns only user's bookings)
             List<Object> rawBookings = bookingContract.getAllBookings().send();
             List<Map<String, Object>> bookings = new ArrayList<>();
-
             for (Object obj : rawBookings) {
                 Map<String, Object> bookingMap = new HashMap<>();
                 try {
@@ -459,17 +457,21 @@ public class UserService {
                     startTimeField.setAccessible(true);
                     endTimeField.setAccessible(true);
 
-                    bookingMap.put("owner", ownerField.get(obj));
-                    bookingMap.put("ipfsHash", ipfsHashField.get(obj));
-                    bookingMap.put("facilityName", fnameField.get(obj));
-                    bookingMap.put("courtName", cnameField.get(obj));
-                    bookingMap.put("startTime", startTimeField.get(timeObj));
-                    bookingMap.put("endTime", endTimeField.get(timeObj));
-                    bookingMap.put("status", statusField.get(obj).toString());
+                    String owner = ownerField.get(obj).toString();
+                    // Only add if owner matches userAddress (case-insensitive)
+                    if (owner.equalsIgnoreCase(userAddress)) {
+                        bookingMap.put("owner", owner);
+                        bookingMap.put("ipfsHash", ipfsHashField.get(obj));
+                        bookingMap.put("facilityName", fnameField.get(obj));
+                        bookingMap.put("courtName", cnameField.get(obj));
+                        bookingMap.put("startTime", startTimeField.get(timeObj));
+                        bookingMap.put("endTime", endTimeField.get(timeObj));
+                        bookingMap.put("status", statusField.get(obj).toString());
+                        bookings.add(bookingMap);
+                    }
                 } catch (Exception e) {
                     logger.warn("Could not extract booking fields: {}", e.getMessage());
                 }
-                bookings.add(bookingMap);
             }
             return bookings;
         } catch (Exception e) {
@@ -506,7 +508,7 @@ public class UserService {
     }
 
     /**
-     * Cancels a booking by ipfsHash for the current user
+     * Cancels a booking by ipfsHash for the current user, with detailed event log.
      */
     public String cancelBooking(String userAddress, String ipfsHash) {
         try {
@@ -516,11 +518,35 @@ public class UserService {
             if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
                 throw new IllegalArgumentException("ipfsHash is required");
             }
+
+            // Fetch booking details before cancellation for logging
+            Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> bookingTuple =
+                getBookingTupleByIpfsHash(userAddress, ipfsHash);
+
+            String facilityName = bookingTuple.component3();
+            String courtName = bookingTuple.component4();
+            long startTime = bookingTuple.component5() != null ? bookingTuple.component5().longValue() : 0L;
+            long endTime = bookingTuple.component6() != null ? bookingTuple.component6().longValue() : 0L;
+
             // For this contract, you may need to pass the same ipfsHash twice (see Booking.sol)
             org.web3j.protocol.core.methods.response.TransactionReceipt receipt =
                 bookingContract.cancelBooking(ipfsHash, ipfsHash).send();
+
             if (receipt.isStatusOK()) {
-                logger.info("User {} cancelled booking: {}", userAddress, ipfsHash);
+                // Log in the same style as handleBookingCreatedEvent
+                String logOutput = String.format(
+                    "Booking receipt updated: oldIpfsHash=%s, newIpfsHash=%s, facility=%s, court=%s, status=cancelled",
+                    ipfsHash, ipfsHash, facilityName, courtName
+                );
+                eventLogService.addEventLog(
+                    ipfsHash,
+                    "Booking Cancelled",
+                    userAddress,
+                    java.math.BigInteger.valueOf(System.currentTimeMillis() / 1000),
+                    logOutput,
+                    "BOOKING"
+                );
+                logger.info(logOutput);
                 return receipt.getTransactionHash();
             }
             throw new RuntimeException("Booking cancellation failed on-chain");
@@ -576,6 +602,79 @@ public class UserService {
         } catch (Exception e) {
             logger.error("Failed to update booking receipt on IPFS: {}", e.getMessage());
         }
+    }
+
+    /**
+     * Unified event log handler for booking status changes (created, cancelled, completed, etc.)
+     * Logs a meaningful event for audit trail.
+     */
+    public void handleBookingEvent(
+        String oldIpfsHash,
+        String newIpfsHash,
+        String facilityName,
+        String courtName,
+        long startTime,
+        long endTime,
+        String status,
+        String userAddress,
+        String action, // e.g. "Created", "Cancelled", "Completed"
+        String reason // nullable, for cancellation
+    ) {
+        try {
+            StringBuilder logBuilder = new StringBuilder();
+            logBuilder.append("Booking ").append(action)
+                .append(": oldIpfsHash=").append(oldIpfsHash)
+                .append(", newIpfsHash=").append(newIpfsHash)
+                .append(", facility=").append(facilityName)
+                .append(", court=").append(courtName)
+                .append(", userAddress=").append(userAddress)
+                .append(", status=").append(status)
+                .append(", startTime=").append(startTime)
+                .append(", endTime=").append(endTime);
+            if (reason != null && !reason.isEmpty()) {
+                logBuilder.append(", reason=").append(reason);
+            }
+            String logOutput = logBuilder.toString();
+
+            eventLogService.addEventLog(
+                newIpfsHash,
+                "Booking " + action,
+                userAddress,
+                java.math.BigInteger.valueOf(System.currentTimeMillis() / 1000),
+                logOutput,
+                "BOOKING"
+            );
+            logger.info(logOutput);
+        } catch (Exception e) {
+            logger.error("Failed to log booking event: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Should be called after bookingCancelled event is received for user bookings.
+     */
+    public void handleBookingCancelledEvent(
+        String oldIpfsHash,
+        String newIpfsHash,
+        String facilityName,
+        String courtName,
+        long startTime,
+        long endTime,
+        String userAddress,
+        String reason // nullable
+    ) {
+        handleBookingEvent(
+            oldIpfsHash,
+            newIpfsHash,
+            facilityName,
+            courtName,
+            startTime,
+            endTime,
+            "CANCELLED",
+            userAddress,
+            "Cancelled",
+            reason
+        );
     }
 
     /**

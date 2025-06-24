@@ -1035,11 +1035,33 @@ public class AdminService {
             if (oldIpfsHash == null || oldIpfsHash.trim().isEmpty() || newIpfsHash == null || newIpfsHash.trim().isEmpty()) {
                 throw new IllegalArgumentException("Both oldIpfsHash and newIpfsHash are required");
             }
-            // Call the smart contract's completeBooking function
+            // Fetch booking details before completion for logging
+            Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> bookingTuple =
+                getBookingTupleByIpfsHash(oldIpfsHash);
+
+            String userAddress = bookingTuple.component1();
+            String facilityName = bookingTuple.component3();
+            String courtName = bookingTuple.component4();
+            long startTime = bookingTuple.component5() != null ? bookingTuple.component5().longValue() : 0L;
+            long endTime = bookingTuple.component6() != null ? bookingTuple.component6().longValue() : 0L;
+
             org.web3j.protocol.core.methods.response.TransactionReceipt receipt =
                 bookingContract.completeBooking(oldIpfsHash, newIpfsHash).send();
+
             if (receipt.isStatusOK()) {
-                logger.info("Booking completed successfully: {} -> {}", oldIpfsHash, newIpfsHash);
+                String logOutput = String.format(
+                    "Booking receipt updated: oldIpfsHash=%s, newIpfsHash=%s, facility=%s, court=%s, status=completed",
+                    oldIpfsHash, newIpfsHash, facilityName, courtName
+                );
+                eventLogService.addEventLog(
+                    newIpfsHash,
+                    "Booking Completed",
+                    userAddress,
+                    java.math.BigInteger.valueOf(System.currentTimeMillis() / 1000),
+                    logOutput,
+                    "BOOKING"
+                );
+                logger.info(logOutput);
                 return receipt.getTransactionHash();
             }
             throw new RuntimeException("Booking completion failed on-chain");
@@ -1060,11 +1082,33 @@ public class AdminService {
             if (reason == null || reason.trim().isEmpty()) {
                 throw new IllegalArgumentException("Rejection reason is required");
             }
-            // For this contract, you may need to pass the same ipfsHash twice (see Booking.sol)
+            // Fetch booking details before rejection for logging
+            Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> bookingTuple =
+                getBookingTupleByIpfsHash(ipfsHash);
+
+            String userAddress = bookingTuple.component1();
+            String facilityName = bookingTuple.component3();
+            String courtName = bookingTuple.component4();
+            long startTime = bookingTuple.component5() != null ? bookingTuple.component5().longValue() : 0L;
+            long endTime = bookingTuple.component6() != null ? bookingTuple.component6().longValue() : 0L;
+
             org.web3j.protocol.core.methods.response.TransactionReceipt receipt =
                 bookingContract.rejectBooking(ipfsHash, ipfsHash, reason).send();
+
             if (receipt.isStatusOK()) {
-                logger.info("Booking rejected successfully: {}", ipfsHash);
+                String logOutput = String.format(
+                    "Booking receipt updated: oldIpfsHash=%s, newIpfsHash=%s, facility=%s, court=%s, status=rejected, reason=%s",
+                    ipfsHash, ipfsHash, facilityName, courtName, reason
+                );
+                eventLogService.addEventLog(
+                    ipfsHash,
+                    "Booking Rejected",
+                    userAddress,
+                    java.math.BigInteger.valueOf(System.currentTimeMillis() / 1000),
+                    logOutput,
+                    "BOOKING"
+                );
+                logger.info(logOutput);
                 return receipt.getTransactionHash();
             }
             throw new RuntimeException("Booking rejection failed on-chain");
@@ -1075,18 +1119,41 @@ public class AdminService {
     }
 
     /**
-     * Cancels a booking by ipfsHash (admin only)
+     * Cancels a booking by ipfsHash 
      */
     public String cancelBooking(String ipfsHash) {
         try {
             if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
                 throw new IllegalArgumentException("ipfsHash is required");
             }
-            // For this contract, you may need to pass the same ipfsHash twice (see Booking.sol)
+            // Fetch booking details before cancellation for logging
+            Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> bookingTuple =
+                getBookingTupleByIpfsHash(ipfsHash);
+
+            String userAddress = bookingTuple.component1();
+            String facilityName = bookingTuple.component3();
+            String courtName = bookingTuple.component4();
+            long startTime = bookingTuple.component5() != null ? bookingTuple.component5().longValue() : 0L;
+            long endTime = bookingTuple.component6() != null ? bookingTuple.component6().longValue() : 0L;
+
             org.web3j.protocol.core.methods.response.TransactionReceipt receipt =
                 bookingContract.cancelBooking(ipfsHash, ipfsHash).send();
+
             if (receipt.isStatusOK()) {
-                logger.info("Booking cancelled successfully: {}", ipfsHash);
+                // Log in the same style as handleBookingCreatedEvent
+                String logOutput = String.format(
+                    "Booking receipt updated: oldIpfsHash=%s, newIpfsHash=%s, facility=%s, court=%s, status=cancelled",
+                    ipfsHash, ipfsHash, facilityName, courtName
+                );
+                eventLogService.addEventLog(
+                    ipfsHash,
+                    "Booking Cancelled",
+                    userAddress,
+                    java.math.BigInteger.valueOf(System.currentTimeMillis() / 1000),
+                    logOutput,
+                    "BOOKING"
+                );
+                logger.info(logOutput);
                 return receipt.getTransactionHash();
             }
             throw new RuntimeException("Booking cancellation failed on-chain");

@@ -405,8 +405,6 @@ public class ContractInitializer implements CommandLineRunner {
             //     System.err.println("Error in bookingCancelled subscription: " + error.getMessage());
             //     error.printStackTrace();
             // });
-            
-            // ...existing code...
 
             // Management Contract Events
             managementContract.userAddedEventFlowable(
