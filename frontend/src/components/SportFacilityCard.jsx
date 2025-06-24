@@ -68,14 +68,12 @@ const SportFacilityCard = () => {
     setSelectedFacility(null);
   };
 
-  const getPlaceholderImage = (facilityName) => {
-    const placeholders = [
-      'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400',
-      'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400',
-      'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=400'
-    ];
-    const index = facilityName.length % placeholders.length;
-    return placeholders[index];
+  const getFacilityImage = (facility) => {
+    if (facility.imageIPFS && facility.imageIPFS.trim() !== "") {
+      const gateway = import.meta.env.VITE_PINATA_GATEWAY || "https://gateway.pinata.cloud/ipfs/";
+      return `${gateway}${facility.imageIPFS}`;
+    }
+    return "data:image/svg+xml;utf8,<svg width='400' height='200' xmlns='http://www.w3.org/2000/svg'><rect width='400' height='200' fill='%23f3f4f6'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-size='24'>No Image</text></svg>";
   };
 
   // TODO: Show court booking component when facility is selected
@@ -149,7 +147,7 @@ const SportFacilityCard = () => {
           <div key={index} className="facility-card">
             <div className="facility-image">
               <img 
-                src={getPlaceholderImage(facility.name)} 
+                src={getFacilityImage(facility)}
                 alt={facility.name}
                 onError={(e) => {
                   e.target.src = 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400';

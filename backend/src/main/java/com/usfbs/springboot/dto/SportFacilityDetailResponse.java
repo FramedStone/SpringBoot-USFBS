@@ -8,6 +8,7 @@ public class SportFacilityDetailResponse {
     private String location;
     private String status;
     private List<SportFacility.court> courts;
+    private String imageIPFS;
     
     // Constructors
     public SportFacilityDetailResponse() {}
@@ -24,4 +25,12 @@ public class SportFacilityDetailResponse {
     
     public List<SportFacility.court> getCourts() { return courts; }
     public void setCourts(List<SportFacility.court> courts) { this.courts = courts; }
+    
+    public String getImageIPFS() {
+        return imageIPFS;
+    }
+
+    public void setImageIPFS(String imageIPFS) {
+        this.imageIPFS = imageIPFS;
+    }
 }

@@ -9,6 +9,7 @@ public class SportFacilityRequest {
     private String facilityLocation;
     private BigInteger facilityStatus;
     private List<CourtRequest> courts;
+    private String imageIPFS;
     
     // Constructors
     public SportFacilityRequest() {}
@@ -25,6 +26,14 @@ public class SportFacilityRequest {
     
     public List<CourtRequest> getCourts() { return courts; }
     public void setCourts(List<CourtRequest> courts) { this.courts = courts; }
+    
+    public String getImageIPFS() {
+        return imageIPFS;
+    }
+
+    public void setImageIPFS(String imageIPFS) {
+        this.imageIPFS = imageIPFS;
+    }
     
     // Inner class for court data
     public static class CourtRequest {

@@ -134,6 +134,14 @@ public class ContractInitializer implements CommandLineRunner {
         }
     }
 
+    private String safeFormatCourtTime(Object timeValue) {
+        BigInteger bigIntTime = safeToBigInteger(timeValue);
+        if (bigIntTime == null) {
+            return timeValue != null ? timeValue.toString() : "N/A";
+        }
+        return DateTimeUtil.formatSecondsAsTime(bigIntTime);
+    }
+
     private void subscribeToAllEvents() {
         // Enhanced event logging with user context resolution
         
@@ -586,8 +594,8 @@ public class ContractInitializer implements CommandLineRunner {
                                        "    from           = " + event.from + "\n" +
                                        "    facilityName   = " + event.facilityName + "\n" +
                                        "    courtName      = " + event.courtName + "\n" +
-                                       "    earliestTime   = " + safeFormatBookingTime(event.earliestTime) + "\n" +
-                                       "    latestTime     = " + safeFormatBookingTime(event.latestTime) + "\n" +
+                                       "    earliestTime   = " + safeFormatCourtTime(event.earliestTime) + "\n" +
+                                       "    latestTime     = " + safeFormatCourtTime(event.latestTime) + "\n" +
                                        "    status         = " + event.status + "\n" +
                                        "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
                 
@@ -615,10 +623,10 @@ public class ContractInitializer implements CommandLineRunner {
                                        "    facilityName   = " + event.fname + "\n" +
                                        "    oldCourtName   = " + event.cname_ + "\n" +
                                        "    newCourtName   = " + event.cname + "\n" +
-                                       "    oldEarliestTime = " + safeFormatBookingTime(event.earliestTime_) + "\n" +
-                                       "    oldLatestTime  = " + safeFormatBookingTime(event.latestTime_) + "\n" +
-                                       "    newEarliestTime = " + safeFormatBookingTime(event.earliestTime) + "\n" +
-                                       "    newLatestTime  = " + safeFormatBookingTime(event.latestTime) + "\n" +
+                                       "    oldEarliestTime = " + safeFormatCourtTime(event.earliestTime_) + "\n" +
+                                       "    oldLatestTime  = " + safeFormatCourtTime(event.latestTime_) + "\n" +
+                                       "    newEarliestTime = " + safeFormatCourtTime(event.earliestTime) + "\n" +
+                                       "    newLatestTime  = " + safeFormatCourtTime(event.latestTime) + "\n" +
                                        "    oldStatus      = " + event.status_ + "\n" +
                                        "    newStatus      = " + event.status + "\n" +
                                        "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";

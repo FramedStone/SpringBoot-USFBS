@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useWeb3Auth, useWeb3AuthDisconnect } from "@web3auth/modal/react";
+import { useState, useEffect, useCallback } from 'react';
+import { useWeb3Auth } from "@web3auth/modal/react";
 import { useNavigate } from "react-router-dom";
 import Toast from "@components/Toast";
 import Navbar from "@components/Navbar";
@@ -10,8 +10,7 @@ import {
 } from 'lucide-react';
 import '@styles/AdminDashboard.css';
 import { authFetch } from "@utils/authFetch";
-
-const MAX_MEDIA_SIZE_MB = 10;
+import MediaUpload from "@components/MediaUpload";
 
 // Utility functions for date conversion
 const convertDateToTimestamp = (dateString) => {
@@ -765,6 +764,11 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
     );
   };
 
+  // Add this handler:
+  const handleMediaFileChange = (selectedFile) => {
+    setFormData((prev) => ({ ...prev, file: selectedFile }));
+  };
+
   return (
     <>
       <div className="modal-overlay" onClick={handleOverlayClick}>
@@ -791,36 +795,15 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
                 disabled={isSubmitting}
               />
             </div>
-            
-            {/* Show current media when editing */}
-            {initialData && renderCurrentMedia()}
-            
-            <div className="form-group">
-              <label>
-                {initialData ? 'New File' : 'File'}
-                {initialData && (
-                  <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 'normal' }}>
-                    {' '}(Optional - leave empty to keep current file)
-                  </span>
-                )}
-              </label>
-              <input
-                type="file"
-                onChange={handleFileChange}
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                required={!initialData}
-                disabled={isSubmitting}
-              />
-              {initialData && (
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                  Current file will be preserved if no new file is selected
-                </div>
-              )}
-            </div>
 
-            {/* Show new file preview when file is selected */}
-            {renderNewFilePreview()}
-            
+            {/* Use the new component here */}
+            <MediaUpload
+              initialFileCid={initialData?.fileCid}
+              initialFileType={initialData?.mediaType}
+              onFileChange={handleMediaFileChange}
+              disabled={isSubmitting}
+            />
+
             <div className="form-group">
               <label>Date Range</label>
               <div className="date-range-input-container">

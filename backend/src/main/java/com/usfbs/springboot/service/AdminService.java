@@ -18,6 +18,7 @@ import org.web3j.protocol.core.RemoteFunctionCall;
 import org.web3j.tuples.generated.Tuple2;
 import org.web3j.tuples.generated.Tuple3;
 import org.web3j.tuples.generated.Tuple4;
+import org.web3j.tuples.generated.Tuple5;
 import org.web3j.tx.RawTransactionManager;
 
 import java.math.BigInteger;
@@ -563,20 +564,20 @@ public class AdminService {
     }
 
     // Sport Facility CRUD Operations
-    public String addSportFacility(String facilityName, String facilityLocation, 
+    public String addSportFacility(String facilityName, String facilityLocation, String imageIPFS,
                                   BigInteger facilityStatus, List<SportFacility.court> facilityCourts) {
         try {
             TransactionReceipt receipt = sportFacilityContract
-                .addSportFacility(facilityName, facilityLocation, facilityStatus, facilityCourts)
+                .addSportFacility(facilityName, facilityLocation, imageIPFS, facilityStatus, facilityCourts)
                 .send();
-            
+
             if (receipt.isStatusOK()) {
-                List<SportFacility.SportFacilityAddedEventResponse> events = 
+                List<SportFacility.SportFacilityAddedEventResponse> events =
                     SportFacility.getSportFacilityAddedEvents(receipt);
-                
+
                 if (!events.isEmpty()) {
                     SportFacility.SportFacilityAddedEventResponse event = events.get(0);
-                    return String.format("Sport facility '%s' added successfully at location '%s' with %d courts", 
+                    return String.format("Sport facility '%s' added successfully at location '%s' with %d courts",
                         event.facilityName, event.Location, facilityCourts.size());
                 }
             }
@@ -589,22 +590,24 @@ public class AdminService {
 
     public List<SportFacilityResponse> getAllSportFacilities() {
         try {
-            Tuple3<List<String>, List<String>, List<BigInteger>> result = 
+            Tuple4<List<String>, List<String>, List<String>, List<BigInteger>> result = 
                 sportFacilityContract.getAllSportFacility().send();
-            
+
             List<String> names = result.component1();
             List<String> locations = result.component2();
-            List<BigInteger> statuses = result.component3();
-            
+            List<String> imageIPFSList = result.component3();
+            List<BigInteger> statuses = result.component4();
+
             List<SportFacilityResponse> facilities = new ArrayList<>();
             for (int i = 0; i < names.size(); i++) {
                 SportFacilityResponse facility = new SportFacilityResponse();
                 facility.setName(names.get(i));
                 facility.setLocation(locations.get(i));
+                facility.setImageIPFS(imageIPFSList.get(i));
                 facility.setStatus(getStatusString(statuses.get(i)));
                 facilities.add(facility);
             }
-            
+
             return facilities;
         } catch (Exception e) {
             logger.error("Error getting all sport facilities: {}", e.getMessage());
@@ -614,79 +617,65 @@ public class AdminService {
 
     public SportFacilityDetailResponse getSportFacility(String facilityName) {
         try {
-            Tuple4<String, String, BigInteger, List<SportFacility.court>> result = 
+            org.web3j.tuples.generated.Tuple5<String, String, String, BigInteger, List<SportFacility.court>> result =
                 sportFacilityContract.getSportFacility(facilityName).send();
-            
-            SportFacilityDetailResponse facility = new SportFacilityDetailResponse();
-            facility.setName(result.component1());
-            facility.setLocation(result.component2());
-            facility.setStatus(getStatusString(result.component3()));
-            facility.setCourts(result.component4());
-            
-            return facility;
+
+        SportFacilityDetailResponse facility = new SportFacilityDetailResponse();
+        facility.setName(result.component1());
+        facility.setLocation(result.component2());
+        facility.setImageIPFS(result.component3()); // Make sure your DTO has this field
+        facility.setStatus(getStatusString(result.component4()));
+        facility.setCourts(result.component5());
+
+        return facility;
         } catch (Exception e) {
             logger.error("Error getting sport facility {}: {}", facilityName, e.getMessage());
             throw new RuntimeException("Failed to get sport facility: " + e.getMessage());
         }
     }
 
-    public String updateSportFacilityName(String oldFacilityName, String newFacilityName) {
+    /**
+     * Updates an existing sport facility
+     */
+    public String updateSportFacility(String oldName, String newName, String newLocation, String newImageIPFS, BigInteger newStatus) {
         try {
             TransactionReceipt receipt = sportFacilityContract
-                .updateSportFacilityName(oldFacilityName, newFacilityName)
+                .updateSportFacility(oldName, newName, newLocation, newImageIPFS, newStatus)
                 .send();
-            
             if (receipt.isStatusOK()) {
-                return String.format("Sport facility name updated from '%s' to '%s'", 
-                    oldFacilityName, newFacilityName);
+                return String.format("Sport facility '%s' updated successfully", oldName);
             }
-            return "Failed to update sport facility name";
+            return "Failed to update sport facility";
         } catch (Exception e) {
-            logger.error("Error updating sport facility name: {}", e.getMessage());
-            throw new RuntimeException("Failed to update sport facility name: " + e.getMessage());
+            logger.error("Error updating sport facility: {}", e.getMessage());
+            throw new RuntimeException("Failed to update sport facility: " + e.getMessage());
         }
     }
 
-    public String updateSportFacilityLocation(String facilityName, String newLocation) {
-        try {
-            TransactionReceipt receipt = sportFacilityContract
-                .updateSportFacilityLocation(facilityName, newLocation)
-                .send();
-            
-            if (receipt.isStatusOK()) {
-                return String.format("Sport facility '%s' location updated to '%s'", 
-                    facilityName, newLocation);
-            }
-            return "Failed to update sport facility location";
-        } catch (Exception e) {
-            logger.error("Error updating sport facility location: {}", e.getMessage());
-            throw new RuntimeException("Failed to update sport facility location: " + e.getMessage());
-        }
-    }
-
-    public String updateSportFacilityStatus(String facilityName, BigInteger status) {
-        try {
-            TransactionReceipt receipt = sportFacilityContract
-                .updateSportFacilityStatus(facilityName, status)
-                .send();
-            
-            if (receipt.isStatusOK()) {
-                return String.format("Sport facility '%s' status updated to '%s'", 
-                    facilityName, getStatusString(status));
-            }
-            return "Failed to update sport facility status";
-        } catch (Exception e) {
-            logger.error("Error updating sport facility status: {}", e.getMessage());
-            throw new RuntimeException("Failed to update sport facility status: " + e.getMessage());
-        }
-    }
-
+    /**
+     * Deletes a sport facility by name and cleans up its image from IPFS
+     */
     public String deleteSportFacility(String facilityName) {
         try {
+            // 1. Get facility details to retrieve image IPFS CID
+            SportFacilityDetailResponse facility = getSportFacility(facilityName);
+            String imageIPFS = facility.getImageIPFS();
+
+            // 2. Delete facility from blockchain
             TransactionReceipt receipt = sportFacilityContract
                 .deleteSportFacility(facilityName)
                 .send();
-            
+
+            // 3. Unpin image from Pinata/IPFS if present
+            if (imageIPFS != null && !imageIPFS.trim().isEmpty()) {
+                try {
+                    pinataUtil.unpinFromIPFS(imageIPFS);
+                    logger.info("Unpinned facility image from IPFS: {}", imageIPFS);
+                } catch (Exception e) {
+                    logger.warn("Failed to unpin facility image from IPFS: {}", e.getMessage());
+                }
+            }
+
             if (receipt.isStatusOK()) {
                 return String.format("Sport facility '%s' deleted successfully", facilityName);
             }
@@ -697,240 +686,96 @@ public class AdminService {
         }
     }
 
-    public List<SportFacility.court> getAllCourts(String facilityName) {
+    /**
+     * Adds one or more courts to a sport facility
+     */
+    public String addCourt(String facilityName, List<SportFacility.court> courts) {
         try {
-            List<SportFacility.court> courts = sportFacilityContract.getAllCourts(facilityName).send();
-            logger.info("Successfully retrieved {} courts for facility: {}", courts.size(), facilityName);
-            return courts;
+            TransactionReceipt receipt = sportFacilityContract
+                .addCourt(facilityName, courts)
+                .send();
+            if (receipt.isStatusOK()) {
+                return String.format("Court(s) added to facility '%s' successfully", facilityName);
+            }
+            return "Failed to add court(s)";
         } catch (Exception e) {
-            logger.error("Error getting courts for facility {}: {}", facilityName, e.getMessage());
-            throw new RuntimeException("Failed to get courts for facility: " + e.getMessage());
+            logger.error("Error adding court(s): {}", e.getMessage());
+            throw new RuntimeException("Failed to add court(s): " + e.getMessage());
         }
     }
 
-    public SportFacility.court getCourt(String facilityName, String courtName) {
+    // Get a single court by facility and court name
+    public Map<String, Object> getCourt(String facilityName, String courtName) {
         try {
-            SportFacility.court court = sportFacilityContract.getCourt(facilityName, courtName).send();
-            logger.info("Successfully retrieved court {} from facility: {}", courtName, facilityName);
-            return court;
+            Tuple4<String, BigInteger, BigInteger, BigInteger> tuple =
+                sportFacilityContract.getCourt(facilityName, courtName).send();
+
+        Map<String, Object> courtMap = new HashMap<>();
+        courtMap.put("name", tuple.component1());
+        courtMap.put("earliestTime", tuple.component2());
+        courtMap.put("latestTime", tuple.component3());
+        courtMap.put("status", tuple.component4());
+        return courtMap;
         } catch (Exception e) {
-            logger.error("Error getting court {} from facility {}: {}", courtName, facilityName, e.getMessage());
+            logger.error("Error getting court: {}", e.getMessage());
             throw new RuntimeException("Failed to get court: " + e.getMessage());
         }
     }
 
-    public Map<String, Object> getCourtAvailableTimeRange(String facilityName, String courtName) throws Exception {
+    // Get all courts for a facility
+    public List<SportFacility.court> getAllCourts(String facilityName) {
         try {
-            String adminAddress = rawTransactionManager.getFromAddress();
-            
-            // Try to call getAvailableTimeRange_ first (only works for OPEN courts)
-            try {
-                Tuple2<BigInteger, BigInteger> timeRange = sportFacilityContract
-                    .getAvailableTimeRange_(facilityName, courtName, adminAddress)
-                    .send();
-                
-                BigInteger earliestTime = timeRange.component1();
-                BigInteger latestTime = timeRange.component2();
-                
-                String earliestTimeStr = secondsToTimeString(earliestTime.longValue());
-                String latestTimeStr = secondsToTimeString(latestTime.longValue());
-                
-                logger.info("Retrieved time range for OPEN court {} in facility {}: {} - {}", 
-                           courtName, facilityName, earliestTimeStr, latestTimeStr);
-                
-                Map<String, Object> result = new HashMap<>();
-                result.put("facilityName", facilityName);
-                result.put("courtName", courtName);
-                result.put("earliestTime", earliestTime.longValue());
-                result.put("latestTime", latestTime.longValue());
-                result.put("earliestTimeStr", earliestTimeStr);
-                result.put("latestTimeStr", latestTimeStr);
-                result.put("status", "OPEN");
-                result.put("available", true);
-                
-                return result;
-                
-            } catch (Exception e) {
-                logger.warn("getAvailableTimeRange_ failed for court {} in facility {}: {}. Using getAllCourts fallback method.", 
-                           courtName, facilityName, e.getMessage());
-                
-                // Fallback: Get all courts and find the specific court
-                List<SportFacility.court> allCourts = sportFacilityContract.getAllCourts(facilityName).send();
-                
-                SportFacility.court targetCourt = null;
-                for (Object courtObj : allCourts) {
-                    try {
-                        if (courtObj instanceof SportFacility.court) {
-                            SportFacility.court court = (SportFacility.court) courtObj;
-                            if (court.name.equals(courtName)) {
-                                targetCourt = court;
-                                break;
-                            }
-                        } else {
-                            String name = extractCourtFieldString(courtObj, "name");
-                            if (courtName.equals(name)) {
-                                targetCourt = createCourtFromObject(courtObj);
-                                break;
-                            }
-                        }
-                    } catch (ClassCastException cce) {
-                        try {
-                            String name = extractCourtFieldString(courtObj, "name");
-                            if (courtName.equals(name)) {
-                                targetCourt = createCourtFromObject(courtObj);
-                                break;
-                            }
-                        } catch (Exception reflectionEx) {
-                            logger.warn("Failed to extract court data using reflection: {}", reflectionEx.getMessage());
-                            continue;
-                        }
-                    }
-                }
-                
-                if (targetCourt == null) {
-                    throw new Exception("Court '" + courtName + "' not found in facility '" + facilityName + "'");
-                }
-                
-                String earliestTimeStr = secondsToTimeString(targetCourt.earliestTime.longValue());
-                String latestTimeStr = secondsToTimeString(targetCourt.latestTime.longValue());
-                String courtStatus = getStatusString(targetCourt.status);
-                
-                logger.info("Retrieved court details via getAllCourts fallback for {} court {} in facility {}: {} - {}", 
-                           courtStatus, courtName, facilityName, earliestTimeStr, latestTimeStr);
-                
-                Map<String, Object> result = new HashMap<>();
-                result.put("facilityName", facilityName);
-                result.put("courtName", targetCourt.name);
-                result.put("earliestTime", targetCourt.earliestTime.longValue());
-                result.put("latestTime", targetCourt.latestTime.longValue());
-                result.put("earliestTimeStr", earliestTimeStr);
-                result.put("latestTimeStr", latestTimeStr);
-                result.put("status", courtStatus);
-                result.put("available", courtStatus.equals("OPEN"));
-                
-                return result;
-            }
-            
+            return sportFacilityContract.getAllCourts(facilityName).send();
         } catch (Exception e) {
-            logger.error("Error getting court information for {} in facility {}: {}", 
-                        courtName, facilityName, e.getMessage());
-            throw new Exception("Failed to get court information: " + e.getMessage());
+            logger.error("Error getting all courts: {}", e.getMessage());
+            throw new RuntimeException("Failed to get all courts: " + e.getMessage());
         }
     }
 
     /**
-     * Extracts string field from court object using reflection to handle classloader issues
+     * Gets the available time range for a court in a facility
      */
-    private String extractCourtFieldString(Object courtObj, String fieldName) throws Exception {
+    public List<BigInteger> getAvailableTimeRange(String facilityName, String courtName) {
         try {
-            Class<?> courtClass = courtObj.getClass();
-            java.lang.reflect.Field field = courtClass.getDeclaredField(fieldName);
-            field.setAccessible(true);
-            return (String) field.get(courtObj);
+            // Returns a Tuple2<BigInteger, BigInteger>
+            org.web3j.tuples.generated.Tuple2<BigInteger, BigInteger> result =
+                sportFacilityContract.getAvailableTimeRange(facilityName, courtName).send();
+            List<BigInteger> timeRange = new ArrayList<>();
+            timeRange.add(result.component1());
+            timeRange.add(result.component2());
+            return timeRange;
         } catch (Exception e) {
-            throw new Exception("Failed to extract field " + fieldName + ": " + e.getMessage());
+            logger.error("Error getting available time range: {}", e.getMessage());
+            throw new RuntimeException("Failed to get available time range: " + e.getMessage());
         }
     }
 
-    /**
-     * Extracts BigInteger field from court object using reflection
-     */
-    private BigInteger extractCourtFieldBigInteger(Object courtObj, String fieldName) throws Exception {
+    public String updateCourt(String facilityName, String oldCourtName, String newCourtName,
+                         BigInteger earliestTime, BigInteger latestTime, BigInteger status) {
         try {
-            Class<?> courtClass = courtObj.getClass();
-            java.lang.reflect.Field field = courtClass.getDeclaredField(fieldName);
-            field.setAccessible(true);
-            return (BigInteger) field.get(courtObj);
-        } catch (Exception e) {
-            throw new Exception("Failed to extract field " + fieldName + ": " + e.getMessage());
-        }
-    }
-
-    /**
-     * Creates a SportFacility.court object from a potentially different classloader object
-     */
-    private SportFacility.court createCourtFromObject(Object courtObj) throws Exception {
-        try {
-            String name = extractCourtFieldString(courtObj, "name");
-            BigInteger earliestTime = extractCourtFieldBigInteger(courtObj, "earliestTime");
-            BigInteger latestTime = extractCourtFieldBigInteger(courtObj, "latestTime");
-            BigInteger status = extractCourtFieldBigInteger(courtObj, "status");
-            
-            logger.debug("Creating court object: name={}, status={}", name, status);
-            
-            return new SportFacility.court(name, earliestTime, latestTime, status);
-        } catch (Exception e) {
-            logger.error("Failed to create court from object: {}", e.getMessage());
-            throw new Exception("Failed to create court from object: " + e.getMessage());
-        }
-    }
-
-    private String secondsToTimeString(long seconds) {
-        long hours = seconds / 3600;
-        long minutes = (seconds % 3600) / 60;
-        return String.format("%02d:%02d", hours, minutes);
-    }
-
-    public String addCourtsToFacility(String facilityName, List<SportFacility.court> courts) {
-        try {
-            // Validate input to prevent duplicate calls
-            if (courts == null || courts.isEmpty()) {
-                throw new RuntimeException("No courts provided for addition");
-            }
-            
-            // Create request signature for deduplication
-            String requestSignature = facilityName + "-" + courts.size() + "-"+ 
-                courts.stream().map(c -> c.name).sorted().reduce("", String::concat);
-            long currentTime = System.currentTimeMillis();
-            
-            // Check for recent duplicate requests (within 5 seconds)
-            Long lastRequestTime = recentRequests.get(requestSignature);
-            if (lastRequestTime != null && (currentTime - lastRequestTime) < 5000) {
-                logger.warn("Duplicate request detected for facility '{}' with {} courts. Ignoring.", 
-                           facilityName, courts.size());
-                return "Duplicate request ignored";
-            }
-            
-            // Store request timestamp
-            recentRequests.put(requestSignature, currentTime);
-            
-            // Clean up old requests (older than 30 seconds)
-            recentRequests.entrySet().removeIf(entry -> 
-                (currentTime - entry.getValue()) > 30000
-            );
-            
-            logger.info("Processing court addition for facility '{}' with {} court(s)", 
-                       facilityName, courts.size());
-            
-            // Single transaction call
             TransactionReceipt receipt = sportFacilityContract
-                .addCourt(facilityName, courts)
+                .updateCourt(facilityName, oldCourtName, newCourtName, earliestTime, latestTime, status)
                 .send();
-            
             if (receipt.isStatusOK()) {
-                logger.info("Courts added successfully to facility '{}'", facilityName);
-                
-                return String.format("Successfully added %d court(s) to facility '%s'", 
-                    courts.size(), facilityName);
+                return String.format("Court '%s' updated successfully", oldCourtName);
             }
-            
-            return "Failed to add courts to facility";
-            
+            return "Failed to update court";
         } catch (Exception e) {
-            logger.error("Error adding courts to facility '{}': {}", facilityName, e.getMessage());
-            throw new RuntimeException("Failed to add courts: " + e.getMessage());
+            logger.error("Error updating court: {}", e.getMessage());
+            throw new RuntimeException("Failed to update court: " + e.getMessage());
         }
     }
 
+    /**
+     * Deletes a court from a sport facility
+     */
     public String deleteCourt(String facilityName, String courtName) {
         try {
             TransactionReceipt receipt = sportFacilityContract
                 .deleteCourt(facilityName, courtName)
                 .send();
-            
             if (receipt.isStatusOK()) {
-                return String.format("Court '%s' deleted successfully from facility '%s'", 
-                    courtName, facilityName);
+                return String.format("Court '%s' deleted successfully from facility '%s'", courtName, facilityName);
             }
             return "Failed to delete court";
         } catch (Exception e) {
@@ -939,213 +784,6 @@ public class AdminService {
         }
     }
 
-    public String updateCourtTime(String facilityName, String courtName, 
-                                 Long earliestTime, Long latestTime) {
-        try {
-            TransactionReceipt receipt = sportFacilityContract
-                .updateCourtTime(facilityName, courtName, 
-                    BigInteger.valueOf(earliestTime), BigInteger.valueOf(latestTime))
-                .send();
-            
-            if (receipt.isStatusOK()) {
-                return String.format("Court '%s' time updated successfully", courtName);
-            }
-            return "Failed to update court time";
-        } catch (Exception e) {
-            logger.error("Error updating court time: {}", e.getMessage());
-            throw new RuntimeException("Failed to update court time: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Updates court status (OPEN, CLOSED, MAINTENANCE, BOOKED)
-     */
-    public String updateCourtStatus(String facilityName, String courtName, String status) {
-        try {
-            BigInteger statusValue = getStatusValueFromString(status);
-            
-            TransactionReceipt receipt = sportFacilityContract
-                .updateCourtStatus(facilityName, courtName, statusValue)
-                .send();
-            
-            if (receipt.isStatusOK()) {
-                logger.info("Court {} status updated to {} in facility {}", 
-                           courtName, status, facilityName);
-                return String.format("Court '%s' status updated to %s successfully", courtName, status);
-            }
-            return "Failed to update court status";
-        } catch (Exception e) {
-            logger.error("Error updating court status: {}", e.getMessage());
-            throw new RuntimeException("Failed to update court status: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Converts string status to BigInteger for smart contract
-     */
-    private BigInteger getStatusValueFromString(String status) {
-        switch (status.toUpperCase()) {
-            case "OPEN": return BigInteger.valueOf(0);
-            case "CLOSED": return BigInteger.valueOf(1);
-            case "MAINTENANCE": return BigInteger.valueOf(2);
-            case "BOOKED": return BigInteger.valueOf(3);
-            default: throw new IllegalArgumentException("Invalid status: " + status);
-        }
-    }
-
-    /**
-     * Gets booked time slots for a specific court
-     */
-    public List<Map<String, Object>> getBookedTimeSlots(String facilityName, String courtName) {
-        try {
-            List<Object> bookedSlots = bookingContract.getBookedtimeSlots(facilityName, courtName).send();
-            
-            List<Map<String, Object>> formattedSlots = new ArrayList<>();
-            
-            for (Object slot : bookedSlots) {
-                try {
-                    Map<String, Object> timeSlot = new HashMap<>();
-                    
-                    if (slot instanceof Booking.timeSlot) {
-                        Booking.timeSlot bookingSlot = (Booking.timeSlot) slot;
-                        timeSlot.put("startTime", bookingSlot.startTime.longValue());
-                        timeSlot.put("endTime", bookingSlot.endTime.longValue());
-                    } else {
-                        timeSlot = extractTimeSlotFromObject(slot);
-                    }
-                    
-                    long startSeconds = (Long) timeSlot.get("startTime");
-                    long endSeconds = (Long) timeSlot.get("endTime");
-                    
-                    timeSlot.put("startTimeStr", secondsToTimeString(startSeconds));
-                    timeSlot.put("endTimeStr", secondsToTimeString(endSeconds));
-                    timeSlot.put("startHour", (int) (startSeconds / 3600));
-                    timeSlot.put("endHour", (int) (endSeconds / 3600));
-                    
-                    formattedSlots.add(timeSlot);
-                    
-                } catch (Exception e) {
-                    logger.warn("Failed to process booked time slot: {}", e.getMessage());
-                    continue;
-                }
-            }
-            
-            logger.info("Retrieved {} booked time slots for court {} in facility {}", 
-                       formattedSlots.size(), courtName, facilityName);
-            return formattedSlots;
-            
-        } catch (Exception e) {
-            logger.error("Error getting booked time slots for court {} in facility {}: {}", 
-                        courtName, facilityName, e.getMessage());
-            return new ArrayList<>();
-        }
-    }
-
-    /**
-     * Extracts time slot data from object using reflection
-     */
-    private Map<String, Object> extractTimeSlotFromObject(Object slotObj) throws Exception {
-        try {
-            Class<?> slotClass = slotObj.getClass();
-            java.lang.reflect.Field startTimeField = slotClass.getDeclaredField("startTime");
-            java.lang.reflect.Field endTimeField = slotClass.getDeclaredField("endTime");
-            
-            startTimeField.setAccessible(true);
-            endTimeField.setAccessible(true);
-            
-            BigInteger startTime = (BigInteger) startTimeField.get(slotObj);
-            BigInteger endTime = (BigInteger) endTimeField.get(slotObj);
-            
-            Map<String, Object> timeSlot = new HashMap<>();
-            timeSlot.put("startTime", startTime.longValue());
-            timeSlot.put("endTime", endTime.longValue());
-            
-            return timeSlot;
-        } catch (Exception e) {
-            throw new Exception("Failed to extract time slot data: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Enhanced method that includes booked time slots with court time range
-     */
-    public Map<String, Object> getCourtAvailableTimeRangeWithBookings(String facilityName, String courtName) throws Exception {
-        try {
-            Map<String, Object> result = getCourtAvailableTimeRange(facilityName, courtName);
-            
-            List<Map<String, Object>> bookedSlots = getBookedTimeSlots(facilityName, courtName);
-            result.put("bookedTimeSlots", bookedSlots);
-            
-            Map<String, String> timeSlotAvailability = generateTimeSlotAvailability(result, bookedSlots);
-            result.put("timeSlotAvailability", timeSlotAvailability);
-            
-            logger.info("Retrieved complete court information with {} booked slots for court {} in facility {}", 
-                       bookedSlots.size(), courtName, facilityName);
-            
-            return result;
-            
-        } catch (Exception e) {
-            logger.error("Error getting court information with bookings for {} in facility {}: {}", 
-                        courtName, facilityName, e.getMessage());
-            throw new Exception("Failed to get court information with bookings: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Generates hourly time slot availability based on court hours and bookings
-     */
-    private Map<String, String> generateTimeSlotAvailability(Map<String, Object> courtInfo, List<Map<String, Object>> bookedSlots) {
-        Map<String, String> availability = new HashMap<>();
-    
-        try {
-        long earliestTime = (Long) courtInfo.get("earliestTime");
-        long latestTime = (Long) courtInfo.get("latestTime");
-        String courtStatus = (String) courtInfo.get("status");
-        
-        int startHour = (int) (earliestTime / 3600);
-        int endHour = (int) (latestTime / 3600);
-        
-        for (int hour = 0; hour <= 23; hour++) {
-            String timeSlot = String.format("%02d:00", hour);
-            
-            if (hour < startHour || hour > endHour) {
-                availability.put(timeSlot, "UNAVAILABLE");
-                continue;
-            }
-            
-            if (!"OPEN".equals(courtStatus)) {
-                availability.put(timeSlot, courtStatus);
-                continue;
-            }
-            
-            // Create effectively final variables for lambda
-            final int currentHour = hour;
-            boolean isBooked = bookedSlots.stream().anyMatch(slot -> {
-                Integer startHourObj = (Integer) slot.get("startHour");
-                Integer endHourObj = (Integer) slot.get("endHour");
-                int slotStartHour = startHourObj != null ? startHourObj : 0;
-                int slotEndHour = endHourObj != null ? endHourObj : 0;
-                return currentHour >= slotStartHour && currentHour < slotEndHour;
-            });
-            
-            availability.put(timeSlot, isBooked ? "BOOKED" : "AVAILABLE");
-        }
-        
-    } catch (Exception e) {
-        logger.error("Error generating time slot availability: {}", e.getMessage());
-        // Return default unavailable if error occurs
-        for (int hour = 0; hour <= 23; hour++) {
-            String timeSlot = String.format("%02d:00", hour);
-            availability.put(timeSlot, "UNAVAILABLE");
-        }
-    }
-    
-    return availability;
-    }
-
-    /**
-     * Extracts user address from User struct object
-     */
     private String _extractUserAddress(Object userStruct) throws Exception {
         try {
             Class<?> userClass = userStruct.getClass();
@@ -1174,595 +812,43 @@ public class AdminService {
         }
     }
 
+    private String _getFileUrl(String cid) {
+        // TODO: Get gateway URL from environment variable
+        String pinataGateway = "gateway.pinata.cloud"; 
+        return String.format("https://%s/ipfs/%s", pinataGateway, cid);
+    }
+
     /**
-     * Creates a booking for admin with IPFS integration
+     * Formats duration in seconds to human-readable string
      */
-    public String createBooking(String facilityName, String courtName, String userAddress,
-                          long startTime, long endTime, String eventDescription,
-                          MultipartFile receiptFile) throws Exception {
-    try {
-        // Validate inputs
-        if (facilityName == null || facilityName.trim().isEmpty()) {
-            throw new Exception("Facility name is required");
+    private String _formatDuration(long durationSeconds) {
+        if (durationSeconds <= 0) {
+            return "0 hours";
         }
-        if (courtName == null || courtName.trim().isEmpty()) {
-            throw new Exception("Court name is required");
+        
+        long hours = durationSeconds / 3600;
+        long minutes = (durationSeconds % 3600) / 60;
+        
+        if (hours > 0 && minutes > 0) {
+            return String.format("%d hour%s %d minute%s", 
+                hours, hours == 1 ? "" : "s", 
+                minutes, minutes == 1 ? "" : "s");
+        } else if (hours > 0) {
+            return String.format("%d hour%s", hours, hours == 1 ? "" : "s");
+        } else {
+            return String.format("%d minute%s", minutes, minutes == 1 ? "" : "s");
         }
-        if (userAddress == null || userAddress.trim().isEmpty()) {
-            throw new Exception("User address is required");
-        }
-        if (startTime >= endTime) {
-            throw new Exception("End time must be after start time");
-        }
-        if (eventDescription == null || eventDescription.trim().isEmpty()) {
-            throw new Exception("Event description is required");
-        }
+    }
 
-        // Step 1: Upload receipt file to IPFS first
-        String receiptFileCid = null;
-        if (receiptFile != null && !receiptFile.isEmpty()) {
-            receiptFileCid = pinataUtil.uploadFileToIPFS(
-                receiptFile.getBytes(),
-                receiptFile.getOriginalFilename()
-            );
-            logger.info("Receipt file uploaded to IPFS with CID: {}", receiptFileCid);
-        }
-
-        // Step 2: Create booking manifest with initial data using HashMap
-        Map<String, Object> bookingManifest = new HashMap<>();
-        bookingManifest.put("facilityName", facilityName);
-        bookingManifest.put("courtName", courtName);
-        bookingManifest.put("userAddress", userAddress);
-        bookingManifest.put("startTime", startTime);
-        bookingManifest.put("endTime", endTime);
-        bookingManifest.put("eventDescription", eventDescription);
-        bookingManifest.put("receiptFileCid", receiptFileCid != null ? receiptFileCid : "null");
-        bookingManifest.put("status", "PENDING");
-        bookingManifest.put("createdAt", System.currentTimeMillis());
-
-        // Step 3: Upload manifest to IPFS
-        String manifestFileName = sanitizeFileName(
-            String.format("booking-%s-%s-%d", facilityName, courtName, System.currentTimeMillis())
-        ) + "-manifest.json";
-        String manifestCid = pinataUtil.uploadJsonToIPFS(bookingManifest, manifestFileName);
-        logger.info("Booking manifest uploaded to IPFS with CID: {}", manifestCid);
-
-        // Step 4: Create timeSlot object for blockchain call
-        Booking.timeSlot timeSlot = new Booking.timeSlot(
-            BigInteger.valueOf(startTime),
-            BigInteger.valueOf(endTime)
-        );
-
-        // Step 5: Call blockchain function with correct parameters
-        TransactionReceipt receipt = bookingContract.createBooking_(
-            facilityName,
-            courtName,
-            userAddress,
-            eventDescription,
-            timeSlot
-        ).send();
-
-        if (!receipt.isStatusOK()) {
-            // Cleanup IPFS files if blockchain transaction failed
-            try {
-                pinataUtil.unpinFromIPFS(manifestCid);
-                if (receiptFileCid != null) {
-                    pinataUtil.unpinFromIPFS(receiptFileCid);
-                }
-                logger.warn("Cleaned up IPFS files due to failed blockchain transaction");
-            } catch (Exception e) {
-                logger.warn("Failed to cleanup IPFS files: {}", e.getMessage());
-            }
-            throw new Exception("Blockchain transaction failed");
-        }
-
-        // Step 6: Update IPFS manifest with successful blockchain data using HashMap
-        Map<String, Object> updatedManifest = new HashMap<>();
-        updatedManifest.put("facilityName", facilityName);
-        updatedManifest.put("courtName", courtName);
-        updatedManifest.put("userAddress", userAddress);
-        updatedManifest.put("startTime", startTime);
-        updatedManifest.put("endTime", endTime);
-        updatedManifest.put("eventDescription", eventDescription);
-        updatedManifest.put("receiptFileCid", receiptFileCid != null ? receiptFileCid : "null");
-        updatedManifest.put("status", "CONFIRMED");
-        updatedManifest.put("blockchainTxHash", receipt.getTransactionHash());
-        updatedManifest.put("blockNumber", receipt.getBlockNumber().toString());
-        updatedManifest.put("createdAt", System.currentTimeMillis());
-        updatedManifest.put("confirmedAt", System.currentTimeMillis());
-
-        // Step 7: Upload updated manifest to IPFS
-        String updatedManifestFileName = sanitizeFileName(
-            String.format("booking-confirmed-%s-%s-%d", facilityName, courtName, System.currentTimeMillis())
-        ) + "-manifest.json";
-        String updatedManifestCid = pinataUtil.uploadJsonToIPFS(updatedManifest, updatedManifestFileName);
-
-        // Step 8: Cleanup old manifest
+    public String uploadFacilityImageToIPFS(MultipartFile imageFile) {
         try {
-            pinataUtil.unpinFromIPFS(manifestCid);
-            logger.info("Cleaned up old manifest CID: {}", manifestCid);
+            return pinataUtil.uploadFileToIPFS(
+                imageFile.getBytes(),
+                imageFile.getOriginalFilename()
+            );
         } catch (Exception e) {
-            logger.warn("Failed to cleanup old manifest: {}", e.getMessage());
+            logger.error("Error uploading facility image to IPFS: {}", e.getMessage());
+            throw new RuntimeException("Failed to upload facility image to IPFS: " + e.getMessage());
         }
-
-        logger.info("Booking created successfully for user {} at {}/{} with updated manifest CID: {}", 
-                   userAddress, facilityName, courtName, updatedManifestCid);
-
-        return receipt.getTransactionHash();
-
-    } catch (Exception e) {
-        logger.error("Error creating booking: {}", e.getMessage());
-        throw new Exception("Failed to create booking: " + e.getMessage());
     }
 }
-
-/**
- * Gets booking details with IPFS data integration
- */
-public Map<String, Object> getBookingWithDetails(String manifestCid) throws Exception {
-    try {
-        // Fetch manifest from IPFS
-        String manifestJson = pinataUtil.fetchFromIPFS(manifestCid);
-        Map<String, Object> manifest = _parseJsonToMap(manifestJson);
-
-        // Add receipt file URL if available
-        String receiptFileCid = (String) manifest.get("receiptFileCid");
-        if (receiptFileCid != null && !receiptFileCid.equals("null")) {
-            String receiptUrl = _getFileUrl(receiptFileCid);
-            manifest.put("receiptFileUrl", receiptUrl);
-        }
-
-        // Format time fields for readability
-        Object startTime = manifest.get("startTime");
-        Object endTime = manifest.get("endTime");
-        if (startTime instanceof Number && endTime instanceof Number) {
-            manifest.put("startTimeStr", secondsToTimeString(((Number) startTime).longValue()));
-            manifest.put("endTimeStr", secondsToTimeString(((Number) endTime).longValue()));
-        }
-
-        logger.info("Retrieved booking details from IPFS manifest: {}", manifestCid);
-        return manifest;
-
-    } catch (Exception e) {
-        logger.error("Error getting booking details from IPFS: {}", e.getMessage());
-        throw new Exception("Failed to get booking details: " + e.getMessage());
-    }
-}
-
-/**
- * Parses JSON string to Map for booking manifest processing
- */
-private Map<String, Object> _parseJsonToMap(String jsonString) throws Exception {
-    try {
-        // Simple JSON parser implementation using existing PinataManifest pattern
-        Map<String, Object> result = new HashMap<>();
-        
-        // Remove curly braces and split by commas
-        String cleaned = jsonString.replaceAll("[{}]", "").trim();
-        String[] pairs = cleaned.split(",");
-        
-        for (String pair : pairs) {
-            String[] keyValue = pair.split(":", 2);
-            if (keyValue.length == 2) {
-                String key = keyValue[0].trim().replaceAll("\"", "");
-                String value = keyValue[1].trim().replaceAll("\"", "");
-                
-                // Try to parse numbers
-                try {
-                    if (value.contains(".")) {
-                        result.put(key, Double.parseDouble(value));
-                    } else {
-                        result.put(key, Long.parseLong(value));
-                    }
-                } catch (NumberFormatException e) {
-                    result.put(key, value);
-                }
-            }
-        }
-        
-        return result;
-    } catch (Exception e) {
-        throw new Exception("Failed to parse JSON to Map: " + e.getMessage());
-    }
-}
-
-/**
- * Gets public file URL for IPFS content
- */
-private String _getFileUrl(String cid) {
-    // TODO: Get gateway URL from environment variable
-    String pinataGateway = "gateway.pinata.cloud"; 
-    return String.format("https://%s/ipfs/%s", pinataGateway, cid);
-}
-
-/**
- * Gets a specific booking by ID for admin using blockchain contract
- */
-public Map<String, Object> getBookingById(Long bookingId) throws Exception {
-    try {
-        if (bookingId == null || bookingId < 0) {
-            throw new Exception("Valid booking ID is required");
-        }
-
-        // Call blockchain function to get booking transaction using admin method
-        Booking.bookingTransaction booking = bookingContract.getBooking_(BigInteger.valueOf(bookingId)).send();
-        
-        Map<String, Object> bookingDetails = new HashMap<>();
-        bookingDetails.put("bookingId", booking.bookingId.longValue());
-        bookingDetails.put("owner", booking.owner);
-        bookingDetails.put("facilityName", booking.facilityName);
-        bookingDetails.put("courtName", booking.courtName);
-        bookingDetails.put("note", booking.note);
-        bookingDetails.put("status", _getBookingStatusString(booking.status));
-        bookingDetails.put("startTime", booking.time.startTime.longValue());
-        bookingDetails.put("endTime", booking.time.endTime.longValue());
-        bookingDetails.put("startTimeStr", secondsToTimeString(booking.time.startTime.longValue()));
-        bookingDetails.put("endTimeStr", secondsToTimeString(booking.time.endTime.longValue()));
-        bookingDetails.put("ipfsHash", booking.ipfsHash);
-
-        // Add user email if available
-        String email = authService.getUserEmailByAddress(booking.owner);
-        bookingDetails.put("userEmail", email);
-        
-        // Calculate duration
-        long duration = booking.time.endTime.longValue() - booking.time.startTime.longValue();
-        bookingDetails.put("duration", duration);
-        bookingDetails.put("durationStr", _formatDuration(duration));
-
-        // Try to fetch additional details from IPFS if hash is available
-        if (booking.ipfsHash != null && !booking.ipfsHash.trim().isEmpty()) {
-            try {
-                Map<String, Object> ipfsDetails = getBookingWithDetails(booking.ipfsHash);
-                bookingDetails.put("ipfsDetails", ipfsDetails);
-                
-                // Add receipt file URL if available
-                String receiptUrl = (String) ipfsDetails.get("receiptFileUrl");
-                if (receiptUrl != null) {
-                    bookingDetails.put("receiptFileUrl", receiptUrl);
-                }
-            } catch (Exception e) {
-                logger.warn("Failed to fetch IPFS details for booking {}: {}", bookingId, e.getMessage());
-                bookingDetails.put("ipfsDetails", null);
-                bookingDetails.put("ipfsError", e.getMessage());
-            }
-        }
-
-        logger.info("Retrieved booking details for ID: {}", bookingId);
-        return bookingDetails;
-
-    } catch (Exception e) {
-        logger.error("Error getting booking {}: {}", bookingId, e.getMessage());
-        throw new Exception("Failed to get booking: " + e.getMessage());
-    }
-}
-
-
-/**
- * Attaches a note to an existing booking
- */
-public String attachBookingNote(Long bookingId, String note) throws Exception {
-    try {
-        if (bookingId == null || bookingId < 0) {
-            throw new Exception("Valid booking ID is required");
-        }
-        
-        if (note == null || note.trim().isEmpty()) {
-            throw new Exception("Note content is required");
-        }
-
-        // Call blockchain function to attach note
-        TransactionReceipt receipt = bookingContract.attachBookingNote(
-            BigInteger.valueOf(bookingId), 
-            note
-        ).send();
-        
-        if (receipt.isStatusOK()) {
-            logger.info("Note attached to booking {} successfully", bookingId);
-            return String.format("Note has been attached to booking %d successfully", bookingId);
-        }
-        
-        return "Failed to attach note to booking";
-
-    } catch (Exception e) {
-        logger.error("Error attaching note to booking {}: {}", bookingId, e.getMessage());
-        throw new Exception("Failed to attach booking note: " + e.getMessage());
-    }
-}
-
-/**
- * Updates the booking status to check for completed bookings
- */
-public String updateAllBookingStatus() throws Exception {
-    try {
-        // Call blockchain function to update all booking statuses
-        TransactionReceipt receipt = bookingContract.updateAllBookingStatus_().send();
-        
-        if (receipt.isStatusOK()) {
-            logger.info("All booking statuses updated successfully");
-            return "All booking statuses have been updated successfully";
-        }
-        
-        return "Failed to update booking statuses";
-
-    } catch (Exception e) {
-        logger.error("Error updating all booking statuses: {}", e.getMessage());
-        throw new Exception("Failed to update booking statuses: " + e.getMessage());
-    }
-}
-
-/**
- * Gets all bookings from blockchain
- */
-public List<Map<String, Object>> getAllBookings() throws Exception {
-    try {
-        // Call blockchain function to get all booking transactions
-        List<Object> rawBookings = bookingContract.getAllBookings_().send();
-        
-        List<Map<String, Object>> bookingsList = new ArrayList<>();
-        
-        for (Object obj : rawBookings) {
-            try {
-                Map<String, Object> bookingDetails = new HashMap<>();
-                
-                if (obj instanceof Booking.bookingTransaction) {
-                    Booking.bookingTransaction booking = (Booking.bookingTransaction) obj;
-                    bookingDetails = _processBookingDirect(booking);
-                } else {
-                    bookingDetails = _extractBookingFromObject(obj);
-                }
-                
-                if (bookingDetails != null && !bookingDetails.isEmpty()) {
-                    bookingsList.add(bookingDetails);
-                }
-                
-            } catch (Exception e) {
-                logger.warn("Failed to process booking object: {}", e.getMessage());
-                continue;
-            }
-        }
-        
-        logger.info("Retrieved {} bookings from blockchain", bookingsList.size());
-        return bookingsList;
-        
-    } catch (Exception e) {
-        if (e.getMessage().contains("Empty bookings saved in blockchain")) {
-            logger.info("No bookings found in blockchain - returning empty list");
-            return new ArrayList<>();
-        }
-        
-        logger.error("Error getting all bookings: {}", e.getMessage());
-        throw new Exception("Failed to get bookings: " + e.getMessage());
-    }
-}
-
-/**
- * Gets bookings with optional filtering
- */
-public List<Map<String, Object>> getBookingsWithFilter(String facilityName, String courtName, String status, String userAddress) throws Exception {
-    try {
-        List<Map<String, Object>> allBookings = getAllBookings();
-        
-        return allBookings.stream()
-            .filter(booking -> {
-                if (facilityName != null && !facilityName.equals(booking.get("facilityName"))) {
-                    return false;
-                }
-                if (courtName != null && !courtName.equals(booking.get("courtName"))) {
-                    return false;
-                }
-                if (status != null && !status.equals(booking.get("status"))) {
-                    return false;
-                }
-                if (userAddress != null && !userAddress.equals(booking.get("owner"))) {
-                    return false;
-                }
-                return true;
-            })
-            .collect(Collectors.toList());
-            
-    } catch (Exception e) {
-        logger.error("Error filtering bookings: {}", e.getMessage());
-        throw new Exception("Failed to filter bookings: " + e.getMessage());
-    }
-}
-
-/**
- * Processes booking object directly when proper casting is possible
- */
-private Map<String, Object> _processBookingDirect(Booking.bookingTransaction booking) throws Exception {
-    Map<String, Object> bookingDetails = new HashMap<>();
-    bookingDetails.put("bookingId", booking.bookingId.longValue());
-    bookingDetails.put("owner", booking.owner);
-    bookingDetails.put("facilityName", booking.facilityName);
-    bookingDetails.put("courtName", booking.courtName);
-    bookingDetails.put("note", booking.note);
-    bookingDetails.put("status", _getBookingStatusString(booking.status));
-    bookingDetails.put("startTime", booking.time.startTime.longValue());
-    bookingDetails.put("endTime", booking.time.endTime.longValue());
-    bookingDetails.put("startTimeStr", secondsToTimeString(booking.time.startTime.longValue()));
-    bookingDetails.put("endTimeStr", secondsToTimeString(booking.time.endTime.longValue()));
-    bookingDetails.put("ipfsHash", booking.ipfsHash);
-
-    // Add user email if available
-    String email = authService.getUserEmailByAddress(booking.owner);
-    bookingDetails.put("userEmail", email);
-    
-    // Calculate duration
-    long duration = booking.time.endTime.longValue() - booking.time.startTime.longValue();
-    bookingDetails.put("duration", duration);
-    bookingDetails.put("durationStr", _formatDuration(duration));
-
-    return bookingDetails;
-}
-
-/**
- * Extracts booking data from object using reflection for classloader compatibility
- */
-private Map<String, Object> _extractBookingFromObject(Object obj) throws Exception {
-    try {
-        Class<?> bookingClass = obj.getClass();
-        
-        java.lang.reflect.Field ownerField = bookingClass.getDeclaredField("owner");
-        java.lang.reflect.Field bookingIdField = bookingClass.getDeclaredField("bookingId");
-        java.lang.reflect.Field ipfsHashField = bookingClass.getDeclaredField("ipfsHash");
-        java.lang.reflect.Field facilityNameField = bookingClass.getDeclaredField("facilityName");
-        java.lang.reflect.Field courtNameField = bookingClass.getDeclaredField("courtName");
-        java.lang.reflect.Field noteField = bookingClass.getDeclaredField("note");
-        java.lang.reflect.Field timeField = bookingClass.getDeclaredField("time");
-        java.lang.reflect.Field statusField = bookingClass.getDeclaredField("status");
-        
-        ownerField.setAccessible(true);
-        bookingIdField.setAccessible(true);
-        ipfsHashField.setAccessible(true);
-        facilityNameField.setAccessible(true);
-        courtNameField.setAccessible(true);
-        noteField.setAccessible(true);
-        timeField.setAccessible(true);
-        statusField.setAccessible(true);
-        
-        String owner = (String) ownerField.get(obj);
-        BigInteger bookingId = (BigInteger) bookingIdField.get(obj);
-        String ipfsHash = (String) ipfsHashField.get(obj);
-        String facilityName = (String) facilityNameField.get(obj);
-        String courtName = (String) courtNameField.get(obj);
-        String note = (String) noteField.get(obj);
-        Object timeObj = timeField.get(obj);
-        Object statusObj = statusField.get(obj);
-        
-        // Extract time data
-        Class<?> timeClass = timeObj.getClass();
-        java.lang.reflect.Field startTimeField = timeClass.getDeclaredField("startTime");
-        java.lang.reflect.Field endTimeField = timeClass.getDeclaredField("endTime");
-        
-        startTimeField.setAccessible(true);
-        endTimeField.setAccessible(true);
-        
-        BigInteger startTime = (BigInteger) startTimeField.get(timeObj);
-        BigInteger endTime = (BigInteger) endTimeField.get(timeObj);
-        
-        Map<String, Object> bookingDetails = new HashMap<>();
-        bookingDetails.put("bookingId", bookingId.longValue());
-        bookingDetails.put("owner", owner);
-        bookingDetails.put("facilityName", facilityName);
-        bookingDetails.put("courtName", courtName);
-        bookingDetails.put("note", note);
-        bookingDetails.put("status", _getBookingStatusFromEnum(statusObj));
-        bookingDetails.put("startTime", startTime.longValue());
-        bookingDetails.put("endTime", endTime.longValue());
-        bookingDetails.put("startTimeStr", secondsToTimeString(startTime.longValue()));
-        bookingDetails.put("endTimeStr", secondsToTimeString(endTime.longValue()));
-        bookingDetails.put("ipfsHash", ipfsHash);
-
-        // Add user email if available
-        String email = authService.getUserEmailByAddress(owner);
-        bookingDetails.put("userEmail", email);
-        
-        // Calculate duration
-        long duration = endTime.longValue() - startTime.longValue();
-        bookingDetails.put("duration", duration);
-        bookingDetails.put("durationStr", _formatDuration(duration));
-        
-        return bookingDetails;
-        
-    } catch (Exception e) {
-        logger.error("Failed to extract booking data using reflection: {}", e.getMessage());
-        throw new Exception("Failed to extract booking data: " + e.getMessage());
-    }
-}
-
-/**
- * Converts booking status BigInteger to string
- */
-private String _getBookingStatusString(BigInteger status) {
-    if (status == null) {
-        return "UNKNOWN";
-    }
-    
-    int statusValue = status.intValue();
-    switch (statusValue) {
-        case 0: return "APPROVED";
-        case 1: return "PENDING";
-        case 2: return "REJECTED";
-        case 3: return "COMPLETED";
-        case 4: return "CANCELLED";
-        default: return "UNKNOWN";
-    }
-}
-
-/**
- * Converts booking status enum object to string
- */
-private String _getBookingStatusFromEnum(Object statusObj) {
-    if (statusObj == null) {
-        return "UNKNOWN";
-    }
-    
-    try {
-        // Get enum ordinal value
-        java.lang.reflect.Method ordinalMethod = statusObj.getClass().getMethod("ordinal");
-        int ordinal = (Integer) ordinalMethod.invoke(statusObj);
-        
-        switch (ordinal) {
-            case 0: return "APPROVED";
-            case 1: return "PENDING";
-            case 2: return "REJECTED";
-            case 3: return "COMPLETED";
-            case 4: return "CANCELLED";
-            default: return "UNKNOWN";
-        }
-    } catch (Exception e) {
-        logger.warn("Failed to extract status from enum: {}", e.getMessage());
-        return "UNKNOWN";
-    }
-}
-
-/**
- * Formats duration in seconds to human-readable string
- */
-private String _formatDuration(long durationSeconds) {
-    if (durationSeconds <= 0) {
-        return "0 hours";
-    }
-    
-    long hours = durationSeconds / 3600;
-    long minutes = (durationSeconds % 3600) / 60;
-    
-    if (hours > 0 && minutes > 0) {
-        return String.format("%d hour%s %d minute%s", 
-            hours, hours == 1 ? "" : "s", 
-            minutes, minutes == 1 ? "" : "s");
-    } else if (hours > 0) {
-        return String.format("%d hour%s", hours, hours == 1 ? "" : "s");
-    } else {
-        return String.format("%d minute%s", minutes, minutes == 1 ? "" : "s");
-    }
-}
-
-/**
- * Rejects a booking with admin privileges
- */
-public String rejectBooking(Long bookingId, String reason) throws Exception {
-    try {
-        if (bookingId == null || bookingId < 0) {
-            throw new Exception("Valid booking ID is required");
-        }
-        
-        if (reason == null || reason.trim().isEmpty()) {
-            throw new Exception("Rejection reason is required");
-        }
-
-        // Call blockchain function to reject booking
-        TransactionReceipt receipt = bookingContract.rejectBooking(BigInteger.valueOf(bookingId), reason).send();
-        
-        if (receipt.isStatusOK()) {
-            logger.info("Booking {} rejected successfully with reason: {}", bookingId, reason);
-            return String.format("Booking %d has been rejected. Reason: %s", bookingId, reason);
-        }
-        
-        return "Failed to reject booking";
-
-    } catch (Exception e) {
-        logger.error("Error rejecting booking {}: {}", bookingId, e.getMessage());
-        throw new Exception("Failed to reject booking: " + e.getMessage());
-    }
-}}

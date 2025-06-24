@@ -180,22 +180,21 @@ public class UserService {
         try {
             logger.info("Fetching sport facilities for user from blockchain");
             
-            org.web3j.tuples.generated.Tuple3<List<String>, List<String>, List<java.math.BigInteger>> result = 
+            org.web3j.tuples.generated.Tuple4<List<String>, List<String>, List<String>, List<java.math.BigInteger>> result =
                 sportFacilityContract.getAllSportFacility().send();
-            
+
             List<String> names = result.component1();
             List<String> locations = result.component2();
-            List<java.math.BigInteger> statuses = result.component3();
-            
+            List<String> imageIPFSList = result.component3();
+            List<java.math.BigInteger> statuses = result.component4();
+
             List<SportFacilityResponse> facilities = new ArrayList<>();
-            
             for (int i = 0; i < names.size(); i++) {
-                SportFacilityResponse facility = new SportFacilityResponse(
-                    names.get(i),
-                    locations.get(i),
-                    _convertStatusToString(statuses.get(i))
-                );
-                
+                SportFacilityResponse facility = new SportFacilityResponse();
+                facility.setName(names.get(i));
+                facility.setLocation(locations.get(i));
+                facility.setImageIPFS(imageIPFSList.get(i));
+                facility.setStatus(_convertStatusToString(statuses.get(i)));
                 facilities.add(facility);
             }
 
@@ -237,23 +236,17 @@ public class UserService {
                 throw new IllegalArgumentException("Facility name cannot be empty");
             }
             
-            // Get facility details including courts from blockchain - use correct type signature
-            org.web3j.tuples.generated.Tuple4<String, String, java.math.BigInteger, List<SportFacility.court>> result = 
+            org.web3j.tuples.generated.Tuple5<String, String, String, java.math.BigInteger, List<SportFacility.court>> result =
                 sportFacilityContract.getSportFacility(facilityName).send();
-            
-            String name = result.component1();
-            String location = result.component2();
-            java.math.BigInteger statusEnum = result.component3();
-            List<SportFacility.court> courts = result.component4();
-            
-            // Create response
-            SportFacilityDetailResponse response = new SportFacilityDetailResponse();
-            response.setName(name);
-            response.setLocation(location);
-            response.setStatus(_convertStatusToString(statusEnum));
-            response.setCourts(courts);
 
-            logger.info("Successfully retrieved sport facility '{}' with {} courts for user", facilityName, courts.size());
+            SportFacilityDetailResponse response = new SportFacilityDetailResponse();
+            response.setName(result.component1());
+            response.setLocation(result.component2());
+            response.setImageIPFS(result.component3());
+            response.setStatus(_convertStatusToString(result.component4()));
+            response.setCourts(result.component5());
+
+            logger.info("Successfully retrieved sport facility '{}' with {} courts for user", facilityName, result.component5().size());
             return response;
 
         } catch (Exception e) {

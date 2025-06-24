@@ -358,7 +358,12 @@ contract SportFacility is Management {
     function getCourt(
         string memory fname,
         string memory cname
-    ) external view returns(court memory court_) {
+    ) external view returns(
+        string memory name,
+        uint256 earliestTime,
+        uint256 latestTime,
+        status status_
+    ) {
         require(sfIndex[fname] != 0, "Sport Facility not found");
         uint256 facilityIdx = sfIndex[fname] - 1;
         require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
@@ -370,7 +375,7 @@ contract SportFacility is Management {
 
         court storage c = sf.courts[courtIdx];
 
-        return c;
+        return (c.name, c.earliestTime, c.latestTime, c.status);
     }
 
     function getAllCourts(string memory fname) external view returns(court[] memory courts_) {
@@ -382,35 +387,10 @@ contract SportFacility is Management {
         return sf.courts;
     }
 
-    function getAvailableTimeRange_(
-        string memory fname,
-        string memory cname,
-        address adminAddress
-    ) external view returns(uint256 earliestTime_, uint256 latestTime_) {
-        require(admins[adminAddress] == true, "Access Denied");
-        require(sfIndex[fname] != 0, "Sport Facility not found");
-        uint256 facilityIdx = sfIndex[fname] - 1;
-        require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
-
-        sportFacility storage sf = sportFacilities[facilityIdx];
-        require(sf.cIndex[cname] != 0, "Court not found");
-        uint256 courtIdx = sf.cIndex[cname] - 1;
-        require(courtIdx < sf.courts.length, "Court index out of bounds");
-
-        court storage c = sf.courts[courtIdx];
-
-        require(sf.status == status.OPEN, "Sport Facility status is not OPENED");
-        require(c.status == status.OPEN, "Court status is not OPENED");
-
-        return(c.earliestTime, c.latestTime);
-    }
-
     function getAvailableTimeRange(
         string memory fname,
-        string memory cname ,
-        address userAddress
-    ) external isUser view returns(uint256 earliestTime_, uint256 latestTime_) {
-        require(admins[userAddress] == true, "Access Denied");
+        string memory cname
+    ) external view returns(uint256 earliestTime_, uint256 latestTime_) {
         require(sfIndex[fname] != 0, "Sport Facility not found");
         uint256 facilityIdx = sfIndex[fname] - 1;
         require(facilityIdx < sportFacilities.length, "Facility index out of bounds");
@@ -421,9 +401,6 @@ contract SportFacility is Management {
         require(courtIdx < sf.courts.length, "Court index out of bounds");
 
         court storage c = sf.courts[courtIdx];
-
-        require(sf.status == status.OPEN, "Sport Facility status is not OPENED");
-        require(c.status == status.OPEN, "Court status is not OPENED");
 
         return(c.earliestTime, c.latestTime);
     }

@@ -9,20 +9,16 @@ import com.usfbs.springboot.contracts.SportFacility;
 import com.usfbs.springboot.service.AdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.http.MediaType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -200,363 +196,337 @@ public class AdminController {
     }
 
     // Sport Facility Management Endpoints
-    @PostMapping("/sport-facilities")
-    public ResponseEntity<?> addSportFacility(@RequestBody SportFacilityRequest request) {
+    @PostMapping(
+        value = "/sport-facilities",
+        consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> addSportFacility(
+        @RequestParam("facilityName") String facilityName,
+        @RequestParam("facilityLocation") String facilityLocation,
+        @RequestParam("facilityStatus") Integer facilityStatusInt,
+        @RequestParam("facilityCourts") String facilityCourtsJson,
+        @RequestParam(value = "image", required = false) MultipartFile imageFile // <-- optional
+    ) {
         try {
-            List<SportFacility.court> courts = request.getCourts().stream()
-                .map(courtReq -> new SportFacility.court(
-                    courtReq.getName(),
-                    courtReq.getEarliestTime(),
-                    courtReq.getLatestTime(),
-                    courtReq.getStatus()
-                ))
-                .collect(Collectors.toList());
-            
+            // Validate input parameters
+            if (facilityName == null || facilityName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Facility name is required"));
+            }
+            if (facilityLocation == null || facilityLocation.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Facility location is required"));
+            }
+            if (facilityStatusInt == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Facility status is required"));
+            }
+            if (facilityCourtsJson == null || facilityCourtsJson.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Facility courts are required"));
+            }
+            // Image is now optional
+
+            // Upload image to IPFS if present
+            String imageIPFS = "";
+            if (imageFile != null && !imageFile.isEmpty()) {
+                imageIPFS = adminService.uploadFacilityImageToIPFS(imageFile);
+            }
+
+            // Parse courts JSON string to List<Map<String, Object>>
+            List<Map<String, Object>> courtsList = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readValue(facilityCourtsJson, List.class);
+
+            // Convert courtsList to List<SportFacility.court>
+            List<com.usfbs.springboot.contracts.SportFacility.court> facilityCourts =
+                courtsList.stream().map(courtMap -> {
+                    String name = (String) courtMap.get("name");
+                    Integer earliestTime = (Integer) courtMap.get("earliestTime");
+                    Integer latestTime = (Integer) courtMap.get("latestTime");
+                    Integer status = (Integer) courtMap.get("status");
+                    return new com.usfbs.springboot.contracts.SportFacility.court(
+                        name,
+                        BigInteger.valueOf(earliestTime),
+                        BigInteger.valueOf(latestTime),
+                        BigInteger.valueOf(status)
+                    );
+                }).toList();
+
             String result = adminService.addSportFacility(
-                request.getFacilityName(),
-                request.getFacilityLocation(),
-                request.getFacilityStatus(),
-                courts
+                facilityName,
+                facilityLocation,
+                imageIPFS,
+                BigInteger.valueOf(facilityStatusInt),
+                facilityCourts
             );
-            
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", result
-            ));
+            return ResponseEntity.ok(Map.of("success", true, "message", result, "imageIPFS", imageIPFS));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
+            logger.error("Error adding sport facility: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
-    @GetMapping("/sport-facilities")
-    public ResponseEntity<?> getAllSportFacilities() {
+    @GetMapping(
+        value = "/sport-facilities",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> getAllSportFacilities(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size,
+        @RequestParam(required = false) String status,
+        @RequestParam(required = false) String name
+    ) {
         try {
             List<SportFacilityResponse> facilities = adminService.getAllSportFacilities();
-            return ResponseEntity.ok(Map.of(
+
+            // Filtering
+            if (status != null && !status.isEmpty()) {
+                facilities = facilities.stream()
+                    .filter(f -> f.getStatus().equalsIgnoreCase(status))
+                    .toList();
+            }
+            if (name != null && !name.isEmpty()) {
+                facilities = facilities.stream()
+                    .filter(f -> f.getName().toLowerCase().contains(name.toLowerCase()))
+                    .toList();
+            }
+
+            // Pagination
+            int fromIndex = Math.max(0, page * size);
+            int toIndex = Math.min(fromIndex + size, facilities.size());
+            List<SportFacilityResponse> paged = fromIndex < toIndex ? facilities.subList(fromIndex, toIndex) : List.of();
+
+            Map<String, Object> response = Map.of(
                 "success", true,
-                "data", facilities
-            ));
+                "data", paged,
+                "page", page,
+                "size", size,
+                "total", facilities.size()
+            );
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
+            logger.error("Error getting all sport facilities: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
                 "success", false,
                 "error", e.getMessage()
             ));
         }
     }
 
-    @GetMapping("/sport-facilities/{facilityName}")
-    public ResponseEntity<?> getSportFacility(@PathVariable String facilityName) {
+    @PutMapping(
+        value = "/sport-facilities",
+        consumes = MediaType.APPLICATION_JSON_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> updateSportFacility(@RequestBody Map<String, Object> request) {
         try {
-            SportFacilityDetailResponse facility = adminService.getSportFacility(facilityName);
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "data", facility
-            ));
+            String oldName = (String) request.get("oldName");
+            String newName = (String) request.getOrDefault("newName", "");
+            String newLocation = (String) request.getOrDefault("newLocation", "");
+            String newImageIPFS = (String) request.getOrDefault("newImageIPFS", "");
+            Integer newStatusInt = request.get("newStatus") != null ? (Integer) request.get("newStatus") : 0;
+
+            if (oldName == null || oldName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Old facility name is required"));
+            }
+
+            String result = adminService.updateSportFacility(
+                oldName,
+                newName,
+                newLocation,
+                newImageIPFS,
+                java.math.BigInteger.valueOf(newStatusInt)
+            );
+            return ResponseEntity.ok(Map.of("success", true, "message", result));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
+            logger.error("Error updating sport facility: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
-    @PutMapping("/sport-facilities/{facilityName}/name")
-    public ResponseEntity<?> updateSportFacilityName(
-            @PathVariable String facilityName,
-            @RequestBody Map<String, String> request) {
+    @DeleteMapping(
+        value = "/sport-facilities/{facilityName}",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> deleteSportFacility(@PathVariable("facilityName") String facilityName) {
         try {
-            String newName = request.get("newName");
-            String result = adminService.updateSportFacilityName(facilityName, newName);
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", result
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @PutMapping("/sport-facilities/{facilityName}/location")
-    public ResponseEntity<?> updateSportFacilityLocation(
-            @PathVariable String facilityName,
-            @RequestBody Map<String, String> request) {
-        try {
-            String newLocation = request.get("location");
-            String result = adminService.updateSportFacilityLocation(facilityName, newLocation);
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", result
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @PutMapping("/sport-facilities/{facilityName}/status")
-    public ResponseEntity<?> updateSportFacilityStatus(
-            @PathVariable String facilityName,
-            @RequestBody Map<String, Integer> request) {
-        try {
-            BigInteger status = BigInteger.valueOf(request.get("status"));
-            String result = adminService.updateSportFacilityStatus(facilityName, status);
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", result
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @DeleteMapping("/sport-facilities/{facilityName}")
-    public ResponseEntity<?> deleteSportFacility(@PathVariable String facilityName) {
-        try {
+            if (facilityName == null || facilityName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Facility name is required"));
+            }
             String result = adminService.deleteSportFacility(facilityName);
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", result
-            ));
+            return ResponseEntity.ok(Map.of("success", true, "message", result));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
+            logger.error("Error deleting sport facility: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
-    @GetMapping("/sport-facilities/{facilityName}/courts")
-    public ResponseEntity<?> getAllCourts(@PathVariable String facilityName) {
-        try {
-            List<SportFacility.court> courts = adminService.getAllCourts(facilityName);
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "data", courts
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @GetMapping("/sport-facilities/{facilityName}/courts/{courtName}")
-    public ResponseEntity<?> getCourt(@PathVariable String facilityName, @PathVariable String courtName) {
-        try {
-            SportFacility.court court = adminService.getCourt(facilityName, courtName);
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "data", court
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @GetMapping("/sport-facilities/{facilityName}/courts/{courtName}/time-range")
-    public ResponseEntity<?> getCourtTimeRange(
-        @PathVariable String facilityName,
-        @PathVariable String courtName
+    @PostMapping(
+        value = "/{sportFacility}/courts",
+        consumes = MediaType.APPLICATION_JSON_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> addCourt(
+        @PathVariable("sportFacility") String facilityName,
+        @RequestBody Map<String, Object> request
     ) {
         try {
-            Map<String, Object> timeRange = adminService.getCourtAvailableTimeRange(facilityName, courtName);
-            
-            // Ensure status is included in response
-            if (!timeRange.containsKey("status")) {
-                timeRange.put("status", "UNKNOWN");
+            List<Map<String, Object>> courtsList = (List<Map<String, Object>>) request.get("courts");
+            if (courtsList == null || courtsList.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Courts list is required"));
             }
-            
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "data", timeRange,
-                "message", "Court time range retrieved successfully"
-            ));
+
+            List<com.usfbs.springboot.contracts.SportFacility.court> courts =
+                courtsList.stream().map(courtMap -> {
+                    String name = (String) courtMap.get("name");
+                    Integer earliestTime = (Integer) courtMap.get("earliestTime");
+                    Integer latestTime = (Integer) courtMap.get("latestTime");
+                    Integer status = (Integer) courtMap.get("status");
+                    return new com.usfbs.springboot.contracts.SportFacility.court(
+                        name,
+                        BigInteger.valueOf(earliestTime),
+                        BigInteger.valueOf(latestTime),
+                        BigInteger.valueOf(status)
+                    );
+                }).toList();
+
+            String result = adminService.addCourt(facilityName, courts);
+            return ResponseEntity.ok(Map.of("success", true, "message", result));
         } catch (Exception e) {
-            logger.error("Error getting court time range: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
+            logger.error("Error adding court(s): {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
         }
     }
-
-    @PostMapping("/sport-facilities/{facilityName}/courts")
-    public ResponseEntity<?> addCourts(
-            @PathVariable String facilityName,
-            @RequestBody Map<String, List<Map<String, Object>>> requestBody) {
+    
+    // GET single court by facility and court name
+    @GetMapping(
+        value = "/{sportFacility}/{court}",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> getCourt(
+        @PathVariable("sportFacility") String facilityName,
+        @PathVariable("court") String courtName
+    ) {
         try {
-            List<Map<String, Object>> courtsData = requestBody.get("courts");
-            
-            // Validate input
-            if (courtsData == null || courtsData.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "No courts provided"
-                ));
+            if (facilityName == null || facilityName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Facility name is required"));
             }
-            
-            // Validate court names are unique within this request
-            Set<String> courtNames = new HashSet<>();
-            for (Map<String, Object> courtData : courtsData) {
-                String courtName = (String) courtData.get("name");
-                if (courtNames.contains(courtName)) {
-                    return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "error", "Duplicate court name in request: " + courtName
-                    ));
-                }
-                courtNames.add(courtName);
+            if (courtName == null || courtName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Court name is required"));
             }
-            
-            List<SportFacility.court> courts = courtsData.stream()
-                .map(courtData -> new SportFacility.court(
-                    (String) courtData.get("name"),
-                    BigInteger.valueOf(((Number) courtData.get("earliestTime")).longValue()),
-                    BigInteger.valueOf(((Number) courtData.get("latestTime")).longValue()),
-                    BigInteger.valueOf(((Number) courtData.get("status")).longValue())
-                ))
-                .collect(Collectors.toList());
-            
-            String result = adminService.addCourtsToFacility(facilityName, courts);
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", result,
-                "courtsAdded", courts.size()
-            ));
+            var court = adminService.getCourt(facilityName, courtName);
+            return ResponseEntity.ok(Map.of("success", true, "data", List.of(court)));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
+            logger.error("Error getting court: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
-    @DeleteMapping("/sport-facilities/{facilityName}/courts/{courtName}")
+    // GET all courts for a facility
+    @GetMapping(
+        value = "/{sportFacility}/courts",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> getAllCourts(
+        @PathVariable("sportFacility") String facilityName
+    ) {
+        try {
+            if (facilityName == null || facilityName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Facility name is required"));
+            }
+            var courts = adminService.getAllCourts(facilityName);
+            return ResponseEntity.ok(Map.of("success", true, "data", courts));
+        } catch (Exception e) {
+            logger.error("Error getting courts: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    // GET available time range for a court in a facility
+    @GetMapping(
+        value = "/{sportFacility}/{court}/time-slots",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> getAvailableTimeRange(
+        @PathVariable("sportFacility") String facilityName,
+        @PathVariable("court") String courtName
+    ) {
+        try {
+            if (facilityName == null || facilityName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Facility name is required"));
+            }
+            if (courtName == null || courtName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Court name is required"));
+            }
+            // Call the contract via service
+            var tuple = adminService.getAvailableTimeRange(facilityName, courtName);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "earliestTime", tuple.get(0),
+                "latestTime", tuple.get(1)
+            ));
+        } catch (Exception e) {
+            logger.error("Error getting available time range: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @PutMapping(
+        value = "/{sportFacility}/courts",
+        consumes = MediaType.APPLICATION_JSON_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> updateCourt(
+        @PathVariable("sportFacility") String facilityName,
+        @RequestBody Map<String, Object> request
+    ) {
+        try {
+            String oldCourtName = (String) request.get("oldCourtName");
+            String newCourtName = (String) request.getOrDefault("newCourtName", "");
+            Integer earliestTime = request.get("earliestTime") != null ? (Integer) request.get("earliestTime") : 0;
+            Integer latestTime = request.get("latestTime") != null ? (Integer) request.get("latestTime") : 0;
+            Integer statusInt = request.get("status") != null ? (Integer) request.get("status") : 0;
+
+            if (facilityName == null || facilityName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Facility name is required"));
+            }
+            if (oldCourtName == null || oldCourtName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Old court name is required"));
+            }
+
+            String result = adminService.updateCourt(
+                facilityName,
+                oldCourtName,
+                newCourtName,
+                java.math.BigInteger.valueOf(earliestTime),
+                java.math.BigInteger.valueOf(latestTime),
+                java.math.BigInteger.valueOf(statusInt)
+            );
+            return ResponseEntity.ok(Map.of("success", true, "message", result));
+        } catch (Exception e) {
+            logger.error("Error updating court: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping(
+        value = "/{sportFacility}/courts",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
     public ResponseEntity<?> deleteCourt(
-            @PathVariable String facilityName,
-            @PathVariable String courtName) {
-        try {
-            String result = adminService.deleteCourt(facilityName, courtName);
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", result
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @PutMapping("/sport-facilities/{facilityName}/courts/{courtName}/time")
-    public ResponseEntity<?> updateCourtTime(
-            @PathVariable String facilityName,
-            @PathVariable String courtName,
-            @RequestBody Map<String, Long> requestBody) {
-        try {
-            Long earliestTime = requestBody.get("earliestTime");
-            Long latestTime = requestBody.get("latestTime");
-            
-            String result = adminService.updateCourtTime(facilityName, courtName, earliestTime, latestTime);
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", result
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @PutMapping("/sport-facilities/{facilityName}/courts/{courtName}/status")
-    public ResponseEntity<?> updateCourtStatus(
-        @PathVariable String facilityName,
-        @PathVariable String courtName,
-        @RequestBody Map<String, String> request
+        @PathVariable("sportFacility") String facilityName,
+        @RequestParam("courtName") String courtName
     ) {
         try {
-            String status = request.get("status");
-            if (status == null || status.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Status is required"
-                ));
+            if (facilityName == null || facilityName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Facility name is required"));
             }
-            
-            String result = adminService.updateCourtStatus(facilityName, courtName, status);
-            
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", result
-            ));
-        } catch (Exception e) {
-            logger.error("Error updating court status: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
+            if (courtName == null || courtName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Court name is required"));
+            }
 
-    @GetMapping("/sport-facilities/{facilityName}/courts/{courtName}/time-range-with-bookings")
-    public ResponseEntity<?> getCourtTimeRangeWithBookings(
-        @PathVariable String facilityName,
-        @PathVariable String courtName
-    ) {
-        try {
-            Map<String, Object> courtInfo = adminService.getCourtAvailableTimeRangeWithBookings(facilityName, courtName);
-            
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "data", courtInfo,
-                "message", "Court information with bookings retrieved successfully"
-            ));
+            String result = adminService.deleteCourt(facilityName, courtName);
+            return ResponseEntity.ok(Map.of("success", true, "message", result));
         } catch (Exception e) {
-            logger.error("Error getting court information with bookings: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @GetMapping("/sport-facilities/{facilityName}/courts/{courtName}/booked-slots")
-    public ResponseEntity<?> getCourtBookedSlots(
-        @PathVariable String facilityName,
-        @PathVariable String courtName
-    ) {
-        try {
-            List<Map<String, Object>> bookedSlots = adminService.getBookedTimeSlots(facilityName, courtName);
-            
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "data", bookedSlots,
-                "message", String.format("Retrieved %d booked time slots", bookedSlots.size())
-            ));
-        } catch (Exception e) {
-            logger.error("Error getting booked time slots: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
+            logger.error("Error deleting court: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
@@ -666,277 +636,4 @@ public class AdminController {
             ));
         }
     }
-
-    @PostMapping(
-        value = "/bookings/create",
-        consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
-        produces = MediaType.APPLICATION_JSON_VALUE
-    )
-    public ResponseEntity<?> createBooking(
-        @RequestParam("facilityName") String facilityName,
-        @RequestParam("courtName") String courtName,
-        @RequestParam("userAddress") String userAddress,
-        @RequestParam("startTime") long startTime,
-        @RequestParam("endTime") long endTime,
-        @RequestParam("eventDescription") String eventDescription,
-        @RequestParam(value = "receiptFile", required = false) MultipartFile receiptFile
-    ) {
-        try {
-            // Validate required parameters
-            if (facilityName == null || facilityName.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Facility name is required"
-                ));
-            }
-            
-            if (courtName == null || courtName.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Court name is required"
-                ));
-            }
-            
-            if (userAddress == null || userAddress.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "User address is required"
-                ));
-            }
-            
-            if (eventDescription == null || eventDescription.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Event description is required"
-                ));
-            }
-            
-            if (startTime >= endTime) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "End time must be after start time"
-                ));
-            }
-
-            // Validate file if provided
-            if (receiptFile != null && !receiptFile.isEmpty()) {
-                // Check file size (max 10MB)
-                if (receiptFile.getSize() > 10 * 1024 * 1024) {
-                    return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "error", "Receipt file size cannot exceed 10MB"
-                    ));
-                }
-                
-                // Check file type
-                String contentType = receiptFile.getContentType();
-                if (contentType == null || 
-                    (!contentType.startsWith("image/") && 
-                     !contentType.equals("application/pdf"))) {
-                    return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "error", "Receipt file must be an image or PDF"
-                    ));
-                }
-            }
-
-            String txHash = adminService.createBooking(
-                facilityName, courtName, userAddress, 
-                startTime, endTime, eventDescription, receiptFile
-            );
-
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Booking created successfully",
-                "txHash", txHash,
-                "facilityName", facilityName,
-                "courtName", courtName,
-                "userAddress", userAddress,
-                "startTime", startTime,
-                "endTime", endTime,
-                "eventDescription", eventDescription,
-                "hasReceiptFile", receiptFile != null && !receiptFile.isEmpty()
-            ));
-
-        } catch (Exception e) {
-            logger.error("Error creating booking: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @GetMapping("/bookings/{manifestCid}/details")
-    public ResponseEntity<?> getBookingDetails(@PathVariable String manifestCid) {
-        try {
-            if (manifestCid == null || manifestCid.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Manifest CID is required"
-                ));
-            }
-
-            Map<String, Object> bookingDetails = adminService.getBookingWithDetails(manifestCid);
-            
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "data", bookingDetails,
-                "message", "Booking details retrieved successfully"
-            ));
-
-        } catch (Exception e) {
-            logger.error("Error getting booking details: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @GetMapping("/bookings")
-    public ResponseEntity<?> getAllBookings(
-        @RequestParam(value = "facilityName", required = false) String facilityName,
-        @RequestParam(value = "courtName", required = false) String courtName,
-        @RequestParam(value = "status", required = false) String status,
-        @RequestParam(value = "userAddress", required = false) String userAddress
-    ) {
-        try {
-            List<Map<String, Object>> bookings;
-            
-            // Use filtering if any filter parameters are provided
-            if (facilityName != null || courtName != null || status != null || userAddress != null) {
-                bookings = adminService.getBookingsWithFilter(facilityName, courtName, status, userAddress);
-            } else {
-                bookings = adminService.getAllBookings();
-            }
-            
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "data", bookings,
-                "count", bookings.size(),
-                "message", String.format("Retrieved %d bookings", bookings.size())
-            ));
-            
-        } catch (Exception e) {
-            logger.error("Error getting bookings: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @GetMapping("/bookings/{bookingId}")
-    public ResponseEntity<?> getBooking(@PathVariable Long bookingId) {
-        try {
-            if (bookingId == null || bookingId < 0) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Valid booking ID is required"
-                ));
-            }
-            
-            Map<String, Object> booking = adminService.getBookingById(bookingId);
-            
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "data", booking,
-                "message", "Booking details retrieved successfully"
-            ));
-            
-        } catch (Exception e) {
-            logger.error("Error getting booking {}: {}", bookingId, e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @PostMapping("/bookings/{bookingId}/reject")
-    public ResponseEntity<?> rejectBooking(
-        @PathVariable Long bookingId,
-        @RequestBody Map<String, String> request
-    ) {
-        try {
-            String reason = request.get("reason");
-            
-            if (reason == null || reason.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Rejection reason is required"
-                ));
-            }
-            
-            String result = adminService.rejectBooking(bookingId, reason);
-            
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", result,
-                "bookingId", bookingId,
-                "reason", reason
-            ));
-            
-        } catch (Exception e) {
-            logger.error("Error rejecting booking {}: {}", bookingId, e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @PostMapping("/bookings/{bookingId}/note")
-    public ResponseEntity<?> attachBookingNote(
-        @PathVariable Long bookingId,
-        @RequestBody Map<String, String> request
-    ) {
-        try {
-            String note = request.get("note");
-            
-            if (note == null || note.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Note content is required"
-                ));
-            }
-            
-            String result = adminService.attachBookingNote(bookingId, note);
-            
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", result,
-                "bookingId", bookingId,
-                "note", note
-            ));
-            
-        } catch (Exception e) {
-            logger.error("Error attaching note to booking {}: {}", bookingId, e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
-
-    @PostMapping("/bookings/update-status")
-    public ResponseEntity<?> updateAllBookingStatus() {
-        try {
-            String result = adminService.updateAllBookingStatus();
-            
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", result
-            ));
-            
-        } catch (Exception e) {
-            logger.error("Error updating booking statuses: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
-        }
-    }
 }
-

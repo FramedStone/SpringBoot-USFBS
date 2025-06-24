@@ -81,7 +81,7 @@ contract Booking is Management {
         require(bytes(cname).length > 0, "Court name not provided");
         require(time.startTime != 0 && time.endTime != 0, "Start or End time not provided");
 
-        (uint256 dailyStart, uint256 dailyEnd) = sfContract.getAvailableTimeRange_(fname, cname, msg.sender);
+        (uint256 dailyStart, uint256 dailyEnd) = sfContract.getAvailableTimeRange(fname, cname);
         
         // Convert booking times to time-of-day (seconds since midnight)
         uint256 bookingStartTime = time.startTime % 86400;
@@ -116,7 +116,7 @@ contract Booking is Management {
         require(bytes(cname).length > 0, "Court name not provided");
         require(time.startTime != 0 && time.endTime != 0, "Start or End time not provided");
 
-        (uint256 dailyStart, uint256 dailyEnd) = sfContract.getAvailableTimeRange(fname, cname, msg.sender);
+        (uint256 dailyStart, uint256 dailyEnd) = sfContract.getAvailableTimeRange(fname, cname);
 
         // Convert booking times to time-of-day (seconds since midnight)
         uint256 bookingStartTime = time.startTime % 86400;

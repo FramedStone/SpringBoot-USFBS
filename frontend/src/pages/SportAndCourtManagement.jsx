@@ -5,6 +5,7 @@ import { authFetch } from "@utils/authFetch";
 import Toast from "@components/Toast";
 import "@styles/SportAndCourtManagement.css";
 import Spinner from "@components/Spinner";
+import MediaUpload from "@components/MediaUpload";
 
 const DEFAULT_EARLIEST = "08:00";
 const DEFAULT_LATEST = "23:00";
@@ -26,6 +27,21 @@ const validateGoogleMapsUrl = (url) => {
   ];
 
   return googleMapsPatterns.some((pattern) => pattern.test(cleanUrl));
+};
+
+const getStatusValue = (statusString) => {
+  const statusMap = {
+    OPEN: 0,
+    CLOSED: 1,
+    MAINTENANCE: 2,
+    BOOKED: 3,
+  };
+  return statusMap[statusString] || 0;
+};
+
+const timeToSeconds = (timeString) => {
+  const [hours, minutes] = timeString.split(":").map(Number);
+  return hours * 3600 + minutes * 60;
 };
 
 // Enhanced main component integration
@@ -86,7 +102,7 @@ const SportAndCourtManagement = () => {
               // Fetch courts for each facility
               try {
                 const courtsRes = await authFetch(
-                  `/api/admin/sport-facilities/${encodeURIComponent(facility.name)}/courts`,
+                  `/api/admin/${encodeURIComponent(facility.name)}/courts`,
                 );
                 if (courtsRes.ok) {
                   const courtsData = await courtsRes.json();
@@ -182,34 +198,37 @@ const SportAndCourtManagement = () => {
         return;
       }
 
-      const requestData = {
-        facilityName: sportData.name,
-        facilityLocation: sportData.location.trim(),
-        facilityStatus: getStatusValue(sportData.status || "OPEN"),
-        courts: sportData.courts.map((court) => ({
-          name: court.name,
-          earliestTime: timeToSeconds(court.earliest || DEFAULT_EARLIEST),
-          latestTime: timeToSeconds(court.latest || DEFAULT_LATEST),
-          status: getStatusValue("OPEN"),
-        })),
-      };
+      // Prepare FormData for multipart/form-data
+      const formData = new FormData();
+      formData.append("facilityName", sportData.name);
+      formData.append("facilityLocation", sportData.location.trim());
+      formData.append("facilityStatus", getStatusValue(sportData.status || "OPEN"));
+      formData.append(
+        "facilityCourts",
+        JSON.stringify(
+          sportData.courts.map((court) => ({
+            name: court.name,
+            earliestTime: timeToSeconds(court.earliest || DEFAULT_EARLIEST),
+            latestTime: timeToSeconds(court.latest || DEFAULT_LATEST),
+            status: getStatusValue("OPEN"),
+          }))
+        )
+      );
+      if (sportData.imageFile) {
+        formData.append("image", sportData.imageFile);
+      }
 
       const res = await authFetch("/api/admin/sport-facilities", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestData),
+        body: formData,
       });
 
       if (!res.ok) {
         const errorData = await res.json();
         let errorMessage = errorData.error || "Failed to add sport facility";
-
         if (errorMessage.includes("Sport Facility location not provided")) {
           errorMessage = "Please provide a valid Google Maps location link";
         }
-
         throw new Error(errorMessage);
       }
 
@@ -229,214 +248,54 @@ const SportAndCourtManagement = () => {
   const activeRequests = new Map();
 
   const handleEditSport = async (sportData) => {
-    // Create unique request signature
-    const requestSignature = `${selectedSportForEdit.name}-${JSON.stringify(sportData.courts?.map((c) => c.name).sort())}`;
-
-    // Prevent duplicate requests
-    if (activeRequests.has(requestSignature)) {
-      console.log("Duplicate request prevented for:", requestSignature);
-      return;
-    }
-
     setLoading(true);
-    activeRequests.set(requestSignature, Date.now());
-
     try {
-      let hasChanges = false;
-
-      // Handle location update with validation
-      if (selectedSportForEdit.location !== sportData.location) {
-        if (!sportData.location || sportData.location.trim() === "") {
-          setToast({
-            msg: "Sport Facility location cannot be empty",
-            type: "error",
-          });
-          return;
-        }
-
-        // Validate Google Maps URL
-        if (!validateGoogleMapsUrl(sportData.location)) {
-          setToast({
-            msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)",
-            type: "error",
-          });
-          return;
-        }
-
-        const res = await authFetch(
-          `/api/admin/sport-facilities/${encodeURIComponent(selectedSportForEdit.name)}/location`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ location: sportData.location.trim() }),
-          },
-        );
-
-        if (!res.ok) {
-          const errorData = await res.json();
-          let errorMessage =
-            errorData.error || "Failed to update facility location";
-
-          if (errorMessage.includes("Sport Facility location not provided")) {
-            errorMessage = "Please provide a valid Google Maps location link";
-          }
-
-          throw new Error(errorMessage);
-        }
-        hasChanges = true;
+      // Enhanced validation for location
+      if (!sportData.location || sportData.location.trim() === "") {
+        setToast({ msg: "Sport Facility location cannot be empty", type: "error" });
+        return;
       }
 
-      // Handle name update
-      if (selectedSportForEdit.name !== sportData.name) {
-        const res = await authFetch(
-          `/api/admin/sport-facilities/${encodeURIComponent(selectedSportForEdit.name)}/name`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ newName: sportData.name }),
-          },
-        );
-
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || "Failed to update facility name");
-        }
-        hasChanges = true;
+      // Validate Google Maps URL
+      if (!validateGoogleMapsUrl(sportData.location)) {
+        setToast({
+          msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)",
+          type: "error",
+        });
+        return;
       }
 
-      // Handle court updates with single batch operation
-      const originalCourts = selectedSportForEdit.courts || [];
-      const newCourts = sportData.courts || [];
+      // Prepare request body for PUT /api/admin/sport-facilities
+      const requestBody = {
+        oldName: selectedSportForEdit.name,
+        newName: sportData.name || "",
+        newLocation: sportData.location || "",
+        newImageIPFS: "", // If you support image update, set it here
+        newStatus: 0 // You can add a status selector if needed, default to 0 (OPEN)
+      };
 
-      const courtsToAdd = newCourts.filter(
-        (newCourt) =>
-          !originalCourts.some((origCourt) => origCourt.name === newCourt.name),
-      );
-
-      const facilityName = sportData.name;
-
-      // Add new courts in SINGLE operation
-      if (courtsToAdd.length > 0) {
-        console.log(`Adding ${courtsToAdd.length} courts in single operation`);
-
-        const courtRequests = courtsToAdd.map((court) => ({
-          name: court.name,
-          earliestTime: timeToSeconds(court.earliest),
-          latestTime: timeToSeconds(court.latest),
-          status: getStatusValue("OPEN"),
-        }));
-
-        const addRes = await authFetch(
-          `/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/courts`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ courts: courtRequests }),
-          },
-        );
-
-        if (!addRes.ok) {
-          const errorData = await addRes.json();
-          throw new Error(errorData.error || "Failed to add new courts");
-        }
-        hasChanges = true;
-      }
-
-      // Remove courts sequentially (individual operations required)
-      const courtsToRemove = originalCourts.filter(
-        (origCourt) =>
-          !newCourts.some((newCourt) => newCourt.name === origCourt.name),
-      );
-
-      if (courtsToRemove.length > 0) {
-        console.log(`Removing ${courtsToRemove.length} courts individually`);
-
-        for (const court of courtsToRemove) {
-          const deleteRes = await authFetch(
-            `/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/courts/${encodeURIComponent(court.name)}`,
-            {
-              method: "DELETE",
-            },
-          );
-
-          if (!deleteRes.ok) {
-            const errorData = await deleteRes.json();
-            throw new Error(
-              errorData.error || `Failed to delete court ${court.name}`,
-            );
-          }
-        }
-        hasChanges = true;
-      }
-
-      // Update court times individually (required by smart contract design)
-      const courtsToUpdate = newCourts.filter((newCourt) => {
-        const origCourt = originalCourts.find(
-          (orig) => orig.name === newCourt.name,
-        );
-        return (
-          origCourt &&
-          (origCourt.earliest !== newCourt.earliest ||
-            origCourt.latest !== newCourt.latest)
-        );
+      const res = await authFetch("/api/admin/sport-facilities", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
       });
 
-      if (courtsToUpdate.length > 0) {
-        console.log(`Updating ${courtsToUpdate.length} courts individually`);
-
-        for (const court of courtsToUpdate) {
-          const updateRes = await authFetch(
-            `/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/courts/${encodeURIComponent(court.name)}/time`,
-            {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                earliestTime: timeToSeconds(court.earliest),
-                latestTime: timeToSeconds(court.latest),
-              }),
-            },
-          );
-
-          if (!updateRes.ok) {
-            const errorData = await updateRes.json();
-            throw new Error(
-              errorData.error || `Failed to update court ${court.name} times`,
-            );
-          }
-        }
-        hasChanges = true;
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to update sport facility");
       }
 
-      if (hasChanges) {
-        setToast({
-          msg: "Sport facility updated successfully",
-          type: "success",
-        });
-        setShowEditSportModal(false);
-        setSelectedSportForEdit(null);
-
-        // Enhanced refresh with delay
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        await refreshCurrentSportData();
-      } else {
-        setToast({ msg: "No changes detected", type: "info" });
-        setShowEditSportModal(false);
-        setSelectedSportForEdit(null);
-      }
+      const result = await res.json();
+      setToast({ msg: result.message || "Sport facility updated successfully", type: "success" });
+      setShowEditSportModal(false);
+      setSelectedSportForEdit(null);
+      await loadSportFacilities();
     } catch (err) {
       console.error("Error updating sport facility:", err);
       setToast({ msg: err.message, type: "error" });
     } finally {
-      // Clean up request tracking
-      setTimeout(() => activeRequests.delete(requestSignature), 10000);
       setLoading(false);
     }
   };
@@ -531,92 +390,60 @@ const SportAndCourtManagement = () => {
 
       for (const court of courts) {
         try {
-          // Use the enhanced endpoint that includes bookings
-          const res = await authFetch(
-            `/api/admin/sport-facilities/${encodeURIComponent(facilityName)}/courts/${encodeURIComponent(court.name)}/time-range-with-bookings`,
+          const courtRes = await authFetch(
+            `/api/admin/${encodeURIComponent(facilityName)}/${encodeURIComponent(court.name)}`
           );
+          let courtStatus;
+          let earliestTime = timeToSeconds(DEFAULT_EARLIEST);
+          let latestTime = timeToSeconds(DEFAULT_LATEST);
 
-          if (res.ok) {
-            const data = await res.json();
-            if (data.success) {
-              timeRanges[court.name] = {
-                ...data.data,
-                status: data.data.status || "OPEN",
-                available: data.data.available !== false,
-                bookedTimeSlots: data.data.bookedTimeSlots || [],
-                timeSlotAvailability: data.data.timeSlotAvailability || {},
-              };
-
-              console.log(
-                `Court ${court.name} loaded with ${data.data.bookedTimeSlots.length} booked slots`,
-              );
-
-              const courtSlots = generateTimeSlots(
-                data.data.earliestTime,
-                data.data.latestTime,
-              );
-              courtSlots.forEach((slot) => allTimeSlots.add(slot));
+          if (courtRes.ok) {
+            const courtData = await courtRes.json();
+            if (
+              courtData.success &&
+              Array.isArray(courtData.data) &&
+              courtData.data.length > 0
+            ) {
+              const courtObj = courtData.data[0];
+              courtStatus = getStatusString(courtObj.status);
+              earliestTime = courtObj.earliestTime;
+              latestTime = courtObj.latestTime;
             }
-          } else {
-            console.error(
-              `Failed to load time range for court ${court.name}:`,
-              res.status,
-            );
-            timeRanges[court.name] = {
-              earliestTime: timeToSeconds("08:00"),
-              latestTime: timeToSeconds("23:00"),
-              earliestTimeStr: "08:00",
-              latestTimeStr: "23:00",
-              status: "UNKNOWN",
-              available: false,
-              bookedTimeSlots: [],
-              timeSlotAvailability: {},
-            };
           }
-        } catch (err) {
-          console.error(
-            `Error loading time range for court ${court.name}:`,
-            err,
-          );
+
+          if (!courtStatus) {
+            // Find the court in the courts array and use its status
+            const fallbackCourt = courts.find(c => c.name === court.name);
+            courtStatus = fallbackCourt?.status || "ERROR";
+          }
+
           timeRanges[court.name] = {
-            earliestTime: timeToSeconds("08:00"),
-            latestTime: timeToSeconds("23:00"),
-            earliestTimeStr: "08:00",
-            latestTimeStr: "23:00",
-            status: "ERROR",
-            available: false,
-            bookedTimeSlots: [],
-            timeSlotAvailability: {},
+            status: courtStatus,
+            earliestTime,
+            latestTime,
+            earliestTimeStr: secondsToTime(earliestTime),
+            latestTimeStr: secondsToTime(latestTime),
+          };
+
+          // Collect all time slots for table header
+          const courtSlots = generateTimeSlots(earliestTime, latestTime);
+          courtSlots.forEach((slot) => allTimeSlots.add(slot));
+        } catch (err) {
+          console.error(`Error loading time range/status for court ${court.name}:`, err);
+          // 🐪 Fallback: Use status from courts list if error
+          const fallbackCourt = courts.find(c => c.name === court.name);
+          timeRanges[court.name] = {
+            status: fallbackCourt?.status || "OPEN",
+            earliestTime: timeToSeconds(DEFAULT_EARLIEST),
+            latestTime: timeToSeconds(DEFAULT_LATEST),
+            earliestTimeStr: DEFAULT_EARLIEST,
+            latestTimeStr: DEFAULT_LATEST,
           };
         }
       }
 
       setCourtTimeRanges(timeRanges);
-      console.log("Updated court time ranges with booking data:", timeRanges);
-
-      const sortedSlots = Array.from(allTimeSlots).sort();
-      setDynamicTimeSlots(
-        sortedSlots.length > 0
-          ? sortedSlots
-          : [
-              "8:00",
-              "9:00",
-              "10:00",
-              "11:00",
-              "12:00",
-              "13:00",
-              "14:00",
-              "15:00",
-              "16:00",
-              "17:00",
-              "18:00",
-              "19:00",
-              "20:00",
-              "21:00",
-              "22:00",
-              "23:00",
-            ],
-      );
+      setDynamicTimeSlots(Array.from(allTimeSlots).sort());
     } catch (err) {
       console.error("Error loading court time ranges:", err);
       setToast({ msg: "Failed to load court time ranges", type: "error" });
@@ -634,7 +461,7 @@ const SportAndCourtManagement = () => {
     setCourtsLoading(true);
     try {
       const res = await authFetch(
-        `/api/admin/sport-facilities/${encodeURIComponent(sportName)}/courts`,
+        `/api/admin/${encodeURIComponent(sportName)}/courts`,
       );
       if (!res.ok) {
         throw new Error("Failed to load courts");
@@ -669,17 +496,6 @@ const SportAndCourtManagement = () => {
       loadCourtsForSport(selectedSport);
     }
   }, [selectedSport]);
-
-  // Helper functions
-  const getStatusValue = (statusString) => {
-    const statusMap = {
-      OPEN: 0,
-      CLOSED: 1,
-      MAINTENANCE: 2,
-      BOOKED: 3,
-    };
-    return statusMap[statusString] || 0;
-  };
 
   const getStatusString = (statusValue) => {
     const statusMap = {
@@ -738,68 +554,70 @@ const SportAndCourtManagement = () => {
     const courtTimeRange = courtTimeRanges[courtName];
 
     if (!courtTimeRange) {
-      return dynamicTimeSlots.map((time, index) => (
+      return dynamicTimeSlots.map((time) => (
         <td key={time} className="time-slot loading">
           Loading...
         </td>
       ));
     }
 
-    const actualStatus = courtTimeRange.status || status;
-    const timeSlotAvailability = courtTimeRange.timeSlotAvailability || {};
+    const isOpen = courtTimeRange.status === "OPEN";
+    const displayText = isOpen
+      ? "Available"
+      : courtTimeRange.status.charAt(0) + courtTimeRange.status.slice(1).toLowerCase();
+    const slotClass = isOpen ? "available" : courtTimeRange.status.toLowerCase();
 
-    return dynamicTimeSlots.map((time, index) => {
-      const timeHour = parseInt(time.split(":")[0]);
-      const courtStartHour = Math.floor(courtTimeRange.earliestTime / 3600);
-      const courtEndHour = Math.floor(courtTimeRange.latestTime / 3600);
+    // Convert earliest/latest to comparable numbers
+    const earliest = courtTimeRange.earliestTime;
+    const latest = courtTimeRange.latestTime;
 
-      const isWithinRange =
-        timeHour >= courtStartHour && timeHour <= courtEndHour;
-      const slotStatus = timeSlotAvailability[time] || "UNAVAILABLE";
+    return dynamicTimeSlots.map((time) => {
+      const slotSeconds = timeToSeconds(time);
 
-      // Enhanced status handling with booking data
-      const getSlotStyle = (status) => {
-        switch (status) {
-          case "AVAILABLE":
-            return { backgroundColor: "#dcfce7", color: "#166534" };
-          case "BOOKED":
-            return {
-              backgroundColor: "#fde68a",
-              color: "#d97706",
-              fontWeight: "bold",
-            };
-          case "MAINTENANCE":
-            return {
-              backgroundColor: "#fed7aa",
-              color: "#ea580c",
-              fontWeight: "bold",
-            };
-          case "CLOSED":
-            return {
-              backgroundColor: "#fecaca",
-              color: "#dc2626",
-              fontWeight: "bold",
-            };
-          default:
-            return { backgroundColor: "#f3f4f6", color: "#6b7280" };
-        }
-      };
+      // Only show as available/status if within court's time range
+      if (slotSeconds < earliest || slotSeconds > latest) {
+        return (
+          <td
+            key={time}
+            className="time-slot unavailable"
+            style={{
+              backgroundColor: "#f3f4f6",
+              color: "#9ca3af",
+              fontStyle: "italic",
+            }}
+          >
+            Unavailable
+          </td>
+        );
+      }
 
       return (
         <td
           key={time}
-          className={`time-slot ${slotStatus.toLowerCase()}`}
-          style={getSlotStyle(slotStatus)}
+          className={`time-slot ${slotClass}`}
+          style={{
+            backgroundColor: isOpen
+              ? "#dcfce7"
+              : slotClass === "closed"
+              ? "#fecaca"
+              : slotClass === "maintenance"
+              ? "#fed7aa"
+              : slotClass === "booked"
+              ? "#fde68a"
+              : "#f3f4f6",
+            color: isOpen
+              ? "#166534"
+              : slotClass === "closed"
+              ? "#dc2626"
+              : slotClass === "maintenance"
+              ? "#ea580c"
+              : slotClass === "booked"
+              ? "#d97706"
+              : "#6b7280",
+            fontWeight: !isOpen ? "bold" : "normal",
+          }}
         >
-          {slotStatus === "AVAILABLE"
-            ? "Available"
-            : slotStatus === "BOOKED"
-              ? "Booked"
-              : slotStatus === "MAINTENANCE"
-                ? "Maintenance"
-                : slotStatus === "CLOSED"
-                  ? "Closed"
-                  : "Unavailable"}
+          {displayText}
         </td>
       );
     });
@@ -809,20 +627,20 @@ const SportAndCourtManagement = () => {
   const renderCourtRow = (court) => {
     const courtName = court.name;
     const courtTimeRange = courtTimeRanges[courtName];
-    const status = getCourtStatus(courtName);
+
+    // Use backend status and time range if available
+    const status = courtTimeRange?.status || "OPEN";
+    const earliestTimeStr = courtTimeRange?.earliestTimeStr || DEFAULT_EARLIEST;
+    const latestTimeStr = courtTimeRange?.latestTimeStr || DEFAULT_LATEST;
 
     return (
       <tr key={courtName}>
         <td className="court-name">Court {courtName}</td>
         <td className="status">
-          <span className={`status-badge ${status.toLowerCase()}`}>
-            {status}
-          </span>
+          <span className={`status-badge ${status.toLowerCase()}`}>{status}</span>
         </td>
         <td className="time-range">
-          {courtTimeRange
-            ? `${courtTimeRange.earliestTimeStr} - ${courtTimeRange.latestTimeStr}`
-            : "Loading..."}
+          {`${earliestTimeStr} - ${latestTimeStr}`}
         </td>
         {renderCourtTimeSlots(courtName, status)}
       </tr>
@@ -830,7 +648,8 @@ const SportAndCourtManagement = () => {
   };
 
   const handleUpdateAvailability = async () => {
-    // Refresh court data after availability update
+    // Refresh both sport facilities and court data after availability update
+    await loadSportFacilities();
     if (selectedSport) {
       await loadCourtsForSport(selectedSport);
     }
@@ -1180,6 +999,7 @@ const AddSportModal = ({ onClose, onSave }) => {
     name: "",
     courts: [],
     location: "",
+    imageFile: null,
   });
   const [newCourt, setNewCourt] = useState("");
   const [courtTimes, setCourtTimes] = useState({});
@@ -1231,23 +1051,31 @@ const AddSportModal = ({ onClose, onSave }) => {
     });
   };
 
+  const handleMediaFileChange = (file) => {
+    setFormData((prev) => ({ ...prev, imageFile: file }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      // Enhanced validation
       if (!formData.location || formData.location.trim() === "") {
         setToast({ msg: "Sport Facility location is required", type: "error" });
         return;
       }
-
-      // Validate Google Maps URL
       if (!validateGoogleMapsUrl(formData.location)) {
         setToast({
           msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)",
           type: "error",
         });
+        return;
+      }
+
+      let imageIPFS = "";
+      try {
+      } catch (err) {
+        setToast({ msg: "Failed to upload image to IPFS: " + err.message, type: "error" });
         return;
       }
 
@@ -1260,6 +1088,7 @@ const AddSportModal = ({ onClose, onSave }) => {
       await onSave({
         ...formData,
         courts: courtsWithTimes,
+        imageIPFS,
       });
     } finally {
       setIsSubmitting(false);
@@ -1280,8 +1109,17 @@ const AddSportModal = ({ onClose, onSave }) => {
           </button>
         </div>
         <form className="modal-form" onSubmit={handleSubmit}>
+          {/* MediaUpload field */}
           <div className="form-group">
-            <label>Sport Name *</label>
+            <label>Sport Facility Image/Icon *</label>
+            <MediaUpload
+              onFileChange={handleMediaFileChange}
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Sport Facility Name *</label>
             <input
               type="text"
               value={formData.name}
@@ -1546,7 +1384,149 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
         }
       }
 
-      await onSave(formData);
+      const originalCourts = sport?.courts || [];
+      const updatedCourts = formData.courts;
+
+      // 1. Detect added courts
+      const addedCourts = updatedCourts.filter(
+        updated => !originalCourts.some(orig => orig.name === updated.name)
+      );
+
+      // 2. Detect deleted courts
+      const deletedCourts = originalCourts.filter(
+        orig => !updatedCourts.some(updated => updated.name === orig.name)
+      );
+
+      // 3. Detect time changes
+      const timeChangedCourts = updatedCourts.filter(updated => {
+        const orig = originalCourts.find(o => o.name === updated.name);
+        return (
+          orig &&
+          (orig.earliest !== updated.earliest || orig.latest !== updated.latest)
+        );
+      });
+
+      // 4. Detect renamed courts (already handled)
+      const renamedCourts = updatedCourts.filter((updated, idx) => {
+        const orig = originalCourts[idx];
+        return orig && updated.name !== orig.name;
+      });
+
+      let anyCourtChange = false;
+
+      // Handle added courts
+      for (const court of addedCourts) {
+        const res = await authFetch(
+          `/api/admin/${encodeURIComponent(sport.name)}/courts`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              courts: [
+                {
+                  name: court.name,
+                  earliestTime: timeToSeconds(court.earliest),
+                  latestTime: timeToSeconds(court.latest),
+                  status: getStatusValue(court.status),
+                },
+              ],
+            }),
+          }
+        );
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Failed to add court");
+        }
+        anyCourtChange = true;
+      }
+
+      // Handle deleted courts
+      for (const court of deletedCourts) {
+        const res = await authFetch(
+          `/api/admin/${encodeURIComponent(sport.name)}/courts?courtName=${encodeURIComponent(court.name)}`,
+          { method: "DELETE" }
+        );
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Failed to delete court");
+        }
+        anyCourtChange = true;
+      }
+
+      // Handle time changes
+      for (const court of timeChangedCourts) {
+        const orig = originalCourts.find(o => o.name === court.name);
+        const res = await authFetch(
+          `/api/admin/${encodeURIComponent(sport.name)}/courts`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              oldCourtName: court.name,
+              newCourtName: "",
+              earliestTime: timeToSeconds(court.earliest),
+              latestTime: timeToSeconds(court.latest),
+              status: getStatusValue(court.status),
+            }),
+          }
+        );
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Failed to update court time");
+        }
+        anyCourtChange = true;
+      }
+
+      // Handle renamed courts (already in your code)
+      for (const updatedCourt of renamedCourts) {
+        const originalCourt = originalCourts.find(
+          c =>
+            c.name !== updatedCourt.name &&
+            c.earliest === updatedCourt.earliest &&
+            c.latest === updatedCourt.latest
+        );
+        if (originalCourt) {
+          const res = await authFetch(
+            `/api/admin/${encodeURIComponent(sport.name)}/courts`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                oldCourtName: originalCourt.name,
+                newCourtName: updatedCourt.name,
+                earliestTime: timeToSeconds(updatedCourt.earliest),
+                latestTime: timeToSeconds(updatedCourt.latest),
+                status: getStatusValue(updatedCourt.status),
+              }),
+            }
+          );
+          if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || "Failed to update court");
+          }
+          anyCourtChange = true;
+        }
+      }
+
+      // Only call updateSportFacility if facility-level fields changed
+      if (
+        formData.name !== sport.name ||
+        formData.location !== sport.location
+      ) {
+        await onSave(formData);
+      }
+
+      setToast({
+        msg: anyCourtChange
+          ? "Court(s) updated successfully"
+          : "Sport facility updated successfully",
+        type: "success",
+      });
+
+      setTimeout(() => {
+        onClose();
+        window.location.reload(); 
+      }, 500);
     } catch (error) {
       console.error("Error in form submission:", error);
       setToast({
@@ -1619,7 +1599,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
                 type="button"
                 onClick={addCourt}
                 className="add-court-btn"
-                disabled={isSubmitting || !newCourt.trim()}
+                disabled={isSubmitting}
               >
                 Add Court
               </button>
@@ -1776,7 +1756,7 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
       };
 
       const res = await authFetch(
-        `/api/admin/sport-facilities/${encodeURIComponent(sportName)}/courts`,
+        `/api/admin/${encodeURIComponent(sportName)}/courts`,
         {
           method: "POST",
           headers: {
@@ -1808,11 +1788,6 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const timeToSeconds = (timeString) => {
-    const [hours, minutes] = timeString.split(":").map(Number);
-    return hours * 3600 + minutes * 60;
   };
 
   return (
@@ -1915,10 +1890,8 @@ const DeleteCourtModal = ({ sportName, courts, onClose, onSave }) => {
     setIsDeleting(true);
     try {
       const res = await authFetch(
-        `/api/admin/sport-facilities/${encodeURIComponent(sportName)}/courts/${encodeURIComponent(selectedCourt)}`,
-        {
-          method: "DELETE",
-        },
+        `/api/admin/${encodeURIComponent(sportName)}/courts?courtName=${encodeURIComponent(selectedCourt)}`,
+        { method: "DELETE" }
       );
 
       if (!res.ok) {
@@ -2040,42 +2013,30 @@ const UpdateAvailabilityModal = ({
         return;
       }
 
-      if (!formData.startDate || !formData.endDate) {
-        setToast({
-          msg: "Please provide both start and end dates",
-          type: "error",
-        });
-        return;
-      }
+      // Only status is updated, other params are default
+      const requestBody = {
+        oldCourtName: formData.court,
+        newCourtName: "",
+        earliestTime: 0,
+        latestTime: 0,
+        status: getStatusValue(formData.status),
+      };
 
-      const startDate = new Date(formData.startDate);
-      const endDate = new Date(formData.endDate);
-
-      if (startDate > endDate) {
-        setToast({ msg: "End date must be after start date", type: "error" });
-        return;
-      }
-
-      // Update court status via API
       const res = await authFetch(
-        `/api/admin/sport-facilities/${encodeURIComponent(selectedFacility)}/courts/${encodeURIComponent(formData.court)}/status`,
+        `/api/admin/${encodeURIComponent(selectedFacility)}/courts`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            status: formData.status,
-            startDate: formData.startDate,
-            endDate: formData.endDate,
-          }),
-        },
+          body: JSON.stringify(requestBody),
+        }
       );
 
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(
-          errorData.error || "Failed to update court availability",
+          errorData.error || "Failed to update court availability"
         );
       }
 
