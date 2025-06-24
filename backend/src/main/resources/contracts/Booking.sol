@@ -8,7 +8,7 @@ import "./Strings.sol";
 contract Booking is Management {
     // Variable & Modifier Initialization
     SportFacility immutable sfContract;
-    enum status { APPROVED, REJECTED, CANCELLED }
+    enum status { APPROVED, REJECTED, COMPLETED, CANCELLED }
 
     struct timeSlot {
         uint256 startTime;
@@ -60,6 +60,7 @@ contract Booking is Management {
     function statusToString(status s) internal pure returns(string memory sString) {
         if(s == status.APPROVED) return "approved";
         if(s == status.REJECTED) return "rejected";
+        if(s == status.COMPLETED) return "completed";
         if(s == status.CANCELLED) return "cancelled";
         return "unknown"; 
     }
@@ -69,7 +70,6 @@ contract Booking is Management {
         string memory ipfsHash,
         status nStatus 
     ) internal {
-        require(keccak256(bytes(bookings[ipfsHash].ipfsHash)) == keccak256(bytes(ipfsHash)), "ipfsHash doesn't match in blockchain / booking not found");
         require(bookings_.length > 0, "No bookings saved in blockchain");
 
         for(uint256 i=0; i<bookings_.length; i++) {
@@ -83,22 +83,22 @@ contract Booking is Management {
         }
     }
 
-    function deleteBooking_(
-        string memory ipfsHash
-    ) internal {
-        require(keccak256(bytes(bookings[ipfsHash].ipfsHash)) == keccak256(bytes(ipfsHash)), "ipfsHash doesn't match in blockchain / booking not found");
-        require(bookings_.length > 0, "No bookings saved in blockchain");
+    // function deleteBooking_(
+    //     string memory ipfsHash
+    // ) internal {
+    //     require(keccak256(bytes(bookings[ipfsHash].ipfsHash)) == keccak256(bytes(ipfsHash)), "ipfsHash doesn't match in blockchain / booking not found");
+    //     require(bookings_.length > 0, "No bookings saved in blockchain");
 
-        for(uint256 i=0; i<bookings_.length; i++) {
-            if(keccak256(bytes(ipfsHash)) == keccak256(bytes(bookings_[i].ipfsHash))) {
-                bookings_[i] = bookings_[bookings_.length - 1];
-                bookings_.pop();
-            }
-        }
-        delete bookings[ipfsHash];
+    //     for(uint256 i=0; i<bookings_.length; i++) {
+    //         if(keccak256(bytes(ipfsHash)) == keccak256(bytes(bookings_[i].ipfsHash))) {
+    //             bookings_[i] = bookings_[bookings_.length - 1];
+    //             bookings_.pop();
+    //         }
+    //     }
+    //     delete bookings[ipfsHash];
 
-        emit bookingDeleted(msg.sender, ipfsHash, block.timestamp);
-    }
+    //     emit bookingDeleted(msg.sender, ipfsHash, block.timestamp);
+    // }
 
     // Main Functions
     constructor(address[] memory admins_, address sfAddress) Management(admins_) {
@@ -173,7 +173,6 @@ contract Booking is Management {
     function getBooking_(
         string memory ipfsHash
     ) external isAdmin view returns(bookingTransaction memory booking) {
-        require(keccak256(bytes(bookings[ipfsHash].ipfsHash)) == keccak256(bytes(ipfsHash)), "ipfsHash doesn't match in blockchain / booking not found");
         return bookings[ipfsHash];
     }
     function getAllBookings_() external isAdmin view returns(bookingTransaction[] memory bookingList) {
@@ -184,7 +183,6 @@ contract Booking is Management {
     function getBooking(
         string memory ipfsHash
     ) external view returns(bookingTransaction memory booking) {
-        require(keccak256(bytes(bookings[ipfsHash].ipfsHash)) == keccak256(bytes(ipfsHash)), "ipfsHash doesn't match in blockchain / booking not found");
         require(bookings[ipfsHash].owner == msg.sender, "Access Denied (not booking owner)");
         return bookings[ipfsHash];
     }
@@ -206,11 +204,54 @@ contract Booking is Management {
         }
         return temp;
     }
+    function getBookedTimeSlots(
+        string memory fname,
+        string memory cname
+    ) external view returns(timeSlot[] memory timeSlots) {
+        try sfContract.getCourt(fname, cname) returns (
+            string memory /*name*/,
+            uint256 /*earliestTime*/,
+            uint256 /*latestTime*/,
+            SportFacility.status /*status_*/
+        ) {
+            // Court exists, continue
+        } catch {
+            revert("Sport Facility or Court does not exist");
+        }
+
+        // Count how many approved bookings for this court
+        uint256 count = 0;
+        for (uint256 i = 0; i < bookings_.length; i++) {
+            if (
+                keccak256(bytes(bookings_[i].fname)) == keccak256(bytes(fname)) &&
+                keccak256(bytes(bookings_[i].cname)) == keccak256(bytes(cname)) &&
+                bookings_[i].status == status.APPROVED
+            ) {
+                count++;
+            }
+        }
+
+        // Populate the array
+        timeSlot[] memory slots = new timeSlot[](count);
+        uint256 idx = 0;
+        for (uint256 i = 0; i < bookings_.length; i++) {
+            if (
+                keccak256(bytes(bookings_[i].fname)) == keccak256(bytes(fname)) &&
+                keccak256(bytes(bookings_[i].cname)) == keccak256(bytes(cname)) &&
+                bookings_[i].status == status.APPROVED
+            ) {
+                slots[idx] = bookings_[i].time;
+                idx++;
+            }
+        }
+        return slots;
+    }
 
     function completeBooking(
+        string memory ipfsHash_,
         string memory ipfsHash
     ) external isAdmin {
-        deleteBooking_(ipfsHash);
+        updateBooking_(ipfsHash_, ipfsHash, status.COMPLETED);
         emit bookingCompleted(ipfsHash, block.timestamp);
     }
     function rejectBooking(
@@ -218,7 +259,7 @@ contract Booking is Management {
         string memory ipfsHash,
         string memory reason
     ) external isAdmin {
-        deleteBooking_(ipfsHash_);
+        updateBooking_(ipfsHash_, ipfsHash, status.REJECTED);
         emit bookingRejected(msg.sender, ipfsHash, reason, block.timestamp);
     }
     function cancelBooking(
@@ -226,7 +267,39 @@ contract Booking is Management {
         string memory ipfsHash
     ) external {
         require(bookings[ipfsHash_].owner == msg.sender, "Access Denied (not booking owner)");
-        deleteBooking_(ipfsHash_);
+        updateBooking_(ipfsHash_, ipfsHash, status.CANCELLED);
         emit bookingCancelled(ipfsHash, block.timestamp); 
+    }
+
+    function updateIPFSHash_(
+        string memory ipfsHash_,
+        string memory ipfsHash
+    ) external isAdmin {
+        require(bookings_.length > 0, "No bookings saved in blockchain");
+
+        for(uint256 i=0; i<bookings_.length; i++) {
+            if(keccak256(bytes(ipfsHash_)) == keccak256(bytes(bookings_[i].ipfsHash))) {
+                bookings_[i].ipfsHash = ipfsHash;
+                bookings[ipfsHash] = bookings_[i];
+                delete bookings[ipfsHash_];
+                return;
+            }
+        }
+    }
+    function updateIPFSHash(
+        string memory ipfsHash_,
+        string memory ipfsHash
+    ) external isUser {
+        require(bookings_.length > 0, "No bookings saved in blockchain");
+
+        for(uint256 i=0; i<bookings_.length; i++) {
+            if(keccak256(bytes(ipfsHash_)) == keccak256(bytes(bookings_[i].ipfsHash))) {
+                require(bookings_[i].owner == msg.sender, "Access Denied (note booking owner)");
+                bookings_[i].ipfsHash = ipfsHash;
+                bookings[ipfsHash] = bookings_[i];
+                delete bookings[ipfsHash_];
+                return;
+            }
+        }
     }
 }

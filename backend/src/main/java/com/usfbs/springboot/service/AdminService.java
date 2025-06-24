@@ -20,6 +20,7 @@ import org.web3j.tuples.generated.Tuple3;
 import org.web3j.tuples.generated.Tuple4;
 import org.web3j.tuples.generated.Tuple5;
 import org.web3j.tx.RawTransactionManager;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -27,7 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
+import java.util.Collections;
 
 @Service
 public class AdminService {
@@ -56,6 +57,12 @@ public class AdminService {
 
     @Autowired
     private AuthService authService;
+
+    @Autowired
+    private EventLogService eventLogService;
+
+    // Store mapping from oldIpfsHash to newIpfsHash for the latest booking event
+    private final Map<String, String> latestIpfsHashMap = new ConcurrentHashMap<>();
 
     public void addUser(String userAddress) throws Exception {
         managementContract.addUser(userAddress).send();
@@ -852,7 +859,7 @@ public class AdminService {
         }
     }
 
-    public String createBooking(String ipfsHash, String facilityName, String courtName, BigInteger startTime, BigInteger endTime) {
+    public String createBooking(String ipfsHash, String facilityName, String courtName, BigInteger startTime, BigInteger endTime, String status) {
         try {
             // Validate input
             if (ipfsHash == null || ipfsHash.trim().isEmpty()) throw new IllegalArgumentException("ipfsHash is required");
@@ -860,15 +867,20 @@ public class AdminService {
             if (courtName == null || courtName.trim().isEmpty()) throw new IllegalArgumentException("courtName is required");
             if (startTime == null || endTime == null || endTime.compareTo(startTime) <= 0) throw new IllegalArgumentException("Invalid time range");
 
-            // Build timeSlot struct (see Booking.sol)
-            // Java wrapper should have a Booking.timeSlot class
             Booking.timeSlot timeSlot = new Booking.timeSlot(startTime, endTime);
-
-            // Call contract
             TransactionReceipt receipt = bookingContract.createBooking(ipfsHash, facilityName, courtName, timeSlot).send();
-
-            if (receipt.isStatusOK()) {
-                logger.info("Booking created successfully: {}", ipfsHash);
+            List<Booking.BookingCreatedEventResponse> events = Booking.getBookingCreatedEvents(receipt);
+            if (!events.isEmpty()) {
+                Booking.BookingCreatedEventResponse event = events.get(0);
+                String eventStatus = event.status; 
+                handleBookingCreatedEvent(
+                    ipfsHash,
+                    facilityName,
+                    courtName,
+                    startTime.longValue(),
+                    endTime.longValue(),
+                    eventStatus 
+                );
                 return receipt.getTransactionHash();
             }
             throw new RuntimeException("Booking creation failed on-chain");
@@ -923,10 +935,20 @@ public class AdminService {
         }
     }
 
+    public List<Object> getAllBookings() {
+        try {
+            // Calls Booking contract's getAllBookings() for current user
+            return bookingContract.getAllBookings().send();
+        } catch (Exception e) {
+            logger.error("Error getting user bookings: {}", e.getMessage());
+            throw new RuntimeException("Failed to get user bookings: " + e.getMessage());
+        }
+    }
+
     /**
-     * Gets all bookings from the blockchain (admin only)
+     * Gets all bookings from the blockchain 
      */
-    public List<Map<String, Object>> getAllBookings() {
+    public List<Map<String, Object>> getAllBookings_() {
         try {
             // Call Booking contract's getAllBookings_ (admin only)
             List<Object> rawBookings = bookingContract.getAllBookings_().send();
@@ -977,18 +999,46 @@ public class AdminService {
         }
     }
 
-    /**
-     * Completes a booking by ipfsHash (admin only)
-     */
-    public String completeBooking(String ipfsHash) {
+    // Get all booked timeslots for a court 
+    public List<Map<String, Object>> getBookedTimeSlots(String facilityName, String courtName) {
         try {
-            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
-                throw new IllegalArgumentException("ipfsHash is required");
+            List<Object> rawSlots = bookingContract.getBookedTimeSlots(facilityName, courtName).send();
+            List<Map<String, Object>> slots = new ArrayList<>();
+            for (Object obj : rawSlots) {
+                try {
+                    Class<?> slotClass = obj.getClass();
+                    java.lang.reflect.Field startTimeField = slotClass.getDeclaredField("startTime");
+                    java.lang.reflect.Field endTimeField = slotClass.getDeclaredField("endTime");
+                    startTimeField.setAccessible(true);
+                    endTimeField.setAccessible(true);
+                    Map<String, Object> slot = new HashMap<>();
+                    slot.put("startTime", startTimeField.get(obj));
+                    slot.put("endTime", endTimeField.get(obj));
+                    slots.add(slot);
+                } catch (Exception e) {
+                    logger.warn("Could not extract timeslot fields: {}", e.getMessage());
+                }
+            }
+            return slots;
+        } catch (Exception e) {
+            logger.error("Error getting booked timeslots: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Completes a booking by old and new ipfsHash (admin only)
+     */
+    public String completeBooking(String oldIpfsHash, String newIpfsHash) {
+        try {
+            if (oldIpfsHash == null || oldIpfsHash.trim().isEmpty() || newIpfsHash == null || newIpfsHash.trim().isEmpty()) {
+                throw new IllegalArgumentException("Both oldIpfsHash and newIpfsHash are required");
             }
             // Call the smart contract's completeBooking function
-            TransactionReceipt receipt = bookingContract.completeBooking(ipfsHash).send();
+            org.web3j.protocol.core.methods.response.TransactionReceipt receipt =
+                bookingContract.completeBooking(oldIpfsHash, newIpfsHash).send();
             if (receipt.isStatusOK()) {
-                logger.info("Booking completed successfully: {}", ipfsHash);
+                logger.info("Booking completed successfully: {} -> {}", oldIpfsHash, newIpfsHash);
                 return receipt.getTransactionHash();
             }
             throw new RuntimeException("Booking completion failed on-chain");
@@ -1042,6 +1092,81 @@ public class AdminService {
         } catch (Exception e) {
             logger.error("Error cancelling booking: {}", e.getMessage());
             throw new RuntimeException("Failed to cancel booking: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Should be called after bookingCreated event is received for admin bookings.
+     */
+    public void handleBookingCreatedEvent(String oldIpfsHash, String facilityName, String courtName, long startTime, long endTime, String status) {
+        try {
+            // 1. Fetch old booking JSON from IPFS
+            String oldJson = pinataUtil.fetchFromIPFS(oldIpfsHash);
+            Map<String, Object> bookingDetails = new ObjectMapper().readValue(oldJson, Map.class);
+
+            // 2. Update status in the booking details
+            bookingDetails.put("status", status);
+
+            // 3. Format file name as booking-{yyyyMMdd}.json
+            java.time.LocalDate bookingDate = java.time.Instant.ofEpochSecond(startTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDate();
+            String fileName = String.format("booking-%s.json", bookingDate.toString().replace("-", ""));
+
+            // 4. Upload new JSON to IPFS
+            String newIpfsHash = pinataUtil.uploadJsonToIPFS(bookingDetails, fileName);
+
+            // 5. Unpin old IPFS hash
+            pinataUtil.unpinFromIPFS(oldIpfsHash);
+
+            // Store the mapping for later retrieval
+            latestIpfsHashMap.put(oldIpfsHash, newIpfsHash);
+
+            // 6. Log both old and new IPFS hashes in the event log
+            String logOutput = String.format(
+                "Booking receipt updated: oldIpfsHash=%s, newIpfsHash=%s, facility=%s, court=%s, status=%s",
+                oldIpfsHash, newIpfsHash, facilityName, courtName, status
+            );
+            eventLogService.addEventLog(
+                newIpfsHash, 
+                "Booking Created",
+                null, 
+                java.math.BigInteger.valueOf(System.currentTimeMillis() / 1000),
+                logOutput,
+                "BOOKING"
+            );
+
+            logger.info(logOutput);
+        } catch (Exception e) {
+            logger.error("Failed to update booking receipt on IPFS: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Retrieve the latest IPFS hash for a booking after handleBookingCreatedEvent.
+     */
+    public String getLatestBookingIpfsHash(String oldIpfsHash) {
+        return latestIpfsHashMap.get(oldIpfsHash);
+    }
+
+    /**
+     * Updates the IPFS hash of a booking 
+     */
+    public String updateBookingIPFSHash(String oldIpfsHash, String newIpfsHash) {
+        try {
+            if (oldIpfsHash == null || oldIpfsHash.trim().isEmpty() || newIpfsHash == null || newIpfsHash.trim().isEmpty()) {
+                throw new IllegalArgumentException("Both oldIpfsHash and newIpfsHash are required");
+            }
+            org.web3j.protocol.core.methods.response.TransactionReceipt receipt =
+                bookingContract.updateIPFSHash_(oldIpfsHash, newIpfsHash).send();
+            if (receipt.isStatusOK()) {
+                logger.info("Booking IPFS hash updated: {} -> {}", oldIpfsHash, newIpfsHash);
+                return receipt.getTransactionHash();
+            }
+            throw new RuntimeException("Booking IPFS hash update failed on-chain");
+        } catch (Exception e) {
+            logger.error("Error updating booking IPFS hash: {}", e.getMessage());
+            throw new RuntimeException("Failed to update booking IPFS hash: " + e.getMessage());
         }
     }
 }

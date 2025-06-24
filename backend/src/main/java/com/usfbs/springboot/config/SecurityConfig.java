@@ -30,6 +30,7 @@ public class SecurityConfig {
           .authorizeHttpRequests(auth -> auth
             .requestMatchers("/api/auth/**").permitAll()
             .requestMatchers("/api/admin/**").hasRole("Admin")
+            .requestMatchers("/api/user/**").hasRole("User") 
             .anyRequest().authenticated()
           )
           // Remove HTTP Basic so only JWT is used

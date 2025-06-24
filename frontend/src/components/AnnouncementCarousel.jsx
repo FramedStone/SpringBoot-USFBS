@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { authFetch } from '@utils/authFetch';
-import Spinner from '@components/Spinner';
 import Toast from '@components/Toast';
 import '@styles/AnnouncementCarousel.css';
 
@@ -12,11 +11,19 @@ const AnnouncementCarousel = () => {
   const [error, setError] = useState(null);
   const [toast, setToast] = useState({ message: '', type: 'success', show: false });
   const [imageHeight, setImageHeight] = useState(400);
+  const [userRole, setUserRole] = useState("");
   const imageRef = useRef(null);
 
   useEffect(() => {
-    fetchAnnouncements();
+    fetchUserRole();
   }, []);
+
+  useEffect(() => {
+    if (userRole) {
+      fetchAnnouncements();
+    }
+    // eslint-disable-next-line
+  }, [userRole]);
 
   useEffect(() => {
     if (announcements.length > 1) {
@@ -27,13 +34,25 @@ const AnnouncementCarousel = () => {
     }
   }, [announcements.length]);
 
+  const fetchUserRole = async () => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
+      const res = await authFetch(`${backendUrl}/api/auth/me`);
+      if (res.ok) {
+        const data = await res.json();
+        setUserRole(data.role || "User");
+      }
+    } catch (err) {
+      setUserRole("User");
+    }
+  };
+
   const handleImageLoad = () => {
     if (imageRef.current) {
       const img = imageRef.current;
       const containerWidth = Math.min(1200, window.innerWidth - 32);
       const scaleFactor = Math.min(1, containerWidth / img.naturalWidth);
       const scaledHeight = img.naturalHeight * scaleFactor;
-      
       const finalHeight = Math.max(200, Math.min(600, scaledHeight));
       setImageHeight(finalHeight);
     }
@@ -50,10 +69,16 @@ const AnnouncementCarousel = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
-      const response = await authFetch(`${backendUrl}/api/user/announcements`);
-      
+      let endpoint;
+      if (userRole === "Admin") {
+        endpoint = `${backendUrl}/api/admin/get-announcements`;
+      } else {
+        endpoint = `${backendUrl}/api/user/announcements`;
+      }
+      const response = await authFetch(endpoint);
+
       if (!response.ok) {
         if (response.status === 403) {
           throw new Error('Access denied. Please check your authentication status.');
@@ -63,15 +88,18 @@ const AnnouncementCarousel = () => {
           throw new Error(`Server error: ${response.status}`);
         }
       }
-      
+
       const result = await response.json();
-      
-      if (result.success) {
-        setAnnouncements(result.data || []);
+
+      // Admin endpoint returns array, user endpoint returns {success, data}
+      let data = [];
+      if (userRole === "Admin") {
+        data = Array.isArray(result) ? result : [];
       } else {
-        throw new Error(result.error || 'Failed to fetch announcements');
+        data = result.success ? (result.data || []) : [];
       }
-      
+
+      setAnnouncements(data);
     } catch (err) {
       console.error('Error fetching announcements:', err);
       setError(err.message);
@@ -97,7 +125,7 @@ const AnnouncementCarousel = () => {
     return (
       <div className="carousel-container">
         <div className="carousel-loading">
-          <Spinner />
+          <div className="carousel-skeleton" />
         </div>
         <Toast
           message={toast.message}

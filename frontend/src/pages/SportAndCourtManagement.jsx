@@ -80,9 +80,65 @@ const SportAndCourtManagement = () => {
   const [selectedSportCourts, setSelectedSportCourts] = useState([]);
   const [courtsLoading, setCourtsLoading] = useState(false);
 
+  const [allBookings, setAllBookings] = useState([]); 
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  useEffect(() => {
+    const fetchBookedTimeSlots = async () => {
+      if (!selectedSport || !selectedSportCourts.length) {
+        setAllBookings([]);
+        return;
+      }
+      try {
+        let allBooked = [];
+        for (const court of selectedSportCourts) {
+          const res = await authFetch(
+            `/api/admin/${encodeURIComponent(selectedSport)}/${encodeURIComponent(court.name)}/booked-timeslots`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && Array.isArray(data.data)) {
+              // Map each slot to include courtName for easier lookup
+              const slots = data.data.map((slot) => ({
+                ...slot,
+                courtName: court.name,
+                facilityName: selectedSport,
+                status: "BOOKED",
+              }));
+              allBooked = allBooked.concat(slots);
+            }
+          }
+        }
+        setAllBookings(allBooked);
+      } catch (err) {
+        setAllBookings([]);
+      }
+    };
+    fetchBookedTimeSlots();
+  }, [selectedSport, selectedSportCourts]);
+
   useEffect(() => {
     loadSportFacilities();
   }, []);
+
+  // Fetch all bookings when courts are loaded or selectedSport changes
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const res = await authFetch("/api/admin/bookings");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) setAllBookings(data.data || []);
+          else setAllBookings([]);
+        } else {
+          setAllBookings([]);
+        }
+      } catch {
+        setAllBookings([]);
+      }
+    };
+    fetchBookings();
+  }, [selectedSport, selectedSportCourts]);
 
   const loadSportFacilities = async () => {
     setLoading(true);
@@ -549,6 +605,22 @@ const SportAndCourtManagement = () => {
     return 0;
   });
 
+  // Helper to check if a slot is booked
+  const isSlotBooked = (courtName, slotSeconds) => {
+    // Convert selectedDate + slotSeconds to UNIX timestamp
+    const [year, month, day] = selectedDate.split('-').map(Number);
+    const slotDate = new Date(year, month - 1, day, 0, 0, 0);
+    const slotUnix = Math.floor(slotDate.getTime() / 1000) + slotSeconds;
+
+    return allBookings.some(
+      (b) =>
+        b.courtName === courtName &&
+        Number(b.startTime) <= slotUnix &&
+        slotUnix < Number(b.endTime) &&
+        b.status === "BOOKED"
+    );
+  };
+
   // Enhanced renderCourtTimeSlots with booking awareness
   const renderCourtTimeSlots = (courtName, status) => {
     const courtTimeRange = courtTimeRanges[courtName];
@@ -562,19 +634,14 @@ const SportAndCourtManagement = () => {
     }
 
     const isOpen = courtTimeRange.status === "OPEN";
-    const displayText = isOpen
-      ? "Available"
-      : courtTimeRange.status.charAt(0) + courtTimeRange.status.slice(1).toLowerCase();
     const slotClass = isOpen ? "available" : courtTimeRange.status.toLowerCase();
 
-    // Convert earliest/latest to comparable numbers
     const earliest = courtTimeRange.earliestTime;
     const latest = courtTimeRange.latestTime;
 
     return dynamicTimeSlots.map((time) => {
       const slotSeconds = timeToSeconds(time);
 
-      // Only show as available/status if within court's time range
       if (slotSeconds < earliest || slotSeconds > latest) {
         return (
           <td
@@ -591,6 +658,24 @@ const SportAndCourtManagement = () => {
         );
       }
 
+      // Check if this slot is booked
+      if (isSlotBooked(courtName, slotSeconds)) {
+        return (
+          <td
+            key={time}
+            className="time-slot booked"
+            style={{
+              backgroundColor: "#fde68a",
+              color: "#d97706",
+              fontWeight: "bold",
+            }}
+          >
+            Booked
+          </td>
+        );
+      }
+
+      // Default: Available or other status
       return (
         <td
           key={time}
@@ -617,7 +702,7 @@ const SportAndCourtManagement = () => {
             fontWeight: !isOpen ? "bold" : "normal",
           }}
         >
-          {displayText}
+          {isOpen ? "Available" : courtTimeRange.status.charAt(0) + courtTimeRange.status.slice(1).toLowerCase()}
         </td>
       );
     });
@@ -652,6 +737,43 @@ const SportAndCourtManagement = () => {
     await loadSportFacilities();
     if (selectedSport) {
       await loadCourtsForSport(selectedSport);
+      // After loading courts, fetch both time ranges and booked time slots again
+      // This ensures the UI reflects the latest court status and bookings
+      try {
+        // Reload court time ranges
+        const courts = selectedSportCourts.length > 0 ? selectedSportCourts : [];
+        await loadCourtTimeRanges(selectedSport, courts);
+
+        // Reload booked time slots
+        const fetchBookedTimeSlots = async () => {
+          if (!selectedSport || !courts.length) {
+            setAllBookings([]);
+            return;
+          }
+          let allBooked = [];
+          for (const court of courts) {
+            const res = await authFetch(
+              `/api/admin/${encodeURIComponent(selectedSport)}/${encodeURIComponent(court.name)}/booked-timeslots`
+            );
+            if (res.ok) {
+              const data = await res.json();
+              if (data.success && Array.isArray(data.data)) {
+                const slots = data.data.map((slot) => ({
+                  ...slot,
+                  courtName: court.name,
+                  facilityName: selectedSport,
+                  status: "BOOKED",
+                }));
+                allBooked = allBooked.concat(slots);
+              }
+            }
+          }
+          setAllBookings(allBooked);
+        };
+        await fetchBookedTimeSlots();
+      } catch (err) {
+        setToast({ msg: "Failed to refresh court data", type: "error" });
+      }
     }
     setShowUpdateAvailabilityModal(false);
   };
@@ -1389,22 +1511,24 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
 
       // 1. Detect added courts
       const addedCourts = updatedCourts.filter(
-        updated => !originalCourts.some(orig => orig.name === updated.name)
+        (updated) => !originalCourts.some((orig) => orig.name === updated.name)
       );
 
       // 2. Detect deleted courts
       const deletedCourts = originalCourts.filter(
-        orig => !updatedCourts.some(updated => updated.name === orig.name)
+        (orig) => !updatedCourts.some((updated) => updated.name === orig.name)
       );
 
       // 3. Detect time changes
-      const timeChangedCourts = updatedCourts.filter(updated => {
-        const orig = originalCourts.find(o => o.name === updated.name);
-        return (
-          orig &&
-          (orig.earliest !== updated.earliest || orig.latest !== updated.latest)
-        );
-      });
+      const timeChangedCourts = updatedCourts.filter(
+        (updated) => {
+          const orig = originalCourts.find((o) => o.name === updated.name);
+          return (
+            orig &&
+            (orig.earliest !== updated.earliest || orig.latest !== updated.latest)
+          );
+        }
+      );
 
       // 4. Detect renamed courts (already handled)
       const renamedCourts = updatedCourts.filter((updated, idx) => {
@@ -1455,7 +1579,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
 
       // Handle time changes
       for (const court of timeChangedCourts) {
-        const orig = originalCourts.find(o => o.name === court.name);
+        const orig = originalCourts.find((o) => o.name === court.name);
         const res = await authFetch(
           `/api/admin/${encodeURIComponent(sport.name)}/courts`,
           {
@@ -1480,7 +1604,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
       // Handle renamed courts (already in your code)
       for (const updatedCourt of renamedCourts) {
         const originalCourt = originalCourts.find(
-          c =>
+          (c) =>
             c.name !== updatedCourt.name &&
             c.earliest === updatedCourt.earliest &&
             c.latest === updatedCourt.latest

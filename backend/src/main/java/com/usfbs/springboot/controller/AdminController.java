@@ -7,6 +7,7 @@ import com.usfbs.springboot.dto.SportFacilityDetailResponse;
 import com.usfbs.springboot.contracts.Management;
 import com.usfbs.springboot.contracts.SportFacility;
 import com.usfbs.springboot.service.AdminService;
+import com.usfbs.springboot.util.PinataUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -19,6 +20,7 @@ import java.util.Map;
 import java.util.ArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -36,6 +38,9 @@ public class AdminController {
         this.rest = restTemplate;
         this.adminService = adminService;
     }
+
+    @Autowired
+    private PinataUtil pinataUtil;
 
     @GetMapping("/get-announcements")
     public List<AnnouncementItem> getAnnouncementsFromContract() throws Exception {
@@ -640,7 +645,6 @@ public class AdminController {
     @PostMapping("/bookings")
     public ResponseEntity<?> createBooking(@RequestBody Map<String, Object> request) {
         try {
-            String ipfsHash = (String) request.get("ipfsHash");
             String facilityName = (String) request.get("facilityName");
             String courtName = (String) request.get("courtName");
             Long startTime = request.get("startTime") instanceof Integer
@@ -649,21 +653,54 @@ public class AdminController {
             Long endTime = request.get("endTime") instanceof Integer
                 ? ((Integer) request.get("endTime")).longValue()
                 : (Long) request.get("endTime");
+            String status = (String) request.getOrDefault("status", "pending");
+            String userAddress = (String) request.get("userAddress");
 
-            if (ipfsHash == null || facilityName == null || courtName == null || startTime == null || endTime == null) {
+            if (facilityName == null || courtName == null || startTime == null || endTime == null || userAddress == null) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Missing required fields"));
             }
 
+            Map<String, Object> bookingDetails = Map.of(
+                "facilityName", facilityName,
+                "courtName", courtName,
+                "startTime", startTime,
+                "endTime", endTime,
+                "status", status,
+                "userAddress", userAddress 
+            );
+
+            // Format file name as booking-{yyyyMMdd}.json based on startTime
+            java.time.LocalDate bookingDate = java.time.Instant.ofEpochSecond(startTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDate();
+            String fileName = String.format("booking-%s.json", bookingDate.toString().replace("-", ""));
+
+            String ipfsHash = pinataUtil.uploadJsonToIPFS(bookingDetails, fileName);
+
+            // Create booking on-chain (initial IPFS hash)
             String txHash = adminService.createBooking(
                 ipfsHash,
                 facilityName,
                 courtName,
                 BigInteger.valueOf(startTime),
-                BigInteger.valueOf(endTime)
+                BigInteger.valueOf(endTime),
+                status
             );
+
+            // After bookingCreated event, the AdminService will update the booking receipt on IPFS,
+            // unpin the old IPFS hash (ipfsHash), and upload the new one.
+            // Retrieve the new IPFS hash from AdminService 
+            String newIpfsHash = adminService.getLatestBookingIpfsHash(ipfsHash);
+
+            // update it on-chain
+            if (newIpfsHash != null && !newIpfsHash.equals(ipfsHash)) {
+                adminService.updateBookingIPFSHash(ipfsHash, newIpfsHash);
+            }
+
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "txHash", txHash,
+                "ipfsHash", newIpfsHash != null ? newIpfsHash : ipfsHash,
                 "message", "Booking created successfully"
             ));
         } catch (Exception e) {
@@ -695,10 +732,10 @@ public class AdminController {
         }
     }
 
-    @GetMapping("/bookings")
-    public ResponseEntity<?> getAllBookings() {
+    @GetMapping("/bookings/all")
+    public ResponseEntity<?> getAllBookings_() {
         try {
-            List<Map<String, Object>> bookings = adminService.getAllBookings();
+            List<Map<String, Object>> bookings = adminService.getAllBookings_();
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "data", bookings
@@ -712,16 +749,111 @@ public class AdminController {
         }
     }
 
-    @PostMapping("/bookings/{ipfsHash}/complete")
-    public ResponseEntity<?> completeBooking(@PathVariable String ipfsHash) {
+    /**
+     * GET all bookings for the current user (calls Booking.getAllBookings)
+     */
+    @GetMapping("/bookings")
+    public ResponseEntity<?> getAllBookings() {
         try {
-            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+            // This should call the Booking contract's getAllBookings() (not getAllBookings_())
+            List<Object> rawBookings = adminService.getAllBookings();
+            List<Map<String, Object>> bookings = new ArrayList<>();
+
+            for (Object obj : rawBookings) {
+                Map<String, Object> bookingMap = new HashMap<>();
+                try {
+                    Class<?> bookingClass = obj.getClass();
+                    java.lang.reflect.Field ownerField = bookingClass.getDeclaredField("owner");
+                    java.lang.reflect.Field ipfsHashField = bookingClass.getDeclaredField("ipfsHash");
+                    java.lang.reflect.Field fnameField = bookingClass.getDeclaredField("fname");
+                    java.lang.reflect.Field cnameField = bookingClass.getDeclaredField("cname");
+                    java.lang.reflect.Field timeField = bookingClass.getDeclaredField("time");
+                    java.lang.reflect.Field statusField = bookingClass.getDeclaredField("status");
+
+                    ownerField.setAccessible(true);
+                    ipfsHashField.setAccessible(true);
+                    fnameField.setAccessible(true);
+                    cnameField.setAccessible(true);
+                    timeField.setAccessible(true);
+                    statusField.setAccessible(true);
+
+                    Object timeObj = timeField.get(obj);
+                    Class<?> timeClass = timeObj.getClass();
+                    java.lang.reflect.Field startTimeField = timeClass.getDeclaredField("startTime");
+                    java.lang.reflect.Field endTimeField = timeClass.getDeclaredField("endTime");
+                    startTimeField.setAccessible(true);
+                    endTimeField.setAccessible(true);
+
+                    bookingMap.put("owner", ownerField.get(obj));
+                    bookingMap.put("ipfsHash", ipfsHashField.get(obj));
+                    bookingMap.put("facilityName", fnameField.get(obj));
+                    bookingMap.put("courtName", cnameField.get(obj));
+                    bookingMap.put("startTime", startTimeField.get(timeObj));
+                    bookingMap.put("endTime", endTimeField.get(timeObj));
+                    bookingMap.put("status", statusField.get(obj).toString());
+                } catch (Exception e) {
+                    logger.warn("Could not extract booking fields: {}", e.getMessage());
+                }
+                bookings.add(bookingMap);
+            }
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", bookings
+            ));
+        } catch (Exception e) {
+            logger.error("Error getting user bookings: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    // GET all booked timeslots for a court 
+    @GetMapping(
+        value = "/{sportFacility}/{court}/booked-timeslots",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> getBookedTimeSlotsAdmin(
+        @PathVariable("sportFacility") String facilityName,
+        @PathVariable("court") String courtName
+    ) {
+        try {
+            if (facilityName == null || facilityName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Facility name is required"));
+            }
+            if (courtName == null || courtName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Court name is required"));
+            }
+            List<Map<String, Object>> slots = adminService.getBookedTimeSlots(facilityName, courtName);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", slots,
+                "count", slots.size()
+            ));
+        } catch (Exception e) {
+            logger.error("Error getting booked timeslots: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/bookings/{ipfsHash}/complete")
+    public ResponseEntity<?> completeBooking(
+        @PathVariable String oldIpfsHash,
+        @RequestBody Map<String, Object> request
+    ) {
+        try {
+            String newIpfsHash = (String) request.get("newIpfsHash");
+            if (oldIpfsHash == null || oldIpfsHash.trim().isEmpty() || newIpfsHash == null || newIpfsHash.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "error", "ipfsHash is required"
+                    "error", "Both oldIpfsHash and newIpfsHash are required"
                 ));
             }
-            String txHash = adminService.completeBooking(ipfsHash);
+            String txHash = adminService.completeBooking(oldIpfsHash, newIpfsHash);
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "txHash", txHash,

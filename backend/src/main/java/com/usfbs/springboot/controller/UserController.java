@@ -7,6 +7,7 @@ import com.usfbs.springboot.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +23,9 @@ public class UserController {
     
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private com.usfbs.springboot.util.PinataUtil pinataUtil;
 
     /**
      * Get all announcements for users
@@ -114,7 +118,7 @@ public class UserController {
     @PostMapping("/bookings")
     public ResponseEntity<?> createBooking(@RequestBody Map<String, Object> request) {
         try {
-            String ipfsHash = (String) request.get("ipfsHash");
+            // Extract booking details from request
             String facilityName = (String) request.get("facilityName");
             String courtName = (String) request.get("courtName");
             Long startTime = request.get("startTime") instanceof Integer
@@ -123,21 +127,56 @@ public class UserController {
             Long endTime = request.get("endTime") instanceof Integer
                 ? ((Integer) request.get("endTime")).longValue()
                 : (Long) request.get("endTime");
+            String status = (String) request.getOrDefault("status", "pending");
+            String userAddress = (String) request.get("userAddress"); 
 
-            if (ipfsHash == null || facilityName == null || courtName == null || startTime == null || endTime == null) {
+            if (facilityName == null || courtName == null || startTime == null || endTime == null || userAddress == null) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Missing required fields"));
             }
 
+            // Bundle booking details for IPFS
+            Map<String, Object> bookingDetails = Map.of(
+                "facilityName", facilityName,
+                "courtName", courtName,
+                "startTime", startTime,
+                "endTime", endTime,
+                "status", status,
+                "userAddress", userAddress 
+            );
+
+            // Format file name as booking-{yyyyMMdd}.json based on startTime
+            java.time.LocalDate bookingDate = java.time.Instant.ofEpochSecond(startTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDate();
+            String fileName = String.format("booking-%s.json", bookingDate.toString().replace("-", ""));
+
+            // Upload booking receipt to IPFS via Pinata
+            String ipfsHash = pinataUtil.uploadJsonToIPFS(bookingDetails, fileName);
+
+            // Call service to create booking on-chain
             String txHash = userService.createBooking(
                 ipfsHash,
                 facilityName,
                 courtName,
                 BigInteger.valueOf(startTime),
-                BigInteger.valueOf(endTime)
+                BigInteger.valueOf(endTime),
+                status
             );
+
+            // After bookingCreated event, update the booking receipt on IPFS,
+            // unpin the old IPFS hash (ipfsHash), and upload the new one.
+            // Retrieve the new IPFS hash from UserService
+            String newIpfsHash = userService.getLatestBookingIpfsHash(ipfsHash);
+
+            // update it on-chain
+            if (newIpfsHash != null && !newIpfsHash.equals(ipfsHash)) {
+                userService.updateBookingIPFSHash(ipfsHash, newIpfsHash);
+            }
+
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "txHash", txHash,
+                "ipfsHash", newIpfsHash != null ? newIpfsHash : ipfsHash,
                 "message", "Booking created successfully"
             ));
         } catch (Exception e) {
@@ -210,6 +249,37 @@ public class UserController {
                 "success", false,
                 "error", e.getMessage(),
                 "message", "Failed to retrieve user bookings"
+            ));
+        }
+    }
+
+    // GET all booked timeslots for a court
+    @GetMapping(
+        value = "/{sportFacility}/{court}/booked-timeslots",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> getBookedTimeSlotsUser(
+        @PathVariable("sportFacility") String facilityName,
+        @PathVariable("court") String courtName
+    ) {
+        try {
+            if (facilityName == null || facilityName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Facility name is required"));
+            }
+            if (courtName == null || courtName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Court name is required"));
+            }
+            List<Map<String, Object>> slots = userService.getBookedTimeSlots(facilityName, courtName);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", slots,
+                "count", slots.size()
+            ));
+        } catch (Exception e) {
+            logger.error("Error getting booked timeslots: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
             ));
         }
     }

@@ -180,56 +180,62 @@ const SystemLogs = () => {
 
   const extractOldIpfsHash = (originalOutput, action) => {
     if (!originalOutput) return '-';
-    
+
+    // Handle Booking Created and Booking Updated
+    if (action === 'Booking Created' || action === 'Booking Updated') {
+      const oldHashMatch = originalOutput.match(/oldIpfsHash\s*=\s*([^\s,]+)/);
+      if (oldHashMatch) return oldHashMatch[1];
+    }
+
+    // Existing logic for Announcement Modified
     if (action === 'Announcement Modified') {
-      // Look for oldIpfsHash pattern first
       const oldHashMatch = originalOutput.match(/oldIpfsHash\s*=\s*([^\s\n,]+)/);
       if (oldHashMatch) return oldHashMatch[1];
-      
-      // Fallback to ipfsHash_ pattern
       const oldHashMatch2 = originalOutput.match(/ipfsHash_\s*=\s*([^\s\n,]+)/);
       if (oldHashMatch2) return oldHashMatch2[1];
     }
-    
+
     if (action.includes('Booking Updated')) {
       const oldDataMatch = originalOutput.match(/oldData\s*=\s*([^\s\n,]+)/);
       if (oldDataMatch) return oldDataMatch[1];
     }
-    
-    // For other actions, only show IPFS hash if it's not an announcement event
+
+    // Fallback for other actions
     if (!action.includes('Announcement')) {
       const ipfsHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)/);
       return ipfsHashMatch ? ipfsHashMatch[1] : '-';
     }
-    
+
     return '-';
   };
 
   const extractNewIpfsHash = (originalOutput, action, fallbackHash) => {
     if (!originalOutput) return fallbackHash || '-';
-    
+
+    // Handle Booking Created and Booking Updated
+    if (action === 'Booking Created' || action === 'Booking Updated') {
+      const newHashMatch = originalOutput.match(/newIpfsHash\s*=\s*([^\s,]+)/);
+      if (newHashMatch) return newHashMatch[1];
+    }
+
+    // Existing logic for Announcement Modified
     if (action === 'Announcement Modified') {
-      // Look for newIpfsHash pattern first
       const newHashMatch = originalOutput.match(/newIpfsHash\s*=\s*([^\s\n,]+)/);
       if (newHashMatch) return newHashMatch[1];
-      
-      // Fallback to non-underscore ipfsHash
-      const newHashMatch2 = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)(?!_)/);
+      const newHashMatch2 = originalOutput.match(/ipfsHash\s*=\s*([^\s\n]+)(?!_)/);
       if (newHashMatch2) return newHashMatch2[1];
-      
       if (fallbackHash) return fallbackHash;
     }
-    
+
     if (action.includes('Booking Updated')) {
       const newDataMatch = originalOutput.match(/newData\s*=\s*([^\s\n,]+)/);
       if (newDataMatch) return newDataMatch[1];
     }
-    
-    // For announcement events, use fallback hash but don't extract from output
+
     if (action.includes('Announcement')) {
       return fallbackHash || '-';
     }
-    
+
     return fallbackHash || '-';
   };
 

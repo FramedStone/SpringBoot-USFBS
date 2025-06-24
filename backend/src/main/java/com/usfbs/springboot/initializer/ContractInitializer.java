@@ -287,33 +287,33 @@ public class ContractInitializer implements CommandLineRunner {
             }
 
             // Booking Contract Events
-            bookingContract.bookingCreatedEventFlowable(
-                DefaultBlockParameterName.EARLIEST,
-                DefaultBlockParameterName.LATEST
-            ).subscribe(event -> {
-                String output = ">>> [bookingCreated] event received:\n" +
-                               "    from        = " + event.from + "\n" +
-                               "    ipfsHash    = " + event.ipfsHash + "\n" +
-                               "    facility    = " + event.fname + "\n" +
-                               "    court       = " + event.cname + "\n" +
-                               "    startTime   = " + safeFormatBookingTime(event.startTime) + "\n" +
-                               "    endTime     = " + safeFormatBookingTime(event.endTime) + "\n" +
-                               "    status      = " + event.status + "\n" +
-                               "    timestamp   = " + safeFormatTimestamp(event.timestamp) + "\n";
-                System.out.println(output);
+            // bookingContract.bookingCreatedEventFlowable(
+            //     DefaultBlockParameterName.EARLIEST,
+            //     DefaultBlockParameterName.LATEST
+            // ).subscribe(event -> {
+            //     String output = ">>> [bookingCreated] event received:\n" +
+            //                    "    from        = " + event.from + "\n" +
+            //                    "    ipfsHash    = " + event.ipfsHash + "\n" +
+            //                    "    facility    = " + event.fname + "\n" +
+            //                    "    court       = " + event.cname + "\n" +
+            //                    "    startTime   = " + safeFormatBookingTime(event.startTime) + "\n" +
+            //                    "    endTime     = " + safeFormatBookingTime(event.endTime) + "\n" +
+            //                    "    status      = " + event.status + "\n" +
+            //                    "    timestamp   = " + safeFormatTimestamp(event.timestamp) + "\n";
+            //     System.out.println(output);
             
-                eventLogService.addEventLog(
-                    event.ipfsHash,
-                    "Booking Created",
-                    event.from,
-                    event.timestamp,
-                    output,
-                    "BOOKING"
-                );
-            }, error -> {
-                System.err.println("Error in bookingCreated subscription: " + error.getMessage());
-                error.printStackTrace();
-            });
+            //     eventLogService.addEventLog(
+            //         event.ipfsHash,
+            //         "Booking Created",
+            //         event.from,
+            //         event.timestamp,
+            //         output,
+            //         "BOOKING"
+            //     );
+            // }, error -> {
+            //     System.err.println("Error in bookingCreated subscription: " + error.getMessage());
+            //     error.printStackTrace();
+            // });
             
             bookingContract.bookingDeletedEventFlowable(
                 DefaultBlockParameterName.EARLIEST,

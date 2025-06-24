@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar } from 'lucide-react';
 import { authFetch } from '@utils/authFetch';
 import Toast from '@components/Toast';
@@ -11,10 +11,31 @@ const SportFacilityCard = () => {
   const [error, setError] = useState(null);
   const [toast, setToast] = useState({ message: '', type: 'success', show: false });
   const [selectedFacility, setSelectedFacility] = useState(null);
+  const [userRole, setUserRole] = useState("");
 
   useEffect(() => {
-    fetchFacilities();
+    fetchUserRole();
   }, []);
+
+  useEffect(() => {
+    if (userRole) {
+      fetchFacilities();
+    }
+    // eslint-disable-next-line
+  }, [userRole]);
+
+  const fetchUserRole = async () => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
+      const res = await authFetch(`${backendUrl}/api/auth/me`);
+      if (res.ok) {
+        const data = await res.json();
+        setUserRole(data.role || "User");
+      }
+    } catch (err) {
+      setUserRole("User");
+    }
+  };
 
   const showToast = (message, type = 'error') => {
     setToast({ message, type, show: true });
@@ -23,35 +44,34 @@ const SportFacilityCard = () => {
     }, 3000);
   };
 
+  // 🦙 camelCase: fetch sport facilities using correct endpoint for role
   const fetchFacilities = async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
-      const response = await authFetch(`${backendUrl}/api/user/sport-facilities`);
-      
-      if (!response.ok) {
-        if (response.status === 403) {
-          throw new Error('Access denied. Please check your authentication status.');
-        } else if (response.status === 401) {
-          throw new Error('Authentication required. Please log in again.');
-        } else {
-          throw new Error(`Server error: ${response.status}`);
-        }
-      }
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setFacilities(result.data || []);
-        console.log(`Fetched ${result.data?.length || 0} sport facilities`);
+      let endpoint;
+      if (userRole === "Admin") {
+        endpoint = `${backendUrl}/api/admin/sport-facilities`;
       } else {
-        throw new Error(result.error || 'Failed to fetch sport facilities');
+        endpoint = `${backendUrl}/api/user/sport-facilities`;
       }
-      
+      const response = await authFetch(endpoint);
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      // Admin endpoint returns {success, data}, user endpoint returns {success, data}
+      let data = [];
+      if (result.success) {
+        data = result.data || [];
+      }
+      setFacilities(data);
     } catch (err) {
-      console.error('Error fetching sport facilities:', err);
       setError(err.message);
       showToast(`Failed to load sport facilities: ${err.message}`, 'error');
     } finally {
@@ -60,7 +80,6 @@ const SportFacilityCard = () => {
   };
 
   const handleBookClick = (facilityName) => {
-    console.log(`Viewing courts for facility: ${facilityName}`);
     setSelectedFacility(facilityName);
   };
 
@@ -69,17 +88,15 @@ const SportFacilityCard = () => {
   };
 
   const getFacilityImage = (facility) => {
-    if (facility.imageIPFS && facility.imageIPFS.trim() !== "") {
-      const gateway = import.meta.env.VITE_PINATA_GATEWAY || "https://gateway.pinata.cloud/ipfs/";
-      return `${gateway}${facility.imageIPFS}`;
+    if (facility.imageIPFS) {
+      return `https://gateway.pinata.cloud/ipfs/${facility.imageIPFS}`;
     }
-    return "data:image/svg+xml;utf8,<svg width='400' height='200' xmlns='http://www.w3.org/2000/svg'><rect width='400' height='200' fill='%23f3f4f6'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-size='24'>No Image</text></svg>";
+    return '/default-facility.jpg';
   };
 
-  // TODO: Show court booking component when facility is selected
   if (selectedFacility) {
     return (
-      <CourtBooking 
+      <CourtBooking
         facilityName={selectedFacility}
         onBack={handleBackToFacilities}
       />
@@ -101,7 +118,7 @@ const SportFacilityCard = () => {
           ))}
         </div>
         <Toast
-          message={toast.show ? toast.message : ''}
+          message={toast.message}
           type={toast.type}
           onClose={() => setToast(prev => ({ ...prev, show: false }))}
         />
@@ -113,17 +130,15 @@ const SportFacilityCard = () => {
     return (
       <div className="facility-section">
         <div className="facility-empty">
-          <h3>No Facilities Available</h3>
+          <h3>No Sport Facilities Available</h3>
           <p>
-            {error 
-              ? (error.includes('Access denied') || error.includes('Authentication') 
-                 ? 'Please log in to view sport facilities' 
-                 : 'Unable to load sport facilities at the moment')
-              : 'Sport facilities will be displayed here once they are added'
+            {error
+              ? 'Unable to load sport facilities at the moment'
+              : 'Check back later for updates'
             }
           </p>
           {error && (
-            <button 
+            <button
               onClick={fetchFacilities}
               className="facility-retry-btn"
             >
@@ -132,7 +147,7 @@ const SportFacilityCard = () => {
           )}
         </div>
         <Toast
-          message={toast.show ? toast.message : ''}
+          message={toast.message}
           type={toast.type}
           onClose={() => setToast(prev => ({ ...prev, show: false }))}
         />

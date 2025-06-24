@@ -8,11 +8,8 @@ import {
 import { Web3Provider } from "@ethersproject/providers";
 import Toast from "@components/Toast";
 import "@styles/login.css";
-import { AUTH_CONNECTION, WALLET_CONNECTORS } from "@web3auth/modal";
 import { authFetch } from "@utils/authFetch";
 import LoginButton from "@components/LoginButton";
-
-const SCHOOL_EMAIL_REGEX = /@(student\.)?mmu\.edu\.my$/i;
 
 export default function Login() {
   const navigate = useNavigate();
