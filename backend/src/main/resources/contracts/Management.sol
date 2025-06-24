@@ -12,7 +12,6 @@ contract Management {
         uint256 endTime;
     }
     Announcement[] private announcements_;
-    mapping(string => Announcement) private announcements;
 
     mapping(address => bool) internal admins;
 
@@ -174,20 +173,7 @@ contract Management {
             }
         }
 
-        uint256 aId = announcements_.length;
-
-        // look for any empty index in announcements_ 
-        for(uint256 i=0; i<announcements_.length; i++) {
-            if(bytes(announcements_[i].ipfsHash).length == 0) {
-                aId = i;
-            }
-        }
-
-        if(aId != announcements_.length) {
-            announcements_[aId] = (Announcement(ipfsHash, title, startTime, endTime));
-        } else {
-            announcements_.push(Announcement(ipfsHash, title, startTime, endTime));
-        }
+        announcements_.push(Announcement(ipfsHash, title, startTime, endTime));
         emit announcementAdded(msg.sender, ipfsHash, title, startTime, endTime, block.timestamp);
     }
 
@@ -236,10 +222,13 @@ contract Management {
     ) external isAdmin {
         for (uint256 i = 0; i < announcements_.length; i++) {
             if (keccak256(bytes(announcements_[i].ipfsHash)) == keccak256(bytes(ipfsHash))) {
-                delete announcements_[i];
+                announcements_[i] = announcements_[announcements_.length - 1];
+                announcements_.pop();
+                emit announcementDeleted(msg.sender, ipfsHash, block.timestamp);
+                return;
             }
         }
-        emit announcementDeleted(msg.sender, ipfsHash, block.timestamp);
+        revert("Announcement not found");
     }
 
     function getAnnouncements() external view returns(Announcement[] memory anns_) {

@@ -851,4 +851,197 @@ public class AdminService {
             throw new RuntimeException("Failed to upload facility image to IPFS: " + e.getMessage());
         }
     }
+
+    public String createBooking(String ipfsHash, String facilityName, String courtName, BigInteger startTime, BigInteger endTime) {
+        try {
+            // Validate input
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) throw new IllegalArgumentException("ipfsHash is required");
+            if (facilityName == null || facilityName.trim().isEmpty()) throw new IllegalArgumentException("facilityName is required");
+            if (courtName == null || courtName.trim().isEmpty()) throw new IllegalArgumentException("courtName is required");
+            if (startTime == null || endTime == null || endTime.compareTo(startTime) <= 0) throw new IllegalArgumentException("Invalid time range");
+
+            // Build timeSlot struct (see Booking.sol)
+            // Java wrapper should have a Booking.timeSlot class
+            Booking.timeSlot timeSlot = new Booking.timeSlot(startTime, endTime);
+
+            // Call contract
+            TransactionReceipt receipt = bookingContract.createBooking(ipfsHash, facilityName, courtName, timeSlot).send();
+
+            if (receipt.isStatusOK()) {
+                logger.info("Booking created successfully: {}", ipfsHash);
+                return receipt.getTransactionHash();
+            }
+            throw new RuntimeException("Booking creation failed on-chain");
+        } catch (Exception e) {
+            logger.error("Error creating booking: {}", e.getMessage());
+            throw new RuntimeException("Failed to create booking: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Gets a single booking by ipfsHash (admin only)
+     */
+    public Map<String, Object> getBookingByIpfsHash(String ipfsHash) {
+        try {
+            Object bookingObj = bookingContract.getBooking_(ipfsHash).send();
+            Map<String, Object> bookingMap = new HashMap<>();
+            Class<?> bookingClass = bookingObj.getClass();
+
+            java.lang.reflect.Field ownerField = bookingClass.getDeclaredField("owner");
+            java.lang.reflect.Field ipfsHashField = bookingClass.getDeclaredField("ipfsHash");
+            java.lang.reflect.Field fnameField = bookingClass.getDeclaredField("fname");
+            java.lang.reflect.Field cnameField = bookingClass.getDeclaredField("cname");
+            java.lang.reflect.Field timeField = bookingClass.getDeclaredField("time");
+            java.lang.reflect.Field statusField = bookingClass.getDeclaredField("status");
+
+            ownerField.setAccessible(true);
+            ipfsHashField.setAccessible(true);
+            fnameField.setAccessible(true);
+            cnameField.setAccessible(true);
+            timeField.setAccessible(true);
+            statusField.setAccessible(true);
+
+            Object timeObj = timeField.get(bookingObj);
+            Class<?> timeClass = timeObj.getClass();
+            java.lang.reflect.Field startTimeField = timeClass.getDeclaredField("startTime");
+            java.lang.reflect.Field endTimeField = timeClass.getDeclaredField("endTime");
+            startTimeField.setAccessible(true);
+            endTimeField.setAccessible(true);
+
+            bookingMap.put("owner", ownerField.get(bookingObj));
+            bookingMap.put("ipfsHash", ipfsHashField.get(bookingObj));
+            bookingMap.put("facilityName", fnameField.get(bookingObj));
+            bookingMap.put("courtName", cnameField.get(bookingObj));
+            bookingMap.put("startTime", startTimeField.get(timeObj));
+            bookingMap.put("endTime", endTimeField.get(timeObj));
+            bookingMap.put("status", statusField.get(bookingObj).toString());
+
+            return bookingMap;
+        } catch (Exception e) {
+            logger.error("Error getting booking by ipfsHash: {}", e.getMessage());
+            throw new RuntimeException("Failed to get booking: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Gets all bookings from the blockchain (admin only)
+     */
+    public List<Map<String, Object>> getAllBookings() {
+        try {
+            // Call Booking contract's getAllBookings_ (admin only)
+            List<Object> rawBookings = bookingContract.getAllBookings_().send();
+            List<Map<String, Object>> bookings = new ArrayList<>();
+
+            for (Object obj : rawBookings) {
+                Map<String, Object> bookingMap = new HashMap<>();
+                try {
+                    Class<?> bookingClass = obj.getClass();
+                    // Extract fields using reflection
+                    java.lang.reflect.Field ownerField = bookingClass.getDeclaredField("owner");
+                    java.lang.reflect.Field ipfsHashField = bookingClass.getDeclaredField("ipfsHash");
+                    java.lang.reflect.Field fnameField = bookingClass.getDeclaredField("fname");
+                    java.lang.reflect.Field cnameField = bookingClass.getDeclaredField("cname");
+                    java.lang.reflect.Field timeField = bookingClass.getDeclaredField("time");
+                    java.lang.reflect.Field statusField = bookingClass.getDeclaredField("status");
+
+                    ownerField.setAccessible(true);
+                    ipfsHashField.setAccessible(true);
+                    fnameField.setAccessible(true);
+                    cnameField.setAccessible(true);
+                    timeField.setAccessible(true);
+                    statusField.setAccessible(true);
+
+                    Object timeObj = timeField.get(obj);
+                    Class<?> timeClass = timeObj.getClass();
+                    java.lang.reflect.Field startTimeField = timeClass.getDeclaredField("startTime");
+                    java.lang.reflect.Field endTimeField = timeClass.getDeclaredField("endTime");
+                    startTimeField.setAccessible(true);
+                    endTimeField.setAccessible(true);
+
+                    bookingMap.put("owner", ownerField.get(obj));
+                    bookingMap.put("ipfsHash", ipfsHashField.get(obj));
+                    bookingMap.put("facilityName", fnameField.get(obj));
+                    bookingMap.put("courtName", cnameField.get(obj));
+                    bookingMap.put("startTime", startTimeField.get(timeObj));
+                    bookingMap.put("endTime", endTimeField.get(timeObj));
+                    bookingMap.put("status", statusField.get(obj).toString());
+                } catch (Exception e) {
+                    logger.warn("Could not extract booking fields: {}", e.getMessage());
+                }
+                bookings.add(bookingMap);
+            }
+            return bookings;
+        } catch (Exception e) {
+            logger.error("Error getting all bookings: {}", e.getMessage());
+            throw new RuntimeException("Failed to get all bookings: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Completes a booking by ipfsHash (admin only)
+     */
+    public String completeBooking(String ipfsHash) {
+        try {
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+                throw new IllegalArgumentException("ipfsHash is required");
+            }
+            // Call the smart contract's completeBooking function
+            TransactionReceipt receipt = bookingContract.completeBooking(ipfsHash).send();
+            if (receipt.isStatusOK()) {
+                logger.info("Booking completed successfully: {}", ipfsHash);
+                return receipt.getTransactionHash();
+            }
+            throw new RuntimeException("Booking completion failed on-chain");
+        } catch (Exception e) {
+            logger.error("Error completing booking: {}", e.getMessage());
+            throw new RuntimeException("Failed to complete booking: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Rejects a booking by ipfsHash (admin only)
+     */
+    public String rejectBooking(String ipfsHash, String reason) {
+        try {
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+                throw new IllegalArgumentException("ipfsHash is required");
+            }
+            if (reason == null || reason.trim().isEmpty()) {
+                throw new IllegalArgumentException("Rejection reason is required");
+            }
+            // For this contract, you may need to pass the same ipfsHash twice (see Booking.sol)
+            org.web3j.protocol.core.methods.response.TransactionReceipt receipt =
+                bookingContract.rejectBooking(ipfsHash, ipfsHash, reason).send();
+            if (receipt.isStatusOK()) {
+                logger.info("Booking rejected successfully: {}", ipfsHash);
+                return receipt.getTransactionHash();
+            }
+            throw new RuntimeException("Booking rejection failed on-chain");
+        } catch (Exception e) {
+            logger.error("Error rejecting booking: {}", e.getMessage());
+            throw new RuntimeException("Failed to reject booking: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Cancels a booking by ipfsHash (admin only)
+     */
+    public String cancelBooking(String ipfsHash) {
+        try {
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+                throw new IllegalArgumentException("ipfsHash is required");
+            }
+            // For this contract, you may need to pass the same ipfsHash twice (see Booking.sol)
+            org.web3j.protocol.core.methods.response.TransactionReceipt receipt =
+                bookingContract.cancelBooking(ipfsHash, ipfsHash).send();
+            if (receipt.isStatusOK()) {
+                logger.info("Booking cancelled successfully: {}", ipfsHash);
+                return receipt.getTransactionHash();
+            }
+            throw new RuntimeException("Booking cancellation failed on-chain");
+        } catch (Exception e) {
+            logger.error("Error cancelling booking: {}", e.getMessage());
+            throw new RuntimeException("Failed to cancel booking: " + e.getMessage());
+        }
+    }
 }

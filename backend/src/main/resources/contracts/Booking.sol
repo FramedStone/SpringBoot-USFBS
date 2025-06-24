@@ -8,7 +8,7 @@ import "./Strings.sol";
 contract Booking is Management {
     // Variable & Modifier Initialization
     SportFacility immutable sfContract;
-    enum status { APPROVED, PENDING, REJECTED, COMPLETED, CANCELLED }
+    enum status { APPROVED, REJECTED, CANCELLED }
 
     struct timeSlot {
         uint256 startTime;
@@ -16,151 +16,88 @@ contract Booking is Management {
     }
     struct bookingTransaction {
         address owner;
-        uint256 bookingId;
         string ipfsHash;
-        string facilityName;
-        string courtName;
-        string note;
+        string fname;
+        string cname;
         timeSlot time;
         status status;
     }
-    bookingTransaction[] private bookings;
-    mapping(address owner => bookingTransaction) private bookingOwner;
+    bookingTransaction[] private bookings_;
+    mapping(string ipfsHash => bookingTransaction) private bookings;
 
     // Events
     event bookingCreated(
         address indexed from,
-        uint256 bookingId,
         string ipfsHash,
-        string facilityName,
-        string courtName,
-        string note,
-        string startTime,
-        string endTime,
+        string fname,
+        string cname,
+        uint256 startTime,
+        uint256 endTime,
         string status,
         uint256 timestamp
     );
-    event bookingUpdated(
+    event bookingDeleted(
         address indexed from,
-        uint256 bookingId,
-        string oldData,
-        string newData,
-        string note,
+        string ipfsHash,
+        uint256 timestamp
+    );
+    event bookingRejected(
+        address indexed from,
+        string ipfsHash,
+        string reason,
+        uint256 timestamp
+    );
+    event bookingCompleted(
+        string ipfsHash,
+        uint256 timestamp
+    );
+    event bookingCancelled(
+        string ipfsHash,
         uint256 timestamp
     );
 
     // Helper Functions
     function statusToString(status s) internal pure returns(string memory sString) {
         if(s == status.APPROVED) return "approved";
-        if(s == status.PENDING) return "pending";
         if(s == status.REJECTED) return "rejected";
-        if(s == status.COMPLETED) return "completed";
         if(s == status.CANCELLED) return "cancelled";
         return "unknown"; 
     }
 
-    function updateAllBookingStatus_() external {
-        for(uint256 i=0; i<bookings.length; i++) {
-            bookingTransaction storage b = bookings[i];
+    function updateBooking_(
+        string memory ipfsHash_,
+        string memory ipfsHash,
+        status nStatus 
+    ) internal {
+        require(keccak256(bytes(bookings[ipfsHash].ipfsHash)) == keccak256(bytes(ipfsHash)), "ipfsHash doesn't match in blockchain / booking not found");
+        require(bookings_.length > 0, "No bookings saved in blockchain");
 
-            if(bookings[i].status == status.APPROVED) {
-                if(block.timestamp >= b.time.endTime) {
-                    b.status = status.COMPLETED;
-                    emit bookingUpdated(msg.sender, b.bookingId, statusToString(status.APPROVED), statusToString(b.status), "updated by system (booking completed)", block.timestamp);
-                }
+        for(uint256 i=0; i<bookings_.length; i++) {
+            if(keccak256(bytes(ipfsHash_)) == keccak256(bytes(bookings_[i].ipfsHash))) {
+                bookings_[i].ipfsHash = ipfsHash;
+                bookings_[i].status = nStatus;
+                bookings[ipfsHash] = bookings_[i];
+                delete bookings[ipfsHash_];
+                return;
             }
         }
     }
 
-    function isAvailable_(
-        string memory fname,
-        string memory cname,
-        timeSlot memory time
-    ) internal isAdmin view returns(bool result) {
-        require(bytes(fname).length > 0, "Facility name not provided");
-        require(bytes(cname).length > 0, "Court name not provided");
-        require(time.startTime != 0 && time.endTime != 0, "Start or End time not provided");
+    function deleteBooking_(
+        string memory ipfsHash
+    ) internal {
+        require(keccak256(bytes(bookings[ipfsHash].ipfsHash)) == keccak256(bytes(ipfsHash)), "ipfsHash doesn't match in blockchain / booking not found");
+        require(bookings_.length > 0, "No bookings saved in blockchain");
 
-        (uint256 dailyStart, uint256 dailyEnd) = sfContract.getAvailableTimeRange(fname, cname);
-        
-        // Convert booking times to time-of-day (seconds since midnight)
-        uint256 bookingStartTime = time.startTime % 86400;
-        uint256 bookingEndTime = time.endTime % 86400;
-        
-        require(bookingStartTime >= dailyStart && bookingEndTime <= dailyEnd, 
-                "Booking request not within court daily operating hours");
-
-        for(uint256 i=0; i<bookings.length; i++) {
-            if(
-                keccak256(bytes(bookings[i].facilityName)) == keccak256(bytes(fname)) &&
-                keccak256(bytes(bookings[i].courtName))  == keccak256(bytes(cname)) &&
-                bookings[i].time.startTime             >= time.startTime &&
-                bookings[i].time.endTime               <= time.endTime
-            ) {
-                if(bookings[i].status == status.APPROVED) {
-                    return false;
-                } else {
-                    return true;
-                }
-            } 
+        for(uint256 i=0; i<bookings_.length; i++) {
+            if(keccak256(bytes(ipfsHash)) == keccak256(bytes(bookings_[i].ipfsHash))) {
+                bookings_[i] = bookings_[bookings_.length - 1];
+                bookings_.pop();
+            }
         }
-        return true;
-    }
+        delete bookings[ipfsHash];
 
-    function isAvailable(
-        string memory fname,
-        string memory cname,
-        timeSlot memory time
-    ) internal isUser view returns(bool result) {
-        require(bytes(fname).length > 0, "Facility name not provided");
-        require(bytes(cname).length > 0, "Court name not provided");
-        require(time.startTime != 0 && time.endTime != 0, "Start or End time not provided");
-
-        (uint256 dailyStart, uint256 dailyEnd) = sfContract.getAvailableTimeRange(fname, cname);
-
-        // Convert booking times to time-of-day (seconds since midnight)
-        uint256 bookingStartTime = time.startTime % 86400;
-        uint256 bookingEndTime = time.endTime % 86400;
-        
-        require(bookingStartTime >= dailyStart && bookingEndTime <= dailyEnd, 
-                "Booking request not within court daily operating hours");
-
-        for(uint256 i=0; i<bookings.length; i++) {
-            if(
-                keccak256(bytes(bookings[i].facilityName)) == keccak256(bytes(fname)) &&
-                keccak256(bytes(bookings[i].courtName))  == keccak256(bytes(cname)) &&
-                bookings[i].time.startTime             >= time.startTime &&
-                bookings[i].time.endTime               <= time.endTime
-            ) {
-                if(bookings[i].status == status.APPROVED) {
-                    return false;
-                } else {
-                    return true;
-                }
-            } 
-        }
-        return true;
-    }
-
-    function updateIPFSHash_(
-        uint256 bookingId_,
-        string memory ipfsHash_
-    ) internal isAdmin {
-        string memory oldData = bookings[bookingId_].ipfsHash;
-        bookings[bookingId_].ipfsHash = ipfsHash_;
-        string memory newData = ipfsHash_;
-
-        emit bookingUpdated(msg.sender, bookingId_, oldData, newData, "IPFS Hash updated by admin", block.timestamp);
-    }
-    function updateIPFSHash(
-        uint256 bookingId_,
-        string memory ipfsHash_
-    ) internal isUser {
-        string memory oldData = bookings[bookingId_].ipfsHash;
-        bookings[bookingId_].ipfsHash = ipfsHash_;
-        string memory newData = ipfsHash_;
-
-        emit bookingUpdated(msg.sender, bookingId_, oldData, newData, "IPFS Hash updated by user", block.timestamp);
+        emit bookingDeleted(msg.sender, ipfsHash, block.timestamp);
     }
 
     // Main Functions
@@ -168,274 +105,128 @@ contract Booking is Management {
         sfContract = SportFacility(sfAddress);
     }
 
-    // universal
-    function getBookedtimeSlots(
-        string memory fname,
-        string memory cname
-    ) external view returns(timeSlot[] memory timeSlots_) {
-        require(users[msg.sender] == true || admins[msg.sender] == true, "Access denied: Must be user or admin");
-        require(bytes(fname).length > 0, "Facility name not provided");
-        require(bytes(cname).length > 0, "Court name not provided");
-
-        // First pass: count matching active bookings
-        uint256 activeBookingCount = 0;
-        for(uint256 i = 0; i < bookings.length; i++) {
-            if(
-                keccak256(bytes(bookings[i].facilityName)) == keccak256(bytes(fname)) &&
-                keccak256(bytes(bookings[i].courtName)) == keccak256(bytes(cname)) &&
-                (bookings[i].status == status.APPROVED || bookings[i].status == status.PENDING)
-            ) {
-                activeBookingCount++;
-            }
-        }
-
-        require(activeBookingCount > 0, "No active bookings found for this court");
-
-        // Second pass: populate correctly sized array
-        timeSlot[] memory timeSlots = new timeSlot[](activeBookingCount);
-        uint256 arrayIndex = 0;
-        
-        for(uint256 i = 0; i < bookings.length; i++) {
-            if(
-                keccak256(bytes(bookings[i].facilityName)) == keccak256(bytes(fname)) &&
-                keccak256(bytes(bookings[i].courtName)) == keccak256(bytes(cname)) &&
-                (bookings[i].status == status.APPROVED || bookings[i].status == status.PENDING)
-            ) {
-                timeSlots[arrayIndex] = bookings[i].time;
-                arrayIndex++;
-            }
-        }
-        
-        return timeSlots;
-    }
-
-    // admin
-    // CRUD
-    function createBooking_(
-        string memory ipfsHash,
-        string memory fname,
-        string memory cname,
-        string memory note,
-        timeSlot memory time
-    ) external isAdmin returns(uint256 bookingId_){
-        require(bytes(fname).length > 0, "Facility name not provided");
-        require(bytes(cname).length > 0, "Court name not provided");
-        require(time.startTime != 0 && time.endTime != 0, "Start or End time not provided");
-        uint256 duration = time.endTime - time.startTime;
-        require(duration % 1 hours == 0, "Duration must be in 1 hour increments");
-
-        uint256 bookingId = bookings.length;
-
-        // look for any empty index in bookings
-        for(uint256 i=0; i<bookings.length; i++) {
-            if(bookings[i].bookingId == 0 && bytes(bookings[i].ipfsHash).length == 0) {
-                bookingId = i;
-            }
-        }
-
-        bookingTransaction memory b = bookingTransaction(
-            msg.sender,
-            bookingId,
-            ipfsHash,
-            fname,
-            cname,
-            note,
-            time,
-            status.PENDING
-        );
-        bookings.push(b);
-        bookingOwner[msg.sender] = b;
-
-        bookings[bookingId].status = status.PENDING;
-        emit bookingCreated(
-            msg.sender,
-            bookingId,
-            ipfsHash,
-            fname,
-            cname,
-            "Booking created by admin",
-            Strings.uintTo24Hour(time.startTime),
-            Strings.uintTo24Hour(time.endTime),
-            statusToString(status.PENDING),
-            block.timestamp
-        );
-
-        if(isAvailable_(fname, cname, time)) {
-            bookings[bookingId].status = status.APPROVED;
-            emit bookingUpdated(
-                msg.sender,
-                bookingId,
-                statusToString(status.PENDING),
-                statusToString(status.APPROVED),
-                "Booking approved by system",
-                block.timestamp
-            );
-        } else if(!isAvailable_(fname, cname, time)) {
-            bookings[bookingId].status = status.REJECTED;
-            emit bookingUpdated(
-                msg.sender,
-                bookingId,
-                statusToString(status.PENDING),
-                statusToString(status.REJECTED),
-                "Booking rejected by system due to clashing",
-                block.timestamp
-            );
-        }
-        return(bookingId);
-    }
-
-    function attachBookingNote(
-        uint256 bookingId,
-        string memory note
-    ) external isAdmin {
-        require(bookingId != 0, "Booking not found");
-        require(bytes(note).length != 0, "note not provided");
-
-        bookingTransaction storage b = bookings[bookingId];
-        b.note = note;
-        emit bookingUpdated(msg.sender, bookingId, "", note, "Note attached by admin", block.timestamp);
-    }
-
-    function rejectBooking(
-        uint256 bookingId,
-        string memory reason
-    ) external isAdmin returns(string memory reason_) {
-        require(bookingId != 0, "Booking not found");
-
-        bookingTransaction storage b = bookings[bookingId];
-        emit bookingUpdated(
-            msg.sender,
-            bookingId,
-            statusToString(b.status),
-            statusToString(status.REJECTED),
-            string.concat("Booking rejected by admin: ", reason),
-            block.timestamp
-        );
-        b.status = status.REJECTED;
-
-        return reason;
-    }
-
-    // Getters
-    function getBooking_(uint256 bookingId) external isAdmin view returns(bookingTransaction memory booking) {
-        require(bookings.length > 0, "No bookings exist");
-        require(bookingId < bookings.length, "Booking ID out of range");
-        require(bookings[bookingId].bookingId != 0 || bytes(bookings[bookingId].ipfsHash).length > 0, "Booking not found");
-        require(bookings[bookingId].owner == msg.sender, "Not booking owner");
-        
-        return bookings[bookingId];
-    }
-    function getAllBookings_() external isAdmin view returns(bookingTransaction[] memory booking) {
-        require(bookings.length > 0, "Empty bookings saved in blockchain");
-
-        return bookings;
-    }
-
-    // user
-    // CRUD
     function createBooking(
         string memory ipfsHash,
         string memory fname,
         string memory cname,
-        string memory note,
         timeSlot memory time
-    ) external isUser returns(uint256 bookingId_){
-        require(bytes(fname).length > 0, "Facility name not provided");
-        require(bytes(cname).length > 0, "Court name not provided");
-        require(time.startTime != 0 && time.endTime != 0, "Start or End time not provided");
+    ) external {
+        try sfContract.getCourt(fname, cname) returns (
+            string memory /*name*/,
+            uint256 /*earliestTime*/,
+            uint256 /*latestTime*/,
+            SportFacility.status /*status_*/
+        ) {
+            // Court exists, continue
+        } catch {
+            revert("Sport Facility or Court does not exist");
+        }
+        require(time.endTime > time.startTime, "End time must be greater than Start time");
         uint256 duration = time.endTime - time.startTime;
-        require(duration == 1 hours || duration == 2 hours, "Booking must be exactly 1 hour or 2 hours only");
+        require(duration % 1 == 0, "Booking time must be 1 increment");
 
-        uint256 bookingId = bookings.length;
+        status status_ = status.APPROVED;
+        for(uint256 i=0; i<bookings_.length; i++) {
+            bookingTransaction memory existing = bookings_[i];
 
-        // look for any empty index in bookings
-        for(uint256 i=0; i<bookings.length; i++) {
-            if(bookings[i].bookingId == 0 && bytes(bookings[i].ipfsHash).length == 0) {
-                bookingId = i;
+            if(
+                keccak256(bytes(existing.fname)) == keccak256(bytes(fname)) &&                 
+                keccak256(bytes(existing.cname)) == keccak256(bytes(cname)) 
+            ) {
+                bool isOverlap = (
+                    (time.startTime < existing.time.endTime) &&
+                    (time.endTime > existing.time.startTime)
+                );
+                if(isOverlap && (existing.status == status.APPROVED)) {
+                    status_ = status.REJECTED;
+                    break;
+                }
+            } else {
+                revert("Sport Facility / Court can't be found");
             }
         }
 
-        bookingTransaction memory b = bookingTransaction(
+        bookingTransaction memory nBooking = bookingTransaction(
             msg.sender,
-            bookingId,
             ipfsHash,
             fname,
             cname,
-            note,
             time,
-            status.PENDING
+            status_
         );
-        bookings.push(b);
-        bookingOwner[msg.sender] = b;
 
-        bookings[bookingId].status = status.PENDING;
+        bookings_.push(nBooking);
+        bookings[ipfsHash] = nBooking;
+
         emit bookingCreated(
-            msg.sender,
-            bookingId,
-            ipfsHash,
-            fname,
-            cname,
-            "Booking created by admin",
-            Strings.uintTo24Hour(time.startTime),
-            Strings.uintTo24Hour(time.endTime),
-            statusToString(status.PENDING),
+            msg.sender, 
+            ipfsHash, 
+            fname, 
+            cname, 
+            time.startTime, 
+            time.endTime, 
+            statusToString(status_), 
             block.timestamp
         );
-
-        if(isAvailable(fname, cname, time)) {
-            bookings[bookingId].status = status.APPROVED;
-            emit bookingUpdated(
-                msg.sender,
-                bookingId,
-                statusToString(status.PENDING),
-                statusToString(status.APPROVED),
-                "Booking approved by system",
-                block.timestamp
-            );
-        } else if(!isAvailable(fname, cname, time)) {
-            bookings[bookingId].status = status.REJECTED;
-            emit bookingUpdated(
-                msg.sender,
-                bookingId,
-                statusToString(status.PENDING),
-                statusToString(status.REJECTED),
-                "Booking rejected by system due to clashing",
-                block.timestamp
-            );
-        }
-        return(bookingId);
     }
 
-    function cancelBooking(
-        uint256 bookingId
-    ) external isUser {
-        require(bookingId !=0, "BookingId not provided");
-        require(bookings[bookingId].owner == msg.sender, "Not booking owner");
-
-        bookingTransaction storage b = bookings[bookingId];
-        string memory oldData = statusToString(b.status);
-        string memory newData = statusToString(status.CANCELLED);
-        emit bookingUpdated(msg.sender, bookingId, oldData, newData, "Booking cancelled by user", block.timestamp);
+    function getBooking_(
+        string memory ipfsHash
+    ) external isAdmin view returns(bookingTransaction memory booking) {
+        require(keccak256(bytes(bookings[ipfsHash].ipfsHash)) == keccak256(bytes(ipfsHash)), "ipfsHash doesn't match in blockchain / booking not found");
+        return bookings[ipfsHash];
     }
-
-    // Getters
-    function getBooking(uint256 bookingId) external isUser view returns(bookingTransaction memory booking) {
-        require(bookings.length > 0, "No bookings exist");
-        require(bookingId < bookings.length, "Booking ID out of range");
-        require(bookings[bookingId].bookingId != 0 || bytes(bookings[bookingId].ipfsHash).length > 0, "Booking not found");
-        require(bookings[bookingId].owner == msg.sender, "Not booking owner");
-
-        return bookings[bookingId];
+    function getAllBookings_() external isAdmin view returns(bookingTransaction[] memory bookingList) {
+        require(bookings_.length > 0, "No bookings saved in blockchain");
+        return bookings_; 
     }
-    function getAllBookings() external isUser view returns(bookingTransaction[] memory booking) {
-        require(bookings.length > 0, "Empty bookings found in blockchain");
-
-        bookingTransaction[] memory bookings_;
-        for(uint256 i=0; i<bookings.length; i++) {
-            if(bookings[i].owner == msg.sender) {
-                bookings_[i] = bookings[i];
+    
+    function getBooking(
+        string memory ipfsHash
+    ) external view returns(bookingTransaction memory booking) {
+        require(keccak256(bytes(bookings[ipfsHash].ipfsHash)) == keccak256(bytes(ipfsHash)), "ipfsHash doesn't match in blockchain / booking not found");
+        require(bookings[ipfsHash].owner == msg.sender, "Access Denied (not booking owner)");
+        return bookings[ipfsHash];
+    }
+    function getAllBookings() external view returns(bookingTransaction[] memory bookingList) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < bookings_.length; i++) {
+            if (bookings_[i].owner == msg.sender) {
+                count++;
             }
         }
-        return bookings_;
+
+        bookingTransaction[] memory temp = new bookingTransaction[](count);
+        uint256 idx = 0;
+        for (uint256 i = 0; i < bookings_.length; i++) {
+            if (bookings_[i].owner == msg.sender) {
+                temp[idx] = bookings_[i];
+                idx++;
+            }
+        }
+        return temp;
+    }
+
+    function completeBooking(
+        string memory ipfsHash
+    ) external isAdmin {
+        deleteBooking_(ipfsHash);
+        emit bookingCompleted(ipfsHash, block.timestamp);
+    }
+    function rejectBooking(
+        string memory ipfsHash_,
+        string memory ipfsHash,
+        string memory reason
+    ) external isAdmin {
+        deleteBooking_(ipfsHash_);
+        emit bookingRejected(msg.sender, ipfsHash, reason, block.timestamp);
+    }
+    function cancelBooking(
+        string memory ipfsHash_,
+        string memory ipfsHash
+    ) external {
+        require(bookings[ipfsHash_].owner == msg.sender, "Access Denied (not booking owner)");
+        deleteBooking_(ipfsHash_);
+        emit bookingCancelled(ipfsHash, block.timestamp); 
     }
 }

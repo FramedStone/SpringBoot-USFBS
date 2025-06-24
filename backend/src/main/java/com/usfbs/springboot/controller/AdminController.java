@@ -636,4 +636,161 @@ public class AdminController {
             ));
         }
     }
+
+    @PostMapping("/bookings")
+    public ResponseEntity<?> createBooking(@RequestBody Map<String, Object> request) {
+        try {
+            String ipfsHash = (String) request.get("ipfsHash");
+            String facilityName = (String) request.get("facilityName");
+            String courtName = (String) request.get("courtName");
+            Long startTime = request.get("startTime") instanceof Integer
+                ? ((Integer) request.get("startTime")).longValue()
+                : (Long) request.get("startTime");
+            Long endTime = request.get("endTime") instanceof Integer
+                ? ((Integer) request.get("endTime")).longValue()
+                : (Long) request.get("endTime");
+
+            if (ipfsHash == null || facilityName == null || courtName == null || startTime == null || endTime == null) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Missing required fields"));
+            }
+
+            String txHash = adminService.createBooking(
+                ipfsHash,
+                facilityName,
+                courtName,
+                BigInteger.valueOf(startTime),
+                BigInteger.valueOf(endTime)
+            );
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "txHash", txHash,
+                "message", "Booking created successfully"
+            ));
+        } catch (Exception e) {
+            logger.error("Error creating booking: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/bookings/{ipfsHash}")
+    public ResponseEntity<?> getBookingByIpfsHash(@PathVariable String ipfsHash) {
+        try {
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "ipfsHash is required"));
+            }
+            Map<String, Object> booking = adminService.getBookingByIpfsHash(ipfsHash);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", booking
+            ));
+        } catch (Exception e) {
+            logger.error("Error getting booking: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/bookings")
+    public ResponseEntity<?> getAllBookings() {
+        try {
+            List<Map<String, Object>> bookings = adminService.getAllBookings();
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", bookings
+            ));
+        } catch (Exception e) {
+            logger.error("Error getting all bookings: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/bookings/{ipfsHash}/complete")
+    public ResponseEntity<?> completeBooking(@PathVariable String ipfsHash) {
+        try {
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "ipfsHash is required"
+                ));
+            }
+            String txHash = adminService.completeBooking(ipfsHash);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "txHash", txHash,
+                "message", "Booking completed successfully"
+            ));
+        } catch (Exception e) {
+            logger.error("Error completing booking: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("bookings/{ipfsHash}/reject")
+    public ResponseEntity<?> rejectBooking(
+        @PathVariable String ipfsHash,
+        @RequestBody Map<String, String> request
+    ) {
+        try {
+            String reason = request.get("reason");
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "ipfsHash is required"
+                ));
+            }
+            if (reason == null || reason.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Rejection reason is required"
+                ));
+            }
+            String txHash = adminService.rejectBooking(ipfsHash, reason);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "txHash", txHash,
+                "message", "Booking rejected successfully"
+            ));
+        } catch (Exception e) {
+            logger.error("Error rejecting booking: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/bookings/{ipfsHash}/cancel")
+    public ResponseEntity<?> cancelBooking(@PathVariable String ipfsHash) {
+        try {
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "ipfsHash is required"
+                ));
+            }
+            String txHash = adminService.cancelBooking(ipfsHash);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "txHash", txHash,
+                "message", "Booking cancelled successfully"
+            ));
+        } catch (Exception e) {
+            logger.error("Error cancelling booking: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
 }

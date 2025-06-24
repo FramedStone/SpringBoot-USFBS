@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 
@@ -103,6 +104,148 @@ public class UserController {
                 "error", e.getMessage(),
                 "facilityName", facilityName,
                 "message", "Failed to retrieve sport facility details"
+            ));
+        }
+    }
+
+    /**
+     * Create a booking for a court
+     */
+    @PostMapping("/bookings")
+    public ResponseEntity<?> createBooking(@RequestBody Map<String, Object> request) {
+        try {
+            String ipfsHash = (String) request.get("ipfsHash");
+            String facilityName = (String) request.get("facilityName");
+            String courtName = (String) request.get("courtName");
+            Long startTime = request.get("startTime") instanceof Integer
+                ? ((Integer) request.get("startTime")).longValue()
+                : (Long) request.get("startTime");
+            Long endTime = request.get("endTime") instanceof Integer
+                ? ((Integer) request.get("endTime")).longValue()
+                : (Long) request.get("endTime");
+
+            if (ipfsHash == null || facilityName == null || courtName == null || startTime == null || endTime == null) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Missing required fields"));
+            }
+
+            String txHash = userService.createBooking(
+                ipfsHash,
+                facilityName,
+                courtName,
+                BigInteger.valueOf(startTime),
+                BigInteger.valueOf(endTime)
+            );
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "txHash", txHash,
+                "message", "Booking created successfully"
+            ));
+        } catch (Exception e) {
+            logger.error("Error creating booking: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Get a single booking for the current user by ipfsHash
+     */
+    @GetMapping("/bookings/{ipfsHash}")
+    public ResponseEntity<?> getBookingByIpfsHash(
+        @RequestHeader("user-address") String userAddress,
+        @PathVariable String ipfsHash
+    ) {
+        try {
+            if (userAddress == null || userAddress.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "User address is required"
+                ));
+            }
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "ipfsHash is required"
+                ));
+            }
+            Map<String, Object> booking = userService.getBookingByIpfsHash(userAddress, ipfsHash);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", booking
+            ));
+        } catch (Exception e) {
+            logger.error("Error getting booking for user: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage(),
+                "message", "Failed to retrieve booking"
+            ));
+        }
+    }
+
+    /**
+     * Get all bookings for the current user
+     */
+    @GetMapping("/bookings")
+    public ResponseEntity<?> getAllBookings(@RequestHeader("user-address") String userAddress) {
+        try {
+            if (userAddress == null || userAddress.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "User address is required"
+                ));
+            }
+            List<Map<String, Object>> bookings = userService.getAllBookings(userAddress);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", bookings,
+                "count", bookings.size(),
+                "message", String.format("Retrieved %d bookings for user", bookings.size())
+            ));
+        } catch (Exception e) {
+            logger.error("Error getting user bookings: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage(),
+                "message", "Failed to retrieve user bookings"
+            ));
+        }
+    }
+
+    /**
+     * Cancel a booking by ipfsHash
+     */
+    @PostMapping("/bookings/{ipfsHash}/cancel")
+    public ResponseEntity<?> cancelBooking(
+        @RequestHeader("user-address") String userAddress,
+        @PathVariable String ipfsHash
+    ) {
+        try {
+            if (userAddress == null || userAddress.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "User address is required"
+                ));
+            }
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "ipfsHash is required"
+                ));
+            }
+            String txHash = userService.cancelBooking(userAddress, ipfsHash);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "txHash", txHash,
+                "message", "Booking cancelled successfully"
+            ));
+        } catch (Exception e) {
+            logger.error("Error cancelling booking for user: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
             ));
         }
     }

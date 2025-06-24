@@ -2,6 +2,7 @@ package com.usfbs.springboot.service;
 
 import com.usfbs.springboot.contracts.Management;
 import com.usfbs.springboot.contracts.SportFacility;
+import com.usfbs.springboot.contracts.Booking;
 import com.usfbs.springboot.dto.AnnouncementItem;
 import com.usfbs.springboot.dto.SportFacilityResponse;
 import com.usfbs.springboot.dto.SportFacilityDetailResponse;
@@ -15,7 +16,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import org.web3j.protocol.core.methods.response.TransactionReceipt;
+import java.math.BigInteger;
 
 @Service
 public class UserService {
@@ -27,6 +32,9 @@ public class UserService {
     
     @Autowired
     private SportFacility sportFacilityContract;
+    
+    @Autowired
+    private Booking bookingContract;
     
     @Value("${pinata.gateway.url:https://gateway.pinata.cloud}")
     private String pinataGatewayUrl;
@@ -299,5 +307,158 @@ public class UserService {
             return null;
         }
     }
-}
 
+    /**
+     * Create a new booking
+     */
+    public String createBooking(String ipfsHash, String facilityName, String courtName, BigInteger startTime, BigInteger endTime) {
+        try {
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) throw new IllegalArgumentException("ipfsHash is required");
+            if (facilityName == null || facilityName.trim().isEmpty()) throw new IllegalArgumentException("facilityName is required");
+            if (courtName == null || courtName.trim().isEmpty()) throw new IllegalArgumentException("courtName is required");
+            if (startTime == null || endTime == null || endTime.compareTo(startTime) <= 0) throw new IllegalArgumentException("Invalid time range");
+
+            Booking.timeSlot timeSlot = new Booking.timeSlot(startTime, endTime);
+
+            TransactionReceipt receipt = bookingContract.createBooking(ipfsHash, facilityName, courtName, timeSlot).send();
+
+            if (receipt.isStatusOK()) {
+                logger.info("User booking created successfully: {}", ipfsHash);
+                return receipt.getTransactionHash();
+            }
+            throw new RuntimeException("Booking creation failed on-chain");
+        } catch (Exception e) {
+            logger.error("Error creating booking: {}", e.getMessage());
+            throw new RuntimeException("Failed to create booking: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Gets a single booking by ipfsHash for the current user
+     */
+    public Map<String, Object> getBookingByIpfsHash(String userAddress, String ipfsHash) {
+        try {
+            Object bookingObj = bookingContract.getBooking(ipfsHash).send();
+            Map<String, Object> bookingMap = new HashMap<>();
+            Class<?> bookingClass = bookingObj.getClass();
+
+            java.lang.reflect.Field ownerField = bookingClass.getDeclaredField("owner");
+            java.lang.reflect.Field ipfsHashField = bookingClass.getDeclaredField("ipfsHash");
+            java.lang.reflect.Field fnameField = bookingClass.getDeclaredField("fname");
+            java.lang.reflect.Field cnameField = bookingClass.getDeclaredField("cname");
+            java.lang.reflect.Field timeField = bookingClass.getDeclaredField("time");
+            java.lang.reflect.Field statusField = bookingClass.getDeclaredField("status");
+
+            ownerField.setAccessible(true);
+            ipfsHashField.setAccessible(true);
+            fnameField.setAccessible(true);
+            cnameField.setAccessible(true);
+            timeField.setAccessible(true);
+            statusField.setAccessible(true);
+
+            Object timeObj = timeField.get(bookingObj);
+            Class<?> timeClass = timeObj.getClass();
+            java.lang.reflect.Field startTimeField = timeClass.getDeclaredField("startTime");
+            java.lang.reflect.Field endTimeField = timeClass.getDeclaredField("endTime");
+            startTimeField.setAccessible(true);
+            endTimeField.setAccessible(true);
+
+            // Only allow access if the booking belongs to the user
+            String owner = ownerField.get(bookingObj).toString();
+            if (!owner.equalsIgnoreCase(userAddress)) {
+                throw new RuntimeException("Access denied: not booking owner");
+            }
+
+            bookingMap.put("owner", owner);
+            bookingMap.put("ipfsHash", ipfsHashField.get(bookingObj));
+            bookingMap.put("facilityName", fnameField.get(bookingObj));
+            bookingMap.put("courtName", cnameField.get(bookingObj));
+            bookingMap.put("startTime", startTimeField.get(timeObj));
+            bookingMap.put("endTime", endTimeField.get(timeObj));
+            bookingMap.put("status", statusField.get(bookingObj).toString());
+
+            return bookingMap;
+        } catch (Exception e) {
+            logger.error("Error getting booking by ipfsHash for user: {}", e.getMessage());
+            throw new RuntimeException("Failed to get booking: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Gets all bookings for the current user
+     */
+    public List<Map<String, Object>> getAllBookings(String userAddress) {
+        try {
+            // Call Booking contract's getAllBookings (returns only user's bookings)
+            List<Object> rawBookings = bookingContract.getAllBookings().send();
+            List<Map<String, Object>> bookings = new ArrayList<>();
+
+            for (Object obj : rawBookings) {
+                Map<String, Object> bookingMap = new HashMap<>();
+                try {
+                    Class<?> bookingClass = obj.getClass();
+                    java.lang.reflect.Field ownerField = bookingClass.getDeclaredField("owner");
+                    java.lang.reflect.Field ipfsHashField = bookingClass.getDeclaredField("ipfsHash");
+                    java.lang.reflect.Field fnameField = bookingClass.getDeclaredField("fname");
+                    java.lang.reflect.Field cnameField = bookingClass.getDeclaredField("cname");
+                    java.lang.reflect.Field timeField = bookingClass.getDeclaredField("time");
+                    java.lang.reflect.Field statusField = bookingClass.getDeclaredField("status");
+
+                    ownerField.setAccessible(true);
+                    ipfsHashField.setAccessible(true);
+                    fnameField.setAccessible(true);
+                    cnameField.setAccessible(true);
+                    timeField.setAccessible(true);
+                    statusField.setAccessible(true);
+
+                    Object timeObj = timeField.get(obj);
+                    Class<?> timeClass = timeObj.getClass();
+                    java.lang.reflect.Field startTimeField = timeClass.getDeclaredField("startTime");
+                    java.lang.reflect.Field endTimeField = timeClass.getDeclaredField("endTime");
+                    startTimeField.setAccessible(true);
+                    endTimeField.setAccessible(true);
+
+                    bookingMap.put("owner", ownerField.get(obj));
+                    bookingMap.put("ipfsHash", ipfsHashField.get(obj));
+                    bookingMap.put("facilityName", fnameField.get(obj));
+                    bookingMap.put("courtName", cnameField.get(obj));
+                    bookingMap.put("startTime", startTimeField.get(timeObj));
+                    bookingMap.put("endTime", endTimeField.get(timeObj));
+                    bookingMap.put("status", statusField.get(obj).toString());
+                } catch (Exception e) {
+                    logger.warn("Could not extract booking fields: {}", e.getMessage());
+                }
+                bookings.add(bookingMap);
+            }
+            return bookings;
+        } catch (Exception e) {
+            logger.error("Error getting all user bookings: {}", e.getMessage());
+            throw new RuntimeException("Failed to get all user bookings: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Cancels a booking by ipfsHash for the current user
+     */
+    public String cancelBooking(String userAddress, String ipfsHash) {
+        try {
+            if (userAddress == null || userAddress.trim().isEmpty()) {
+                throw new IllegalArgumentException("User address is required");
+            }
+            if (ipfsHash == null || ipfsHash.trim().isEmpty()) {
+                throw new IllegalArgumentException("ipfsHash is required");
+            }
+            // For this contract, you may need to pass the same ipfsHash twice (see Booking.sol)
+            org.web3j.protocol.core.methods.response.TransactionReceipt receipt =
+                bookingContract.cancelBooking(ipfsHash, ipfsHash).send();
+            if (receipt.isStatusOK()) {
+                logger.info("User {} cancelled booking: {}", userAddress, ipfsHash);
+                return receipt.getTransactionHash();
+            }
+            throw new RuntimeException("Booking cancellation failed on-chain");
+        } catch (Exception e) {
+            logger.error("Error cancelling booking for user {}: {}", userAddress, e.getMessage());
+            throw new RuntimeException("Failed to cancel booking: " + e.getMessage());
+        }
+    }
+}
