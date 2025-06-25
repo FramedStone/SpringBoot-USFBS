@@ -318,27 +318,47 @@ public class AdminController {
 
     @PutMapping(
         value = "/sport-facilities",
-        consumes = MediaType.APPLICATION_JSON_VALUE,
+        consumes = { MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE },
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<?> updateSportFacility(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<?> updateSportFacility(
+        @RequestParam(value = "oldName", required = false) String oldName,
+        @RequestParam(value = "newName", required = false) String newName,
+        @RequestParam(value = "newLocation", required = false) String newLocation,
+        @RequestParam(value = "newStatus", required = false) Integer newStatusInt,
+        @RequestParam(value = "newImageFile", required = false) MultipartFile newImageFile,
+        @RequestParam(value = "newImageIPFS", required = false) String newImageIPFS,
+        @RequestBody(required = false) Map<String, Object> requestBody
+    ) {
         try {
-            String oldName = (String) request.get("oldName");
-            String newName = (String) request.getOrDefault("newName", "");
-            String newLocation = (String) request.getOrDefault("newLocation", "");
-            String newImageIPFS = (String) request.getOrDefault("newImageIPFS", "");
-            Integer newStatusInt = request.get("newStatus") != null ? (Integer) request.get("newStatus") : 0;
+            // Support both JSON and multipart
+            String _oldName = oldName;
+            String _newName = newName;
+            String _newLocation = newLocation;
+            Integer _newStatusInt = newStatusInt;
+            MultipartFile _newImageFile = newImageFile;
+            String _newImageIPFS = newImageIPFS;
 
-            if (oldName == null || oldName.trim().isEmpty()) {
+            if (_oldName == null && requestBody != null) {
+                _oldName = (String) requestBody.get("oldName");
+                _newName = (String) requestBody.getOrDefault("newName", "");
+                _newLocation = (String) requestBody.getOrDefault("newLocation", "");
+                _newStatusInt = requestBody.containsKey("newStatus") && requestBody.get("newStatus") != null
+                    ? (Integer) requestBody.get("newStatus")
+                    : null;
+                _newImageIPFS = (String) requestBody.get("newImageIPFS");
+            }
+
+            if (_oldName == null || _oldName.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Old facility name is required"));
             }
 
             String result = adminService.updateSportFacility(
-                oldName,
-                newName,
-                newLocation,
-                newImageIPFS,
-                java.math.BigInteger.valueOf(newStatusInt)
+                _oldName,
+                _newName,
+                _newLocation,
+                _newImageIPFS,
+                _newStatusInt != null ? java.math.BigInteger.valueOf(_newStatusInt) : null
             );
             return ResponseEntity.ok(Map.of("success", true, "message", result));
         } catch (Exception e) {
@@ -495,6 +515,10 @@ public class AdminController {
             }
             if (oldCourtName == null || oldCourtName.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Old court name is required"));
+            }
+
+            if (newCourtName != null && newCourtName.equals(oldCourtName)) {
+                newCourtName = "";
             }
 
             String result = adminService.updateCourt(
@@ -1074,6 +1098,24 @@ public class AdminController {
                 "success", false,
                 "error", e.getMessage()
             ));
+        }
+    }
+
+    @PostMapping(
+        value = "/sport-facilities/upload-image",
+        consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> uploadSportFacilityImage(@RequestParam("image") MultipartFile imageFile) {
+        try {
+            if (imageFile == null || imageFile.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Image file is required"));
+            }
+            String imageIPFS = adminService.uploadFacilityImageToIPFS(imageFile);
+            return ResponseEntity.ok(Map.of("success", true, "imageIPFS", imageIPFS));
+        } catch (Exception e) {
+            logger.error("Error uploading facility image: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 }

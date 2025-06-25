@@ -140,12 +140,15 @@ contract SportFacility is Management {
         status fstatus
     ) external isAdmin {
         require(bytes(fname_).length > 0, "Sport Facility name not provided");
+        // require(sfIndex[fname] == 0, "New facility name already exists");
 
         uint256 facilityIndex = sfIndex[fname_];
         sportFacility storage sf = sportFacilities[facilityIndex - 1];
-        sportFacility storage temp = sportFacilities[facilityIndex - 1];
+        string memory tempLocation = sf.location;
+        string memory tempImageIPFS = sf.imageIPFS;
+        status tempStatus = sf.status;
 
-        if(bytes(fname).length > 0) {
+        if(keccak256(bytes(fname_)) != keccak256((bytes(fname)))) {
             sf.name = fname;
             sfIndex[fname] = facilityIndex; 
             delete sfIndex[fname_]; 
@@ -163,13 +166,13 @@ contract SportFacility is Management {
         emit sportFacilityModified(
             msg.sender,
             fname_,
-            fname,
-            temp.location,
-            flocation,
-            temp.imageIPFS,
-            fimageIPFS,
-            statusToString(temp.status),
-            statusToString(fstatus),
+            keccak256(bytes(fname)) == keccak256(bytes(fname_)) ? fname_ : fname,
+            tempLocation,
+            bytes(flocation).length == bytes(tempLocation).length ? tempLocation : flocation,
+            tempImageIPFS,
+            bytes(fimageIPFS).length == bytes(tempImageIPFS).length ? tempImageIPFS : fimageIPFS,
+            statusToString(tempStatus),
+            fstatus == tempStatus ? statusToString(tempStatus) : statusToString(fstatus),
             block.timestamp
         );
     }
@@ -319,13 +322,13 @@ contract SportFacility is Management {
             msg.sender,
             fname,
             cname_,
-            cname,
+            bytes(cname).length > 0 ? cname : temp.name,
             temp.earliestTime,
             temp.latestTime,
-            earliestTime,
-            latestTime,
+            earliestTime != 0 ? earliestTime : temp.earliestTime,
+            latestTime != 0 ? latestTime : temp.latestTime,
             statusToString(temp.status),
-            tempStatus,
+            keccak256(bytes(tempStatus)) == keccak256(bytes(statusToString(temp.status))) ? statusToString(temp.status) : tempStatus,
             block.timestamp
         );
     }

@@ -643,12 +643,37 @@ public class AdminService {
     }
 
     /**
-     * Updates an existing sport facility
+     * Updates an existing sport facility.
+     * If newImageFile is provided, upload to IPFS, unpin old image, and update imageIPFS.
+     * Accepts newStatus as optional (can be null).
      */
     public String updateSportFacility(String oldName, String newName, String newLocation, String newImageIPFS, BigInteger newStatus) {
         try {
+            SportFacilityDetailResponse current = getSportFacility(oldName);
+
+            String finalName = (newName != null && !newName.isEmpty()) ? newName : current.getName();
+            String finalLocation = (newLocation != null && !newLocation.isEmpty()) ? newLocation : current.getLocation();
+            String finalImageIPFS = (newImageIPFS != null && !newImageIPFS.isEmpty()) ? newImageIPFS : current.getImageIPFS();
+
+            // If new imageIPFS is provided and different, unpin old image
+            if (newImageIPFS != null && !newImageIPFS.isEmpty() && !newImageIPFS.equals(current.getImageIPFS())) {
+                if (current.getImageIPFS() != null && !current.getImageIPFS().isEmpty()) {
+                    try {
+                        pinataUtil.unpinFromIPFS(current.getImageIPFS());
+                        logger.info("Unpinned old facility image from IPFS: {}", current.getImageIPFS());
+                    } catch (Exception e) {
+                        logger.warn("Failed to unpin old facility image: {}", e.getMessage());
+                    }
+                }
+            }
+
+            BigInteger finalStatus = (newStatus != null) ? newStatus :
+                ("OPEN".equalsIgnoreCase(current.getStatus()) ? BigInteger.ZERO :
+                 "CLOSED".equalsIgnoreCase(current.getStatus()) ? BigInteger.ONE :
+                 "MAINTENANCE".equalsIgnoreCase(current.getStatus()) ? BigInteger.valueOf(2) : null);
+
             TransactionReceipt receipt = sportFacilityContract
-                .updateSportFacility(oldName, newName, newLocation, newImageIPFS, newStatus)
+                .updateSportFacility(oldName, finalName, finalLocation, finalImageIPFS, finalStatus)
                 .send();
             if (receipt.isStatusOK()) {
                 return String.format("Sport facility '%s' updated successfully", oldName);
@@ -1045,23 +1070,81 @@ public class AdminService {
             long startTime = bookingTuple.component5() != null ? bookingTuple.component5().longValue() : 0L;
             long endTime = bookingTuple.component6() != null ? bookingTuple.component6().longValue() : 0L;
 
+            // Build booking map
+            Map<String, Object> booking = Map.of(
+                "facilityName", facilityName,
+                "courtName", courtName,
+                "startTime", startTime,
+                "endTime", endTime,
+                "status", "completed",
+                "userAddress", userAddress
+            );
+
+            // Format file name as booking-{yyyyMMdd}.json based on startTime
+            java.time.LocalDate bookingDate = startTime != 0L
+                ? java.time.Instant.ofEpochSecond(startTime)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDate()
+                : java.time.LocalDate.now();
+            String fileName = String.format("booking-%s.json", bookingDate.toString().replace("-", ""));
+
+            // Upload new JSON to IPFS
+            String actualNewIpfsHash = pinataUtil.uploadJsonToIPFS(booking, fileName);
+
+            // Complete booking on-chain (get txHash and event)
             org.web3j.protocol.core.methods.response.TransactionReceipt receipt =
-                bookingContract.completeBooking(oldIpfsHash, newIpfsHash).send();
+                bookingContract.completeBooking(oldIpfsHash, actualNewIpfsHash).send();
+
+            // Unpin old IPFS hash
+            pinataUtil.unpinFromIPFS(oldIpfsHash);
+
+            // Update the new IPFS hash on-chain
+            if (actualNewIpfsHash != null && !actualNewIpfsHash.equals(oldIpfsHash)) {
+                updateBookingIPFSHash(oldIpfsHash, actualNewIpfsHash);
+            }
+
+            // --- For AdminService: Booking Created, Cancelled, Rejected, Completed ---
+            // Use this pattern for logOutput in all relevant methods:
+
+            // 1. Format time as "{date} {startTime} to {endTime}" using system default timezone
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            String dateStr = java.time.Instant.ofEpochSecond(startTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDate()
+                .toString();
+            String startTimeStr = java.time.Instant.ofEpochSecond(startTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalTime()
+                .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+            String endTimeStr = java.time.Instant.ofEpochSecond(endTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalTime()
+                .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+            String timeRange = String.format("%s %s to %s", dateStr, startTimeStr, endTimeStr);
+
+            // 2. Use in logOutput for all booking events
+            String logOutput = String.format(
+                "Booking receipt updated: oldIpfsHash=%s, newIpfsHash=%s, facility=%s, court=%s, status=%s, datetime=%s",
+                oldIpfsHash,
+                newIpfsHash,
+                facilityName,
+                courtName,
+                "completed",
+                timeRange
+            );
+
+            // Log the event
+            eventLogService.addEventLog(
+                actualNewIpfsHash,
+                "Booking Completed",
+                userAddress,
+                java.math.BigInteger.valueOf(System.currentTimeMillis() / 1000),
+                logOutput,
+                "BOOKING"
+            );
+            logger.info(logOutput);
 
             if (receipt.isStatusOK()) {
-                String logOutput = String.format(
-                    "Booking receipt updated: oldIpfsHash=%s, newIpfsHash=%s, facility=%s, court=%s, status=completed",
-                    oldIpfsHash, newIpfsHash, facilityName, courtName
-                );
-                eventLogService.addEventLog(
-                    newIpfsHash,
-                    "Booking Completed",
-                    userAddress,
-                    java.math.BigInteger.valueOf(System.currentTimeMillis() / 1000),
-                    logOutput,
-                    "BOOKING"
-                );
-                logger.info(logOutput);
                 return receipt.getTransactionHash();
             }
             throw new RuntimeException("Booking completion failed on-chain");
@@ -1092,23 +1175,82 @@ public class AdminService {
             long startTime = bookingTuple.component5() != null ? bookingTuple.component5().longValue() : 0L;
             long endTime = bookingTuple.component6() != null ? bookingTuple.component6().longValue() : 0L;
 
+            // Build booking map
+            Map<String, Object> booking = Map.of(
+                "facilityName", facilityName,
+                "courtName", courtName,
+                "startTime", startTime,
+                "endTime", endTime,
+                "status", "rejected",
+                "userAddress", userAddress,
+                "rejectionReason", reason
+            );
+
+            // Format file name as booking-{yyyyMMdd}.json based on startTime
+            java.time.LocalDate bookingDate = startTime != 0L
+                ? java.time.Instant.ofEpochSecond(startTime)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDate()
+                : java.time.LocalDate.now();
+            String fileName = String.format("booking-%s.json", bookingDate.toString().replace("-", ""));
+
+            // Upload new JSON to IPFS
+            String newIpfsHash = pinataUtil.uploadJsonToIPFS(booking, fileName);
+
+            // Reject booking on-chain (get txHash and event)
             org.web3j.protocol.core.methods.response.TransactionReceipt receipt =
-                bookingContract.rejectBooking(ipfsHash, ipfsHash, reason).send();
+                bookingContract.rejectBooking(ipfsHash, newIpfsHash, reason).send();
+
+            // Unpin old IPFS hash
+            pinataUtil.unpinFromIPFS(ipfsHash);
+
+            // Update the new IPFS hash on-chain
+            if (newIpfsHash != null && !newIpfsHash.equals(ipfsHash)) {
+                updateBookingIPFSHash(ipfsHash, newIpfsHash);
+            }
+
+            // --- For AdminService: Booking Created, Cancelled, Rejected, Completed ---
+            // Use this pattern for logOutput in all relevant methods:
+
+            // 1. Format time as "{date} {startTime} to {endTime}" using system default timezone
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            String dateStr = java.time.Instant.ofEpochSecond(startTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDate()
+                .toString();
+            String startTimeStr = java.time.Instant.ofEpochSecond(startTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalTime()
+                .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+            String endTimeStr = java.time.Instant.ofEpochSecond(endTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalTime()
+                .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+            String timeRange = String.format("%s %s to %s", dateStr, startTimeStr, endTimeStr);
+
+            // 2. Use in logOutput for all booking events
+            String logOutput = String.format(
+                "Booking receipt updated: oldIpfsHash=%s, newIpfsHash=%s, facility=%s, court=%s, status=rejected, reason=%s, datetime=%s",
+                ipfsHash,
+                newIpfsHash,
+                facilityName,
+                courtName,
+                reason,
+                timeRange
+            );
+
+            // Log the event
+            eventLogService.addEventLog(
+                newIpfsHash,
+                "Booking Rejected",
+                userAddress,
+                java.math.BigInteger.valueOf(System.currentTimeMillis() / 1000),
+                logOutput,
+                "BOOKING"
+            );
+            logger.info(logOutput);
 
             if (receipt.isStatusOK()) {
-                String logOutput = String.format(
-                    "Booking receipt updated: oldIpfsHash=%s, newIpfsHash=%s, facility=%s, court=%s, status=rejected, reason=%s",
-                    ipfsHash, ipfsHash, facilityName, courtName, reason
-                );
-                eventLogService.addEventLog(
-                    ipfsHash,
-                    "Booking Rejected",
-                    userAddress,
-                    java.math.BigInteger.valueOf(System.currentTimeMillis() / 1000),
-                    logOutput,
-                    "BOOKING"
-                );
-                logger.info(logOutput);
                 return receipt.getTransactionHash();
             }
             throw new RuntimeException("Booking rejection failed on-chain");
@@ -1136,24 +1278,80 @@ public class AdminService {
             long startTime = bookingTuple.component5() != null ? bookingTuple.component5().longValue() : 0L;
             long endTime = bookingTuple.component6() != null ? bookingTuple.component6().longValue() : 0L;
 
+            // Build booking map
+            Map<String, Object> booking = Map.of(
+                "facilityName", facilityName,
+                "courtName", courtName,
+                "startTime", startTime,
+                "endTime", endTime,
+                "status", "cancelled",
+                "userAddress", userAddress
+            );
+
+            // Format file name as booking-{yyyyMMdd}.json based on startTime
+            java.time.LocalDate bookingDate = startTime != 0L
+                ? java.time.Instant.ofEpochSecond(startTime)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDate()
+                : java.time.LocalDate.now();
+            String fileName = String.format("booking-%s.json", bookingDate.toString().replace("-", ""));
+
+            // Upload new JSON to IPFS
+            String newIpfsHash = pinataUtil.uploadJsonToIPFS(booking, fileName);
+
+            // Cancel booking on-chain (get txHash and event)
             org.web3j.protocol.core.methods.response.TransactionReceipt receipt =
-                bookingContract.cancelBooking(ipfsHash, ipfsHash).send();
+                bookingContract.cancelBooking(ipfsHash, newIpfsHash).send();
+
+            // Unpin old IPFS hash
+            pinataUtil.unpinFromIPFS(ipfsHash);
+
+            // Update the new IPFS hash on-chain
+            if (newIpfsHash != null && !newIpfsHash.equals(ipfsHash)) {
+                updateBookingIPFSHash(ipfsHash, newIpfsHash);
+            }
+
+            // --- For AdminService: Booking Created, Cancelled, Rejected, Completed ---
+            // Use this pattern for logOutput in all relevant methods:
+
+            // 1. Format time as "{date} {startTime} to {endTime}" using system default timezone
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            String dateStr = java.time.Instant.ofEpochSecond(startTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDate()
+                .toString();
+            String startTimeStr = java.time.Instant.ofEpochSecond(startTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalTime()
+                .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+            String endTimeStr = java.time.Instant.ofEpochSecond(endTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalTime()
+                .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+            String timeRange = String.format("%s %s to %s", dateStr, startTimeStr, endTimeStr);
+
+            // 2. Use in logOutput for all booking events
+            String logOutput = String.format(
+                "Booking receipt updated: oldIpfsHash=%s, newIpfsHash=%s, facility=%s, court=%s, status=cancelled, datetime=%s",
+                ipfsHash,
+                newIpfsHash,
+                facilityName,
+                courtName,
+                timeRange
+            );
+
+            // Log the event
+            eventLogService.addEventLog(
+                newIpfsHash,
+                "Booking Cancelled",
+                userAddress,
+                java.math.BigInteger.valueOf(System.currentTimeMillis() / 1000),
+                logOutput,
+                "BOOKING"
+            );
+            logger.info(logOutput);
 
             if (receipt.isStatusOK()) {
-                // Log in the same style as handleBookingCreatedEvent
-                String logOutput = String.format(
-                    "Booking receipt updated: oldIpfsHash=%s, newIpfsHash=%s, facility=%s, court=%s, status=cancelled",
-                    ipfsHash, ipfsHash, facilityName, courtName
-                );
-                eventLogService.addEventLog(
-                    ipfsHash,
-                    "Booking Cancelled",
-                    userAddress,
-                    java.math.BigInteger.valueOf(System.currentTimeMillis() / 1000),
-                    logOutput,
-                    "BOOKING"
-                );
-                logger.info(logOutput);
                 return receipt.getTransactionHash();
             }
             throw new RuntimeException("Booking cancellation failed on-chain");
@@ -1175,10 +1373,12 @@ public class AdminService {
             // 2. Update status in the booking details
             bookingDetails.put("status", status);
 
-            // 3. Format file name as booking-{yyyyMMdd}.json
-            java.time.LocalDate bookingDate = java.time.Instant.ofEpochSecond(startTime)
-                .atZone(java.time.ZoneId.systemDefault())
-                .toLocalDate();
+            // 3. Format file name as booking-{yyyyMMdd}.json based on startTime
+            java.time.LocalDate bookingDate = startTime != 0L
+                ? java.time.Instant.ofEpochSecond(startTime)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDate()
+                : java.time.LocalDate.now();
             String fileName = String.format("booking-%s.json", bookingDate.toString().replace("-", ""));
 
             // 4. Upload new JSON to IPFS
@@ -1190,15 +1390,35 @@ public class AdminService {
             // Store the mapping for later retrieval
             latestIpfsHashMap.put(oldIpfsHash, newIpfsHash);
 
-            // 6. Log both old and new IPFS hashes in the event log
+            // 6. Log both old and new IPFS hashes in the event log, with startTime and endTime as formatted datetime
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            String dateStr = java.time.Instant.ofEpochSecond(startTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDate()
+                .toString();
+            String startTimeStr = java.time.Instant.ofEpochSecond(startTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalTime()
+                .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+            String endTimeStr = java.time.Instant.ofEpochSecond(endTime)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalTime()
+                .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+            String timeRange = String.format("%s %s to %s", dateStr, startTimeStr, endTimeStr);
+
             String logOutput = String.format(
-                "Booking receipt updated: oldIpfsHash=%s, newIpfsHash=%s, facility=%s, court=%s, status=%s",
-                oldIpfsHash, newIpfsHash, facilityName, courtName, status
+                "Booking receipt updated: oldIpfsHash=%s, newIpfsHash=%s, facility=%s, court=%s, status=%s, datetime=%s",
+                oldIpfsHash,
+                newIpfsHash,
+                facilityName,
+                courtName,
+                status,
+                timeRange
             );
             eventLogService.addEventLog(
-                newIpfsHash, 
+                newIpfsHash,
                 "Booking Created",
-                null, 
+                null,
                 java.math.BigInteger.valueOf(System.currentTimeMillis() / 1000),
                 logOutput,
                 "BOOKING"

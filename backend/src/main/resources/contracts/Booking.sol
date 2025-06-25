@@ -328,7 +328,7 @@ contract Booking is Management {
 
         for(uint256 i=0; i<bookings_.length; i++) {
             if(keccak256(bytes(ipfsHash_)) == keccak256(bytes(bookings_[i].ipfsHash))) {
-                require(bookings_[i].owner == msg.sender, "Access Denied (note booking owner)");
+                require(bookings_[i].owner == msg.sender, "Access Denied (not booking owner)");
                 bookings_[i].ipfsHash = ipfsHash;
                 bookings[ipfsHash] = bookings_[i];
                 delete bookings[ipfsHash_];

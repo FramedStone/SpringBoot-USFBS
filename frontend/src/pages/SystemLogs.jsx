@@ -100,7 +100,9 @@ const SystemLogs = () => {
   const [toast, setToast] = useState({ msg: "", type: "success" });
   const [selectedActions, setSelectedActions] = useState({
     'Booking Created': true,
-    'Booking Updated': true,
+    'Booking Cancelled': true,
+    'Booking Completed': true,
+    'Booking Rejected': true,
     'Booking Deleted': true,
     'Announcement Added': true,
     'Announcement Deleted': true,
@@ -181,29 +183,15 @@ const SystemLogs = () => {
   const extractOldIpfsHash = (originalOutput, action) => {
     if (!originalOutput) return '-';
 
-    // Handle Booking Created and Booking Updated
-    if (action === 'Booking Created' || action === 'Booking Updated') {
-      const oldHashMatch = originalOutput.match(/oldIpfsHash\s*=\s*([^\s,]+)/);
-      if (oldHashMatch) return oldHashMatch[1];
-    }
+    const oldHashMatch = originalOutput.match(/oldIpfsHash\s*=\s*([^\s,]+)/);
+    if (oldHashMatch) return oldHashMatch[1];
 
-    // Existing logic for Announcement Modified
+    // Fallback for other actions (e.g. Announcement)
     if (action === 'Announcement Modified') {
       const oldHashMatch = originalOutput.match(/oldIpfsHash\s*=\s*([^\s\n,]+)/);
       if (oldHashMatch) return oldHashMatch[1];
       const oldHashMatch2 = originalOutput.match(/ipfsHash_\s*=\s*([^\s\n,]+)/);
       if (oldHashMatch2) return oldHashMatch2[1];
-    }
-
-    if (action.includes('Booking Updated')) {
-      const oldDataMatch = originalOutput.match(/oldData\s*=\s*([^\s\n,]+)/);
-      if (oldDataMatch) return oldDataMatch[1];
-    }
-
-    // Fallback for other actions
-    if (!action.includes('Announcement')) {
-      const ipfsHashMatch = originalOutput.match(/ipfsHash\s*=\s*([^\s\n,]+)/);
-      return ipfsHashMatch ? ipfsHashMatch[1] : '-';
     }
 
     return '-';
@@ -212,13 +200,11 @@ const SystemLogs = () => {
   const extractNewIpfsHash = (originalOutput, action, fallbackHash) => {
     if (!originalOutput) return fallbackHash || '-';
 
-    // Handle Booking Created and Booking Updated
-    if (action === 'Booking Created' || action === 'Booking Updated') {
-      const newHashMatch = originalOutput.match(/newIpfsHash\s*=\s*([^\s,]+)/);
-      if (newHashMatch) return newHashMatch[1];
-    }
+    // Always try to extract newIpfsHash for all booking actions
+    const newHashMatch = originalOutput.match(/newIpfsHash\s*=\s*([^\s,]+)/);
+    if (newHashMatch) return newHashMatch[1];
 
-    // Existing logic for Announcement Modified
+    // Fallback for other actions (e.g. Announcement)
     if (action === 'Announcement Modified') {
       const newHashMatch = originalOutput.match(/newIpfsHash\s*=\s*([^\s\n,]+)/);
       if (newHashMatch) return newHashMatch[1];
@@ -227,20 +213,85 @@ const SystemLogs = () => {
       if (fallbackHash) return fallbackHash;
     }
 
-    if (action.includes('Booking Updated')) {
-      const newDataMatch = originalOutput.match(/newData\s*=\s*([^\s\n,]+)/);
-      if (newDataMatch) return newDataMatch[1];
-    }
-
-    if (action.includes('Announcement')) {
-      return fallbackHash || '-';
-    }
-
     return fallbackHash || '-';
   };
 
   const extractNoteFromEvent = (originalOutput, action) => {
     if (!originalOutput) return '';
+
+    // Booking events (unchanged)
+    if (
+      [
+        'Booking Created',
+        'Booking Cancelled',
+        'Booking Completed',
+        'Booking Rejected'
+      ].includes(action)
+    ) {
+      const facilityMatch = originalOutput.match(/facility=([^\s,]+)/);
+      const courtMatch = originalOutput.match(/court=([^\s,]+)/);
+      const datetimeMatch = originalOutput.match(/datetime=([0-9\-]+\s[0-9:]+)\s*to\s*([0-9:]+)/);
+
+      let noteLines = [];
+      if (facilityMatch) noteLines.push(`facility: ${facilityMatch[1]}`);
+      if (courtMatch) noteLines.push(`court: ${courtMatch[1]}`);
+      if (datetimeMatch) {
+        noteLines.push(`datetime: ${datetimeMatch[1]} to ${datetimeMatch[2]}`);
+      }
+
+      return noteLines.join('\n');
+    }
+
+    // Sport Facility Added: match "Facility: {facilityName} at {location}"
+    if (action === 'Sport Facility Added') {
+      // Try to match the log string "Facility: {facilityName} at {location}"
+      const facilityAtMatch = originalOutput.match(/Facility:\s*([^\n]+?)\s+at\s+([^\n]+)/i);
+      if (facilityAtMatch) {
+        return `facility: ${facilityAtMatch[1].trim()}\nlocation: ${facilityAtMatch[2].trim()}`;
+      }
+      // Fallback: Try to match from the event output lines
+      const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/i);
+      const locationMatch = originalOutput.match(/location\s*=\s*([^\n]+)/i);
+      let noteLines = [];
+      if (facilityMatch) noteLines.push(`facility: ${facilityMatch[1].trim()}`);
+      if (locationMatch) noteLines.push(`location: ${locationMatch[1].trim()}`);
+      return noteLines.length > 0 ? noteLines.join('\n') : '-';
+    }
+
+    // Sport Facility Modified: show only modified stuff (from originalOutput)
+    if (action === 'Sport Facility Modified') {
+      // Try to extract only lines that show a change, e.g. "oldFacilityName = ...", "newFacilityName = ..."
+      // We'll show only fields where old != new
+      const fields = [
+        { label: 'facilityName', old: /oldFacilityName\s*=\s*([^\n]+)/, new: /newFacilityName\s*=\s*([^\n]+)/ },
+        { label: 'location', old: /oldLocation\s*=\s*([^\n]+)/, new: /newLocation\s*=\s*([^\n]+)/ },
+        { label: 'imageIPFS', old: /oldImageIPFS\s*=\s*([^\n]+)/, new: /newImageIPFS\s*=\s*([^\n]+)/ },
+        { label: 'status', old: /oldStatus\s*=\s*([^\n]+)/, new: /newStatus\s*=\s*([^\n]+)/ }
+      ];
+      let noteLines = [];
+      fields.forEach(field => {
+        const oldMatch = originalOutput.match(field.old);
+        const newMatch = originalOutput.match(field.new);
+        if (oldMatch && newMatch && oldMatch[1].trim() !== newMatch[1].trim()) {
+          noteLines.push(`${field.label}: ${oldMatch[1].trim()} → ${newMatch[1].trim()}`);
+        }
+      });
+      return noteLines.length > 0 ? noteLines.join('\n') : '-';
+    }
+
+    // Sport Facility Deleted: match "Facility: {facilityName}"
+    if (action === 'Sport Facility Deleted') {
+      const facilityMatch = originalOutput.match(/Facility:\s*([^\n]+)/i);
+      if (facilityMatch) {
+        return `facility: ${facilityMatch[1].trim()}`;
+      }
+      // fallback to previous regex if needed
+      const facilityNameMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
+      if (facilityNameMatch) {
+        return `facility: ${facilityNameMatch[1].trim()}`;
+      }
+      return 'Sport facility deleted';
+    }
     
     // Handle unified announcement modified event - NO IPFS HASHES IN NOTE
     if (action === 'Announcement Modified') {
@@ -297,54 +348,24 @@ const SystemLogs = () => {
       return noteLines.length > 0 ? noteLines.join('\n') : 'Announcement updated';
     }
     
-    // For Announcement Added - show title and date range only
+    // For Announcement Added - show Title (support both "Title: ..." and "title          = ...")
     if (action === 'Announcement Added') {
-      const titleMatch = originalOutput.match(/title\s*=\s*([^\n]+)/);
-      const startTimeMatch = originalOutput.match(/startTime\s*=\s*([^\n]+)/);
-      const endTimeMatch = originalOutput.match(/endTime\s*=\s*([^\n]+)/);
-      
-      let noteLines = [];
-      
-      if (titleMatch) {
-        noteLines.push(`title: ${titleMatch[1].trim()}`);
+      // Try to match "Title: ..." (from eventLogService.addEventLog)
+      const titleColonMatch = originalOutput.match(/Title:\s*([^\n]+)/);
+      if (titleColonMatch) {
+        return `Title: ${titleColonMatch[1].trim()}`;
       }
-      
-      if (startTimeMatch && endTimeMatch) {
-        try {
-          const startTimeStr = startTimeMatch[1].trim();
-          const endTimeStr = endTimeMatch[1].trim();
-          
-          // Format dates from contract format "2025-06-23 00:00:00" to "23/06/2025"
-          const formatDateFromContract = (dateStr) => {
-            try {
-              const dateMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/);
-              if (dateMatch) {
-                const [, year, month, day] = dateMatch;
-                return `${day}/${month}/${year}`;
-              }
-              return dateStr;
-            } catch (error) {
-              return dateStr;
-            }
-          };
-          
-          const formattedStartDate = formatDateFromContract(startTimeStr);
-          const formattedEndDate = formatDateFromContract(endTimeStr);
-          
-          noteLines.push(`${formattedStartDate} to ${formattedEndDate}`);
-          
-        } catch (error) {
-          // Fallback to raw values if parsing fails
-          noteLines.push(`${startTimeMatch[1].trim()} to ${endTimeMatch[1].trim()}`);
-        }
+      // Fallback: Try to match "title          = ..." (from originalOutput)
+      const titleEqMatch = originalOutput.match(/title\s*=\s*([^\n]+)/);
+      if (titleEqMatch) {
+        return `Title: ${titleEqMatch[1].trim()}`;
       }
-      
-      return noteLines.length > 0 ? noteLines.join('\n') : 'New announcement added';
+      return '-';
     }
 
     // For Announcement Deleted - NO IPFS hash in note
     if (action === 'Announcement Deleted') {
-      return 'Announcement deleted';
+      return '-';
     }
 
     // User management events - show blockchain address and reason
@@ -519,7 +540,9 @@ const SystemLogs = () => {
     setEndDate('');
     setSelectedActions({
       'Booking Created': true,
-      'Booking Updated': true,
+      'Booking Cancelled': true,
+      'Booking Completed': true,
+      'Booking Rejected': true,
       'Booking Deleted': true,
       'Announcement Added': true,
       'Announcement Deleted': true,
@@ -544,7 +567,9 @@ const SystemLogs = () => {
   const resetFilters = () => {
     setSelectedActions({
       'Booking Created': true,
-      'Booking Updated': true,
+      'Booking Cancelled': true,
+      'Booking Completed': true,
+      'Booking Rejected': true,
       'Booking Deleted': true,
       'Announcement Added': true,
       'Announcement Deleted': true,
@@ -771,7 +796,7 @@ const SystemLogs = () => {
               <div className="action-group">
                 <h4 className="action-group-title">Booking</h4>
                 <div className="checkbox-group">
-                  {['Booking Created', 'Booking Updated', 'Booking Deleted'].map(action => (
+                  {['Booking Created', 'Booking Cancelled', 'Booking Completed', 'Booking Rejected', 'Booking Deleted'].map(action => (
                     <label key={action} className="checkbox-label">
                       <input
                         type="checkbox"

@@ -16,7 +16,7 @@ const MediaUpload = ({
 
   // Load current media if editing
   useEffect(() => {
-    if (initialFileCid) {
+    if (initialFileCid && !file) {
       const gatewayUrl = `https://gateway.pinata.cloud/ipfs/${initialFileCid}`;
       setCurrentMediaUrl(gatewayUrl);
       fetch(gatewayUrl, { method: "HEAD" })
@@ -27,7 +27,7 @@ const MediaUpload = ({
         })
         .catch(() => setMediaType("unsupported"));
     }
-  }, [initialFileCid]);
+  }, [initialFileCid, file]);
 
   useEffect(() => {
     return () => {
@@ -64,9 +64,25 @@ const MediaUpload = ({
 
   const closeZoom = () => setZoomedImage(null);
 
-  const renderCurrentMedia = () => {
-    if (!currentMediaUrl) return null;
-    if (mediaType === "image") {
+  // Only show new file preview if selected, else show current image
+  const renderPreview = () => {
+    if (file && fileType === "image" && filePreviewUrl) {
+      return (
+        <div className="current-media-preview">
+          <img
+            src={filePreviewUrl}
+            alt="New file preview"
+            className="media-preview-img"
+            style={{ cursor: "zoom-in" }}
+            onClick={() => handleZoom(filePreviewUrl, "New file preview")}
+          />
+          <div className="media-preview-label">
+            {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+          </div>
+        </div>
+      );
+    }
+    if (!file && currentMediaUrl && mediaType === "image") {
       return (
         <div className="current-media-preview">
           <img
@@ -82,40 +98,7 @@ const MediaUpload = ({
         </div>
       );
     }
-    return (
-      <div className="current-media-preview">
-        <div className="media-preview-doc">Unsupported file type</div>
-        <a
-          href={currentMediaUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="media-preview-link"
-        >
-          Download Current File
-        </a>
-      </div>
-    );
-  };
-
-  const renderNewFilePreview = () => {
-    if (!file) return null;
-    if (fileType === "image" && filePreviewUrl) {
-      return (
-        <div className="new-file-preview">
-          <img
-            src={filePreviewUrl}
-            alt="New file preview"
-            className="media-preview-img"
-            style={{ cursor: "zoom-in" }}
-            onClick={() => handleZoom(filePreviewUrl, "New file preview")}
-          />
-          <div className="media-preview-label">
-            {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-          </div>
-        </div>
-      );
-    }
-    if (fileType === "unsupported") {
+    if (file && fileType === "unsupported") {
       return (
         <div className="new-file-preview">
           <div className="media-preview-doc">
@@ -124,12 +107,27 @@ const MediaUpload = ({
         </div>
       );
     }
+    if (!file && currentMediaUrl && mediaType === "unsupported") {
+      return (
+        <div className="current-media-preview">
+          <div className="media-preview-doc">Unsupported file type</div>
+          <a
+            href={currentMediaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="media-preview-link"
+          >
+            Download Current File
+          </a>
+        </div>
+      );
+    }
     return null;
   };
 
   return (
     <div>
-      {renderCurrentMedia()}
+      {renderPreview()}
       <div className="form-group">
         <input
           type="file"
@@ -141,8 +139,6 @@ const MediaUpload = ({
           Accepted: JPG, JPEG, PNG, GIF, BMP, SVG
         </small>
       </div>
-      {renderNewFilePreview()}
-
       {zoomedImage && (
         <div className="media-zoom-overlay" onClick={closeZoom}>
           <div className="media-zoom-modal" onClick={(e) => e.stopPropagation()}>

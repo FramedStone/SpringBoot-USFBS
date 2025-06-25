@@ -5,6 +5,7 @@ import { authFetch } from '@utils/authFetch';
 import '@styles/Cart.css';
 import { useWeb3Auth } from "@web3auth/modal/react";
 import { Web3Provider } from "@ethersproject/providers";
+import { useNavigate } from "react-router-dom"; 
 
 const Cart = () => {
   const [activeTab, setActiveTab] = useState("cart");
@@ -18,6 +19,7 @@ const Cart = () => {
   const [ethAddress, setEthAddress] = useState(""); 
 
   const { web3Auth } = useWeb3Auth();
+  const navigate = useNavigate(); 
 
   // Fetch user role on mount
   useEffect(() => {
@@ -103,6 +105,7 @@ const Cart = () => {
       setToast({ msg: "All bookings submitted!", type: "success" });
       setCartSlots([]);
       localStorage.removeItem('admin_cart_slots');
+      navigate("/bookings");
     } catch (err) {
       setToast({ msg: "Booking failed: " + err.message, type: "error" });
     } finally {
