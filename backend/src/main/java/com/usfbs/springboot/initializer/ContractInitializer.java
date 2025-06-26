@@ -322,15 +322,16 @@ public class ContractInitializer implements CommandLineRunner {
             //     String output = ">>> [bookingDeleted] event received:\n" +
             //                    "    from        = " + event.from + "\n" +
             //                    "    ipfsHash    = " + event.ipfsHash + "\n" +
+            //                    "    title       = " + event.title + "\n" + // NEW: log title
             //                    "    timestamp   = " + safeFormatTimestamp(event.timestamp) + "\n";
             //     System.out.println(output);
-            
+//
             //     eventLogService.addEventLog(
             //         event.ipfsHash,
             //         "Booking Deleted",
             //         event.from,
             //         event.timestamp,
-            //         "",
+            //         event.title != null && !event.title.trim().isEmpty() ? "Title: " + event.title : "",
             //         "BOOKING"
             //     );
             // }, error -> {
@@ -547,16 +548,17 @@ public class ContractInitializer implements CommandLineRunner {
                 String originalOutput = ">>> [announcementDeleted] event received:\n" +
                                        "    from           = " + event.from + "\n" +
                                        "    ipfsHash       = " + event.ipfsHash + "\n" +
+                                       "    title          = " + event.title + "\n" +
                                        "    timestamp      = " + safeFormatTimestamp(event.timestamp) + "\n";
                 
                 System.out.println(originalOutput);
-                
+
                 eventLogService.addEventLog(
                     event.ipfsHash,
                     "Announcement Deleted",
                     event.from,
                     event.timestamp,
-                    "",
+                    event.title != null && !event.title.trim().isEmpty() ? "Title: " + event.title : "",
                     "MANAGEMENT"
                 );
             }, error -> {

@@ -219,7 +219,7 @@ const SystemLogs = () => {
   const extractNoteFromEvent = (originalOutput, action) => {
     if (!originalOutput) return '';
 
-    // Booking events (unchanged)
+    // Booking events (show facility, court, datetime, and reason for rejection)
     if (
       [
         'Booking Created',
@@ -230,6 +230,7 @@ const SystemLogs = () => {
     ) {
       const facilityMatch = originalOutput.match(/facility=([^\s,]+)/);
       const courtMatch = originalOutput.match(/court=([^\s,]+)/);
+      const statusMatch = originalOutput.match(/status=([^\s,]+)/);
       const datetimeMatch = originalOutput.match(/datetime=([0-9\-]+\s[0-9:]+)\s*to\s*([0-9:]+)/);
 
       let noteLines = [];
@@ -237,6 +238,16 @@ const SystemLogs = () => {
       if (courtMatch) noteLines.push(`court: ${courtMatch[1]}`);
       if (datetimeMatch) {
         noteLines.push(`datetime: ${datetimeMatch[1]} to ${datetimeMatch[2]}`);
+      }
+
+      if (action !== 'Booking Rejected' && statusMatch) {
+        noteLines.push(`status: ${statusMatch[1]}`);
+      }
+
+      // Add reason for Booking Rejected
+      if (action === 'Booking Rejected') {
+        const reasonMatch = originalOutput.match(/reason=([^\s,]+)/);
+        if (reasonMatch) noteLines.push(`reason: ${decodeURIComponent(reasonMatch[1])}`);
       }
 
       return noteLines.join('\n');
@@ -260,22 +271,48 @@ const SystemLogs = () => {
 
     // Sport Facility Modified: show only modified stuff (from originalOutput)
     if (action === 'Sport Facility Modified') {
-      // Try to extract only lines that show a change, e.g. "oldFacilityName = ...", "newFacilityName = ..."
-      // We'll show only fields where old != new
-      const fields = [
-        { label: 'facilityName', old: /oldFacilityName\s*=\s*([^\n]+)/, new: /newFacilityName\s*=\s*([^\n]+)/ },
-        { label: 'location', old: /oldLocation\s*=\s*([^\n]+)/, new: /newLocation\s*=\s*([^\n]+)/ },
-        { label: 'imageIPFS', old: /oldImageIPFS\s*=\s*([^\n]+)/, new: /newImageIPFS\s*=\s*([^\n]+)/ },
-        { label: 'status', old: /oldStatus\s*=\s*([^\n]+)/, new: /newStatus\s*=\s*([^\n]+)/ }
-      ];
+      // Extract all relevant fields from originalOutput
+      const oldFacilityNameMatch = originalOutput.match(/oldFacilityName\s*=\s*([^\n]+)/);
+      const newFacilityNameMatch = originalOutput.match(/newFacilityName\s*=\s*([^\n]+)/);
+      const oldLocationMatch = originalOutput.match(/oldLocation\s*=\s*([^\n]+)/);
+      const newLocationMatch = originalOutput.match(/newLocation\s*=\s*([^\n]+)/);
+      const oldImageIPFSMatch = originalOutput.match(/oldImageIPFS\s*=\s*([^\n]+)/);
+      const newImageIPFSMatch = originalOutput.match(/newImageIPFS\s*=\s*([^\n]+)/);
+      const oldStatusMatch = originalOutput.match(/oldStatus\s*=\s*([^\n]+)/);
+      const newStatusMatch = originalOutput.match(/newStatus\s*=\s*([^\n]+)/);
+
       let noteLines = [];
-      fields.forEach(field => {
-        const oldMatch = originalOutput.match(field.old);
-        const newMatch = originalOutput.match(field.new);
-        if (oldMatch && newMatch && oldMatch[1].trim() !== newMatch[1].trim()) {
-          noteLines.push(`${field.label}: ${oldMatch[1].trim()} → ${newMatch[1].trim()}`);
-        }
-      });
+
+      // Only show changed fields
+      if (
+        oldFacilityNameMatch &&
+        newFacilityNameMatch &&
+        oldFacilityNameMatch[1].trim() !== newFacilityNameMatch[1].trim()
+      ) {
+        noteLines.push(`facilityName: ${oldFacilityNameMatch[1].trim()} → ${newFacilityNameMatch[1].trim()}`);
+      }
+      if (
+        oldLocationMatch &&
+        newLocationMatch &&
+        oldLocationMatch[1].trim() !== newLocationMatch[1].trim()
+      ) {
+        noteLines.push(`location: ${oldLocationMatch[1].trim()} → ${newLocationMatch[1].trim()}`);
+      }
+      if (
+        oldImageIPFSMatch &&
+        newImageIPFSMatch &&
+        oldImageIPFSMatch[1].trim() !== newImageIPFSMatch[1].trim()
+      ) {
+        noteLines.push(`imageIPFS: ${oldImageIPFSMatch[1].trim()} → ${newImageIPFSMatch[1].trim()}`);
+      }
+      if (
+        oldStatusMatch &&
+        newStatusMatch &&
+        oldStatusMatch[1].trim() !== newStatusMatch[1].trim()
+      ) {
+        noteLines.push(`status: ${oldStatusMatch[1].trim()} → ${newStatusMatch[1].trim()}`);
+      }
+
       return noteLines.length > 0 ? noteLines.join('\n') : '-';
     }
 
@@ -363,8 +400,15 @@ const SystemLogs = () => {
       return '-';
     }
 
-    // For Announcement Deleted - NO IPFS hash in note
     if (action === 'Announcement Deleted') {
+      const titleMatch = originalOutput.match(/title\s*=\s*([^\n]+)/i);
+      if (titleMatch) {
+        return `Title: ${titleMatch[1].trim()}`;
+      }
+      const titleColonMatch = originalOutput.match(/Title:\s*([^\n]+)/i);
+      if (titleColonMatch) {
+        return `Title: ${titleColonMatch[1].trim()}`;
+      }
       return '-';
     }
 
@@ -456,46 +500,46 @@ const SystemLogs = () => {
       return 'Sport facility deleted';
     }
     
-    // Court-specific note extraction with facility names
     if (action === 'Court Added') {
-      const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
-      const courtMatch = originalOutput.match(/courtName\s*=\s*([^\n]+)/);
-      
-      if (facilityMatch && courtMatch) {
-        const facilityName = facilityMatch[1].trim();
-        const courtName = courtMatch[1].trim();
-        return `Facility: ${facilityName}\nCourt: ${courtName}`;
+      const facilityMatch = originalOutput.match(/^\s*facilityName\s*=\s*([^\n\r]+)/m);
+      const courtMatch = originalOutput.match(/^\s*courtName\s*=\s*([^\n\r]+)/m);
+      const earliestMatch = originalOutput.match(/^\s*earliestTime\s*=\s*([^\n\r]+)/m);
+      const latestMatch = originalOutput.match(/^\s*latestTime\s*=\s*([^\n\r]+)/m);
+
+      let noteLines = [];
+      if (facilityMatch) noteLines.push(`facilityName: ${facilityMatch[1].trim()}`);
+      if (courtMatch) noteLines.push(`courtName: ${courtMatch[1].trim()}`);
+      if (earliestMatch) noteLines.push(`earliestTime: ${earliestMatch[1].trim()}`);
+      if (latestMatch) noteLines.push(`latestTime: ${latestMatch[1].trim()}`);
+
+      if (noteLines.length === 0 && originalOutput) {
+        const fallbackMatch = originalOutput.match(/Court:\s*([^\n]+)\s+at\s+([^\n]+)/);
+        if (fallbackMatch) {
+          noteLines.push(`courtName: ${fallbackMatch[1].trim()}`);
+          noteLines.push(`facilityName: ${fallbackMatch[2].trim()}`);
+        }
       }
-      
-      return 'Court added';
+
+      return noteLines.length > 0 ? noteLines.join('\n') : '-';
     }
-    
-    if (action === 'Court Modified') {
-      const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
-      const courtMatch = originalOutput.match(/courtName\s*=\s*([^\n]+)/);
-      const newDataMatch = originalOutput.match(/newData\s*=\s*([^\n]+)/);
-      
-      if (facilityMatch && courtMatch && newDataMatch) {
-        const facilityName = facilityMatch[1].trim();
-        const courtName = courtMatch[1].trim();
-        const newData = newDataMatch[1].trim();
-        return `Facility: ${facilityName}\nCourt: ${courtName}\nChanges: ${newData}`;
-      }
-      
-      return 'Court modified';
-    }
-    
+
     if (action === 'Court Deleted') {
       const facilityMatch = originalOutput.match(/facilityName\s*=\s*([^\n]+)/);
       const courtMatch = originalOutput.match(/courtName\s*=\s*([^\n]+)/);
-      
-      if (facilityMatch && courtMatch) {
-        const facilityName = facilityMatch[1].trim();
-        const courtName = courtMatch[1].trim();
-        return `Facility: ${facilityName}\nCourt: ${courtName}`;
+
+      let noteLines = [];
+      if (facilityMatch) noteLines.push(`facilityName: ${facilityMatch[1].trim()}`);
+      if (courtMatch) noteLines.push(`courtName: ${courtMatch[1].trim()}`);
+
+      if (noteLines.length === 0 && originalOutput) {
+        const fallbackMatch = originalOutput.match(/Court:\s*([^\n]+)\s+at\s+([^\n]+)/);
+        if (fallbackMatch) {
+          noteLines.push(`courtName: ${fallbackMatch[1].trim()}`);
+          noteLines.push(`facilityName: ${fallbackMatch[2].trim()}`);
+        }
       }
-      
-      return 'Court deleted';
+
+      return noteLines.length > 0 ? noteLines.join('\n') : '-';
     }
     
     const noteActions = [

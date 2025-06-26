@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useWeb3Auth } from "@web3auth/modal/react";
 import { useNavigate } from "react-router-dom";
 import Toast from "@components/Toast";
@@ -11,6 +11,7 @@ import {
 import '@styles/AdminDashboard.css';
 import { authFetch } from "@utils/authFetch";
 import MediaUpload from "@components/MediaUpload";
+import * as XLSX from "xlsx";
 
 // Utility functions for date conversion
 const convertDateToTimestamp = (dateString) => {
@@ -40,7 +41,6 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
   const [currentMediaUrl, setCurrentMediaUrl] = useState(null);
   const [mediaType, setMediaType] = useState(null);
   const [newFilePreviewUrl, setNewFilePreviewUrl] = useState(null);
-  const [newFileType, setNewFileType] = useState(null);
   const [zoomedMedia, setZoomedMedia] = useState(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [tempDateRange, setTempDateRange] = useState({ start: '', end: '' });
@@ -73,36 +73,6 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
       fetchCurrentMedia();
     }
   }, [initialData]);
-
-  // Handle file selection and preview
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    setFormData({ ...formData, file: selectedFile });
-
-    // Clear previous preview
-    if (newFilePreviewUrl) {
-      URL.revokeObjectURL(newFilePreviewUrl);
-      setNewFilePreviewUrl(null);
-      setNewFileType(null);
-    }
-
-    if (selectedFile) {
-      // Determine file type
-      const fileType = selectedFile.type;
-      if (fileType.startsWith('image/')) {
-        setNewFileType('image');
-        const previewUrl = URL.createObjectURL(selectedFile);
-        setNewFilePreviewUrl(previewUrl);
-      } else if (fileType.includes('pdf')) {
-        setNewFileType('pdf');
-        const previewUrl = URL.createObjectURL(selectedFile);
-        setNewFilePreviewUrl(previewUrl);
-      } else {
-        setNewFileType('document');
-        setNewFilePreviewUrl(null);
-      }
-    }
-  };
 
   // Clean up preview URLs on unmount
   useEffect(() => {
@@ -471,215 +441,6 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
     };
   }, [zoomedMedia]);
 
-  const renderCurrentMedia = () => {
-    if (!currentMediaUrl || !initialData) return null;
-
-    return (
-      <div className="current-media-preview">
-        <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px', display: 'block' }}>
-          Current File
-        </label>
-        <div style={{ 
-          border: '1px solid #d1d5db', 
-          borderRadius: '8px', 
-          padding: '12px',
-          backgroundColor: '#f9fafb'
-        }}>
-          {mediaType === 'image' ? (
-            <div style={{ textAlign: 'center' }}>
-              <img 
-                src={currentMediaUrl} 
-                alt="Current announcement media"
-                style={{ 
-                  maxWidth: '200px', 
-                  maxHeight: '150px', 
-                  objectFit: 'contain',
-                  borderRadius: '4px',
-                  marginBottom: '8px',
-                  cursor: 'zoom-in'
-                }}
-                onClick={() => handleImageZoom(currentMediaUrl, 'Current announcement media')}
-                title="Click to zoom"
-              />
-              <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                Current image file (Click to zoom)
-              </div>
-            </div>
-          ) : mediaType === 'pdf' ? (
-            <div style={{ textAlign: 'center' }}>
-              <div 
-                style={{ 
-                  padding: '20px', 
-                  backgroundColor: '#fee2e2', 
-                  borderRadius: '4px',
-                  marginBottom: '8px',
-                  cursor: 'zoom-in'
-                }}
-                onClick={() => handlePdfZoom(currentMediaUrl, 'Current PDF')}
-                title="Click to view fullscreen"
-              >
-                PDF Document
-              </div>
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => handlePdfZoom(currentMediaUrl, 'Current PDF')}
-                  style={{
-                    padding: '4px 8px',
-                    backgroundColor: '#3b82f6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Zoom View
-                </button>
-                <a 
-                  href={currentMediaUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  style={{ 
-                    padding: '4px 8px',
-                    backgroundColor: '#10b981',
-                    color: 'white',
-                    textDecoration: 'none',
-                    borderRadius: '4px',
-                    fontSize: '12px'
-                  }}
-                >
-                  Open in Tab
-                </a>
-              </div>
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ 
-                padding: '20px', 
-                backgroundColor: '#e5e7eb', 
-                borderRadius: '4px',
-                marginBottom: '8px'
-              }}>
-                Document
-              </div>
-              <a 
-                href={currentMediaUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                style={{ 
-                  color: '#3b82f6', 
-                  textDecoration: 'none',
-                  fontSize: '14px'
-                }}
-              >
-                Download Current File
-              </a>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderNewFilePreview = () => {
-    if (!formData.file) return null;
-
-    return (
-      <div className="new-file-preview">
-        <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px', display: 'block' }}>
-          New File Preview
-        </label>
-        <div style={{ 
-          border: '1px solid #d1d5db', 
-          borderRadius: '8px', 
-          padding: '12px',
-          backgroundColor: '#f0f9ff'
-        }}>
-          {newFileType === 'image' && newFilePreviewUrl ? (
-            <div style={{ textAlign: 'center' }}>
-              <img 
-                src={newFilePreviewUrl} 
-                alt="New file preview"
-                style={{ 
-                  maxWidth: '200px', 
-                  maxHeight: '150px', 
-                  objectFit: 'contain',
-                  borderRadius: '4px',
-                  marginBottom: '8px',
-                  cursor: 'zoom-in'
-                }}
-                onClick={() => handleImageZoom(newFilePreviewUrl, 'New file preview')}
-                title="Click to zoom"
-              />
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
-                {formData.file.name} ({(formData.file.size / 1024 / 1024).toFixed(2)} MB)
-              </div>
-              <div style={{ fontSize: '10px', color: '#9ca3af' }}>
-                Click image to zoom
-              </div>
-            </div>
-          ) : newFileType === 'pdf' && newFilePreviewUrl ? (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ 
-                padding: '20px', 
-                backgroundColor: '#dbeafe', 
-                borderRadius: '4px',
-                marginBottom: '8px'
-              }}>
-                PDF Document (Preview)
-              </div>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
-                {formData.file.name} ({(formData.file.size / 1024 / 1024).toFixed(2)} MB)
-              </div>
-              <div style={{ marginBottom: '8px' }}>
-                <iframe
-                  src={newFilePreviewUrl}
-                  style={{
-                    width: '100%',
-                    height: '200px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '4px'
-                  }}
-                  title="PDF Preview"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => handlePdfZoom(newFilePreviewUrl, formData.file.name)}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  cursor: 'pointer'
-                }}
-              >
-                View Fullscreen
-              </button>
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ 
-                padding: '20px', 
-                backgroundColor: '#dbeafe', 
-                borderRadius: '4px',
-                marginBottom: '8px'
-              }}>
-                Document (Selected)
-              </div>
-              <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                {formData.file.name} ({(formData.file.size / 1024 / 1024).toFixed(2)} MB)
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   const renderZoomModal = () => {
     if (!zoomedMedia) return null;
 
@@ -858,7 +619,68 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
       {renderZoomModal()}
     </>
   );
-};
+}
+
+// ExportReportModal moved to top-level, outside of AdminDashboard
+function ExportReportModal({ open, onClose, onExport }) {
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!startDate || !endDate) {
+      alert("Please select both start and end dates.");
+      return;
+    }
+    setIsExporting(true);
+    await onExport(startDate, endDate);
+    setIsExporting(false);
+    onClose();
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !isExporting && onClose()}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Export Booking Report</h3>
+          <button className="close-btn" onClick={onClose} disabled={isExporting}>
+            <X size={20} />
+          </button>
+        </div>
+        <div className="announcement-form">
+          <div className="form-group">
+            <label>Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+              disabled={isExporting}
+            />
+          </div>
+          <div className="form-group">
+            <label>End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+              disabled={isExporting}
+            />
+          </div>
+        </div>
+        <div className="modal-actions">
+          <button className="cancel-btn" onClick={onClose} disabled={isExporting}>
+            Cancel
+          </button>
+          <button className="save-btn" onClick={handleExport} disabled={isExporting || !startDate || !endDate}>
+            {isExporting ? "Exporting..." : "Export"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const { web3Auth } = useWeb3Auth();
@@ -876,12 +698,76 @@ export default function AdminDashboard() {
   const [systemLogs, setSystemLogs] = useState([]);
   const [systemLogsLoading, setSystemLogsLoading] = useState(false);
 
+  // New state for bookings
+  const [bookings, setBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [currentBookingsPage, setCurrentBookingsPage] = useState(1);
+  const BOOKINGS_PER_PAGE = 3;
+
+  // Calculate paginated bookings
+  const totalBookings = bookings.length;
+  const totalPages = Math.ceil(totalBookings / BOOKINGS_PER_PAGE);
+  const paginatedBookings = bookings.slice(
+    (currentBookingsPage - 1) * BOOKINGS_PER_PAGE,
+    currentBookingsPage * BOOKINGS_PER_PAGE
+  );
+
   useEffect(() => {
-    if (!web3Auth) return;
-    web3Auth.getUserInfo()
-      .then(info => setUserEmail(info.email))
-      // .catch(err => console.error "Failed to fetch user info:", err);
-  }, [web3Auth]);
+    // 1. Get user info
+    if (web3Auth) {
+      web3Auth.getUserInfo().then(info => setUserEmail(info.email));
+    }
+
+    // 2. Load Announcements
+    (async () => {
+      if (!announcementsLoading) {
+        setAnnouncementsLoading(true);
+        try {
+          const res = await authFetch("/api/admin/get-announcements");
+          if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(errorText || "Failed to load announcements");
+          }
+          const data = await res.json();
+          const items = data.map(item => ({
+            ...item,
+            dateRange: formatDateRange(item.startDate, item.endDate),
+            id: item.ipfsHash,
+          }));
+          setAnnouncements(items);
+        } catch (err) {
+          console.error("Error loading announcements:", err);
+          if (err.message.includes("No Announcement found")) {
+            setAnnouncements([]);
+            setToast({ msg: "No announcements available", type: "info" });
+          } else {
+            setToast({ msg: err.message, type: "error" });
+          }
+        } finally {
+          setAnnouncementsLoading(false);
+        }
+      }
+    })();
+
+    // 3. Load Approved Bookings
+    (async () => {
+      setBookingsLoading(true);
+      try {
+        const res = await authFetch("/api/admin/bookings/all");
+        if (!res.ok) throw new Error(await res.text() || "Failed to load bookings");
+        const { data } = await res.json();
+        const approved = (data || []).filter(
+          b => b.status === "APPROVED" || b.status === 0 || b.status === "0"
+        );
+        setBookings(approved);
+      } catch (err) {
+        setBookings([]);
+        setToast({ msg: err.message, type: "error" });
+      } finally {
+        setBookingsLoading(false);
+      }
+    })();
+  }, [web3Auth]); // Only runs on mount and when web3Auth changes
 
   // Utility to format date display
   const formatDate = (timestamp) => {
@@ -896,7 +782,7 @@ export default function AdminDashboard() {
 
   // Utility to format date range display
   const formatDateRange = (startDate, endDate) => {
-    const start = formatDate(startDate * 1000); // Convert from seconds to milliseconds
+    const start = formatDate(startDate * 1000); 
     const end = formatDate(endDate * 1000);
     return `${start} - ${end}`;
   };
@@ -936,16 +822,16 @@ export default function AdminDashboard() {
     } finally {
         setAnnouncementsLoading(false);
     }
-  }, []); // Empty dependency array to prevent infinite loops
+  }, []); 
 
-  // Load all announcements from backend on component mount
   useEffect(() => {
-    loadAnnouncements();
-  }, [loadAnnouncements]);
+    loadSystemLogs();
+  }, );
+
+  const systemLogsRef = useRef([]);
 
   // Load system logs from backend with improved error handling and refresh
   const loadSystemLogs = useCallback(async (forceRefresh = false) => {
-    // Skip if already loading unless it's a forced refresh
     if (systemLogsLoading && !forceRefresh) {
       console.log('System logs already loading, skipping duplicate call');
       return;
@@ -978,45 +864,27 @@ export default function AdminDashboard() {
         isNew: false // Track new logs for animation
       }));
       
-      // Check for new logs compared to current state
+      // Use ref for previous logs
       const existingIds = systemLogs.map(log => log.id);
       const newLogsIds = transformedLogs.map(log => log.id);
-      const hasNewLogs = !existingIds.every(id => newLogsIds.includes(id)) || 
-                         !newLogsIds.every(id => existingIds.includes(id));
-      
+      const hasNewLogs = !existingIds.every(id => newLogsIds.includes(id)) ||
+        !newLogsIds.every(id => existingIds.includes(id));
       if (hasNewLogs) {
-        // Mark new logs for animation
         transformedLogs.forEach(log => {
           log.isNew = !existingIds.includes(log.id);
         });
       }
-      
       setSystemLogs(transformedLogs);
       console.log(`Updated system logs: ${transformedLogs.length} entries at ${new Date().toLocaleTimeString()}`);
       
     } catch (err) {
       console.error('Error loading system logs:', err);
-      if (systemLogs.length === 0) {
-        setSystemLogs([]);
-      }
+      if (systemLogsRef.current.length === 0) setSystemLogs([]);
       setToast({ msg: 'Failed to load latest system logs', type: 'error' });
     } finally {
       setSystemLogsLoading(false);
     }
-  }, [systemLogs]); // Include systemLogs for comparison
-
-  // Enhanced system logs loading with animation support
-  useEffect(() => {
-    // Initial load
-    loadSystemLogs(true);
-    
-    // Set up more frequent polling for real-time updates
-    const interval = setInterval(() => {
-      loadSystemLogs(true); // Force refresh on interval
-    }, 15000); // Update every 15 seconds for more real-time feel
-    
-    return () => clearInterval(interval);
-  }, []); // Empty dependency to run once
+  }, ); 
 
   // Enhanced format log message with better time formatting
   const formatLogMessage = (log) => {
@@ -1091,17 +959,27 @@ export default function AdminDashboard() {
     }
   };
 
-  // Load system logs on component mount
-  useEffect(() => {
-    loadSystemLogs();
-    
-    // Set up polling for real-time updates
-    const interval = setInterval(loadSystemLogs, 30000); // Update every 30 seconds
-    return () => clearInterval(interval);
-  }, [loadSystemLogs]);
+  // Fetch approved bookings only
+  const loadApprovedBookings = useCallback(async () => {
+    setBookingsLoading(true);
+    try {
+      const res = await authFetch("/api/admin/bookings/all");
+      if (!res.ok) throw new Error(await res.text() || "Failed to load bookings");
+      const { data } = await res.json();
 
-  const [bookings] = useState([
-  ]);
+      // Filter for APPROVED bookings (status === "APPROVED" or status === 0)
+      const approved = (data || []).filter(
+        b => b.status === "APPROVED" || b.status === 0 || b.status === "0"
+      );
+      setBookings(approved);
+    } catch (err) {
+      setBookings([]);
+      setToast({ msg: err.message, type: "error" });
+    } finally {
+      setBookingsLoading(false);
+    }
+  }, []);
+
 
   const handleDeleteAnnouncement = async (id) => {
     if (!confirm('Are you sure you want to delete this announcement?')) {
@@ -1129,10 +1007,6 @@ export default function AdminDashboard() {
     } finally {
       setDeletingAnnouncementId(null);
     }
-  };
-
-  const handleRejectBooking = (id) => {
-    console.log('Rejecting booking:', id);
   };
 
   const [showAddAnnouncementModal, setShowAddAnnouncementModal] = useState(false);
@@ -1197,249 +1071,385 @@ export default function AdminDashboard() {
     }
   };
 
+  const openRejectModal = async (booking) => {
+    if (!booking) return;
+    const reason = window.prompt("Please enter the reason for rejection:");
+    if (reason && reason.trim()) {
+      await handleConfirmReject(reason.trim(), booking);
+    }
+  };
+
+  // Handler for confirming reject 
+  const handleConfirmReject = async (reason, booking) => {
+    if (!booking) return;
+    try {
+      const res = await authFetch(`/api/admin/bookings/${booking.ipfsHash}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason })
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || "Failed to reject booking");
+      }
+      setToast({ msg: "Booking rejected", type: "success" });
+      await loadApprovedBookings();
+    } catch (err) {
+      setToast({ msg: err.message, type: "error" });
+    }
+  };
+
+  const [showExportModal, setShowExportModal] = useState(false);
+
+  const handleExportReport = async (startDate, endDate) => {
+    try {
+      // Fetch all bookings from backend
+      const res = await authFetch("/api/admin/bookings/all");
+      if (!res.ok) throw new Error(await res.text() || "Failed to fetch bookings");
+      const { data } = await res.json();
+
+      // Filter bookings by date range (inclusive)
+      const start = new Date(startDate + "T00:00:00").getTime() / 1000;
+      const end = new Date(endDate + "T23:59:59").getTime() / 1000;
+      const filtered = data.filter(
+        b => Number(b.startTime) >= start && Number(b.endTime) <= end
+      );
+
+      // Prepare data for XLSX
+      const sheetData = [
+        ["Owner", "Facility", "Court", "Start Time", "End Time", "Status", "IPFS Hash"],
+        ...filtered.map(b => [
+          b.owner,
+          b.facilityName,
+          b.courtName,
+          new Date(Number(b.startTime) * 1000).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur" }),
+          new Date(Number(b.endTime) * 1000).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur" }),
+          STATUS_MAP[b.status] || b.status,
+          b.ipfsHash
+        ])
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Bookings");
+      XLSX.writeFile(wb, `booking_report_${startDate}_to_${endDate}.xlsx`);
+      setToast({ msg: "Report exported successfully", type: "success" });
+    } catch (err) {
+      setToast({ msg: err.message, type: "error" });
+    }
+  };
+
+  useEffect(() => {
+    if (toast.msg) {
+      const timer = setTimeout(() => {
+        setToast({ msg: "", type: "success" });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.msg]);
+
   return (
-    <div className="admin-dashboard">
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
-      <div className="dashboard-content">
-        <div className="content-grid">
-          {/* System Logs Section */}
-          <div className="system-logs-section">
+    <>
+      <div className="admin-dashboard">
+        <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+        <div className="dashboard-content">
+          <div className="content-grid">
+            {/* System Logs Section */}
+            <div className="system-logs-section">
+              <div className="section-header">
+                <h3>Recent System Events</h3>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <button
+                    className="icon-link-btn"
+                    onClick={() => navigate("/logs")}
+                    aria-label="Go to Logs"
+                    style={{ background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    <ExternalLink size={16} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="logs-container">
+                {systemLogs.length === 0 ? (
+                  <div style={{ 
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    minHeight: "160px",
+                    color: "#888",
+                    fontStyle: "italic"
+                  }}>
+                    {systemLogsLoading ? (
+                      <>
+                        <Spinner />
+                      </>
+                    ) : (
+                      <>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="logs-list">
+                    {systemLogs.map((log, index) => (
+                      <div 
+                        key={log.id} 
+                        className={`log-item ${getLogStatusClass(log.status)} ${log.isNew ? 'entering' : ''}`}
+                        style={{
+                          animationDelay: `${index * 0.1}s`,
+                          opacity: log.isNew ? 0 : 1,
+                          transform: log.isNew ? 'translateY(-10px)' : 'translateY(0)',
+                          animation: log.isNew ? 'slideIn 0.4s ease-out forwards' : 'none'
+                        }}
+                      >
+                        <div className="log-content">
+                          <span className="log-message">{log.message}</span>
+                          {log.isNew && (
+                            <div style={{ 
+                              fontSize: '10px', 
+                              color: '#dc2626',
+                              fontWeight: '600',
+                              marginLeft: '8px',
+                              backgroundColor: 'rgba(255, 55, 255, 0.8)',
+                              padding: '2px 6px',
+                              borderRadius: '12px'
+                            }}>
+                              NEW
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    <div style={{
+                      textAlign: 'center',
+                      fontSize: '11px',
+                      color: '#9ca3af',
+                      padding: '12px 8px 8px 8px',
+                      borderTop: '1px solid #f3f4f6',
+                      marginTop: 'auto',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Announcements Section */}
+            <div className="announcements-section">
+              <div className="section-header">
+                <h3>Announcements</h3>
+                <div className="header-actions">
+                  <span className="announcements-count">{announcements.length} total</span>
+                  <button
+                    className="add-btn"
+                    onClick={() => setShowAddAnnouncementModal(true)}
+                    disabled={announcementsLoading}
+                  >
+                    <Plus size={16} />
+                    Add New
+                  </button>
+                </div>
+              </div>
+              <div className="table-container">
+                <div className="table-header">
+                  <span>Title</span>
+                  <span>Date Range</span>
+                  <span>Action</span>
+                </div>
+                {announcementsLoading ? (
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    minHeight: "160px",
+                    height: "100%",
+                    width: "100%"
+                  }}>
+                    <Spinner />
+                  </div>
+                ) : (
+                  announcements.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "2rem", color: "#888" }}>
+                      No announcements found.
+                    </div>
+                  ) : (
+                    announcements.map(announcement => (
+                      <div key={announcement.id} className="table-row">
+                        <span>{announcement.title}</span>
+                        <span>{announcement.dateRange}</span>
+                        <div className="action-buttons">
+                          <button
+                            className="edit-btn"
+                            onClick={() => handleEditAnnouncement(announcement)}
+                            disabled={deletingAnnouncementId === announcement.id}
+                          >
+                            <Edit size={14} />
+                            Edit
+                          </button>
+                          <button 
+                            className="delete-btn"
+                            onClick={() => handleDeleteAnnouncement(announcement.id)}
+                            disabled={deletingAnnouncementId === announcement.id}
+                          >
+                            {deletingAnnouncementId === announcement.id ? (
+                              <>
+                                Deleting...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 size={14} />
+                                Delete
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ))
+                }
+              </div>
+            </div>
+          </div>
+
+          {/* System Approved Bookings Section */}
+          <div className="bookings-section">
             <div className="section-header">
-              <h3>Recent System Events</h3>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <h3>System Approved Bookings</h3>
+              <div className="header-actions">
+                <span className="requests-count">{bookings.length} requests</span>
+                <button
+                  className="create-booking-btn"
+                  onClick={() => navigate("/home")}
+                >
+                  <Plus size={16} />
+                  Create Booking
+                </button>
+                <button className="export-btn" onClick={() => setShowExportModal(true)}>
+                  <Download size={16} />
+                  Export Report
+                </button>
                 <button
                   className="icon-link-btn"
-                  onClick={() => navigate("/logs")}
-                  aria-label="Go to Logs"
+                  onClick={() => navigate("/admin/booking-management")}
+                  aria-label="Go to Booking Management"
                   style={{ background: "none", border: "none", cursor: "pointer" }}
                 >
                   <ExternalLink size={16} />
                 </button>
               </div>
             </div>
-            
-            <div className="logs-container">
-              {systemLogs.length === 0 ? (
-                <div style={{ 
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  minHeight: "160px",
-                  color: "#888",
-                  fontStyle: "italic"
-                }}>
-                  {systemLogsLoading ? (
-                    <>
-                      <Spinner />
-                    </>
-                  ) : (
-                    <>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="logs-list">
-                  {systemLogs.map((log, index) => (
-                    <div 
-                      key={log.id} 
-                      className={`log-item ${getLogStatusClass(log.status)} ${log.isNew ? 'entering' : ''}`}
-                      style={{
-                        animationDelay: `${index * 0.1}s`,
-                        opacity: log.isNew ? 0 : 1,
-                        transform: log.isNew ? 'translateY(-10px)' : 'translateY(0)',
-                        animation: log.isNew ? 'slideIn 0.4s ease-out forwards' : 'none'
-                      }}
-                    >
-                      <div className="log-content">
-                        <span className="log-message">{log.message}</span>
-                        {log.isNew && (
-                          <div style={{ 
-                            fontSize: '10px', 
-                            color: '#dc2626',
-                            fontWeight: '600',
-                            marginLeft: '8px',
-                            backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                            padding: '2px 6px',
-                            borderRadius: '12px'
-                          }}>
-                            NEW
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Fixed footer with last update time */}
-                  <div style={{
-                    textAlign: 'center',
-                    fontSize: '11px',
-                    color: '#9ca3af',
-                    padding: '12px 8px 8px 8px',
-                    borderTop: '1px solid #f3f4f6',
-                    marginTop: 'auto',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Announcements Section */}
-          <div className="announcements-section">
-            <div className="section-header">
-              <h3>Announcements</h3>
-              <div className="header-actions">
-                <span className="announcements-count">{announcements.length} total</span>
-                <button
-                  className="add-btn"
-                  onClick={() => setShowAddAnnouncementModal(true)}
-                  disabled={announcementsLoading}
-                >
-                  <Plus size={16} />
-                  Add New
-                </button>
-              </div>
-            </div>
-            <div className="table-container">
+            <div className="table-container bookings-table">
               <div className="table-header">
-                <span>Title</span>
-                <span>Date Range</span>
+                <span>Booking Receipt (IPFS)</span>
+                <span>Owner</span>
+                <span>Facility</span>
+                <span>Court</span>
+                <span>Time</span>
                 <span>Action</span>
               </div>
-              {announcementsLoading ? (
-                <div style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  minHeight: "160px",
-                  height: "100%",
-                  width: "100%"
-                }}>
+              {bookingsLoading ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "2rem",
+                    color: "#888",
+                    gridColumn: "1 / -1",
+                  }}
+                >
                   <Spinner />
                 </div>
+              ) : paginatedBookings.length === 0 ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "2rem",
+                    color: "#888",
+                    gridColumn: "1 / -1",
+                  }}
+                >
+                  No approved bookings found
+                </div>
               ) : (
-                announcements.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "2rem", color: "#888" }}>
-                    No announcements found.
+                paginatedBookings.map((booking) => (
+                  <div key={booking.ipfsHash || booking.id} className="table-row">
+                    <span>
+                      {booking.ipfsHash ? (
+                        <a
+                          href={getIpfsGatewayUrl(booking.ipfsHash)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: "#3b82f6", textDecoration: "underline" }}
+                        >
+                          {booking.ipfsHash.slice(0, 10)}...{booking.ipfsHash.slice(-6)}
+                        </a>
+                      ) : (
+                        "-"
+                      )}
+                    </span>
+                    <span>{abbreviateAddress(booking.owner || booking.userAddress)}</span>
+                    <span>{booking.facilityName}</span>
+                    <span>{booking.courtName}</span>
+                    <span>{formatBookingTimeGmt8(booking.startTime, booking.endTime)}</span>
+                    <span>
+                      <button
+                        className="reject-btn"
+                        style={{
+                          background: "#ef4444",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "4px",
+                          padding: "4px 10px",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                          fontWeight: 500,
+                          marginLeft: "4px"
+                        }}
+                        onClick={() => openRejectModal(booking)}
+                      >
+                        Reject
+                      </button>
+                    </span>
                   </div>
-                ) : (
-                  announcements.map(announcement => (
-                    <div key={announcement.id} className="table-row">
-                      <span>{announcement.title}</span>
-                      <span>{announcement.dateRange}</span>
-                      <div className="action-buttons">
-                        <button
-                          className="edit-btn"
-                          onClick={() => handleEditAnnouncement(announcement)}
-                          disabled={deletingAnnouncementId === announcement.id}
-                        >
-                          <Edit size={14} />
-                          Edit
-                        </button>
-                        <button 
-                          className="delete-btn"
-                          onClick={() => handleDeleteAnnouncement(announcement.id)}
-                          disabled={deletingAnnouncementId === announcement.id}
-                        >
-                          {deletingAnnouncementId === announcement.id ? (
-                            <>
-                              Deleting...
-                            </>
-                          ) : (
-                            <>
-                              <Trash2 size={14} />
-                              Delete
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )
+                ))
               )}
             </div>
-          </div>
-        </div>
-
-        {/* System Approved Bookings Section */}
-        <div className="bookings-section">
-          <div className="section-header">
-            <h3>System Approved Bookings</h3>
-            <div className="header-actions">
-              <span className="requests-count">0 requests</span>
-              <button 
-                className="create-booking-btn"
-                onClick={() => navigate("/home")}
-              >
-                <Plus size={16} />
-                Create Booking
-              </button>
-              <button className="export-btn">
-                <Download size={16} />
-                Export Report
-              </button>
-              <button
-                className="icon-link-btn"
-                onClick={() => navigate("/admin/booking-management")}
-                aria-label="Go to Booking Management"
-                style={{ background: "none", border: "none", cursor: "pointer" }}
-              >
-                <ExternalLink size={16} />
-              </button>
-            </div>
-          </div>
-          <div className="table-container bookings-table">
-            <div className="table-header">
-              <span>Booking ID</span>
-              <span>User ID</span>
-              <span>Court</span>
-              <span>Time</span>
-              <span>Sport</span>
-              <span>Action</span>
-            </div>
-            {bookings.length === 0 ? (
-              <div style={{ 
-                textAlign: "center", 
-                padding: "2rem", 
-                color: "#888",
-                gridColumn: "1 / -1"
-              }}>
-                No approved bookings found
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div style={{ display: "flex", justifyContent: "center", margin: "1rem 0" }}>
+                <button
+                  onClick={() => setCurrentBookingsPage((p) => Math.max(1, p - 1))}
+                  disabled={currentBookingsPage === 1}
+                  style={{ marginRight: 8 }}
+                >
+                  Prev
+                </button>
+                <span style={{ margin: "0 8px" }}>
+                  Page {currentBookingsPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentBookingsPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentBookingsPage === totalPages}
+                >
+                  Next
+                </button>
               </div>
-            ) : (
-              bookings.map(booking => (
-                <div key={booking.id} className="table-row">
-                  <span>{booking.id}</span>
-                  <span>{booking.user}</span>
-                  <span>{booking.court}</span>
-                  <span style={{ whiteSpace: 'pre-line' }}>{booking.time}</span>
-                  <span>{booking.sport}</span>
-                  <div className="action-buttons">
-                    <button
-                      className="reject-btn"
-                      onClick={() => handleRejectBooking(booking.id)}
-                    >
-                      <X size={14} />
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              ))
             )}
           </div>
         </div>
+
+        <Toast
+          message={toast.msg}
+          type={toast.type}
+          onClose={() => setToast({ msg: "", type: "success" })}
+        />
       </div>
 
-      <Toast
-        message={toast.msg}
-        type={toast.type}
-        onClose={() => setToast({ msg: "", type: "success" })}
-      />
-
+      {/* Announcement Modals */}
       {showAddAnnouncementModal && (
         <AddAnnouncementModal
           onClose={() => setShowAddAnnouncementModal(false)}
@@ -1453,6 +1463,63 @@ export default function AdminDashboard() {
           initialData={editAnnouncement}
         />
       )}
-    </div>
+
+      {/* Export Report Modal */}
+      <ExportReportModal
+        open={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        onExport={handleExportReport}
+      />
+    </>
   );
 }
+
+const STATUS_MAP = {
+  0: "APPROVED",
+  1: "REJECTED",
+  2: "COMPLETED",
+  3: "CANCELLED",
+  "0": "APPROVED",
+  "1": "REJECTED",
+  "2": "COMPLETED",
+  "3": "CANCELLED",
+};
+
+// Utility to generate Pinata gateway URL for an IPFS hash
+const getIpfsGatewayUrl = (ipfsHash) => {
+  if (!ipfsHash) return "#";
+  return `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+};
+
+// Utility to abbreviate Ethereum or user addresses for display
+const abbreviateAddress = (address) => {
+  if (!address || typeof address !== "string") return "-";
+  if (address.length <= 10) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
+// Utility to format booking time in GMT+8 (Asia/Kuala_Lumpur) with line break
+const formatBookingTimeGmt8 = (startTime, endTime) => {
+  if (!startTime || !endTime) return "-";
+  const start = new Date(Number(startTime) * 1000);
+  const end = new Date(Number(endTime) * 1000);
+  const dateOptions = {
+    timeZone: "Asia/Kuala_Lumpur",
+    year: "numeric",
+    month: "short",
+    day: "numeric"
+  };
+  const timeOptions = {
+    timeZone: "Asia/Kuala_Lumpur",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  };
+  return (
+    <>
+      {start.toLocaleDateString("en-GB", dateOptions)}
+      <br />
+      {start.toLocaleTimeString("en-GB", timeOptions).toLowerCase()} - {end.toLocaleTimeString("en-GB", timeOptions).toLowerCase()}
+    </>
+  );
+};

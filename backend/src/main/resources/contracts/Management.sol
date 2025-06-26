@@ -75,6 +75,7 @@ contract Management {
     event announcementDeleted(
         address indexed from,
         string ipfsHash,
+        string title,
         uint256 timestamp
     );
 
@@ -222,9 +223,10 @@ contract Management {
     ) external isAdmin {
         for (uint256 i = 0; i < announcements_.length; i++) {
             if (keccak256(bytes(announcements_[i].ipfsHash)) == keccak256(bytes(ipfsHash))) {
+                string memory tempTitle = announcements_[i].title;
                 announcements_[i] = announcements_[announcements_.length - 1];
                 announcements_.pop();
-                emit announcementDeleted(msg.sender, ipfsHash, block.timestamp);
+                emit announcementDeleted(msg.sender, ipfsHash, tempTitle, block.timestamp);
                 return;
             }
         }
