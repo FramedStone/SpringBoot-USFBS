@@ -1,0 +1,14 @@
+steps:
+  # Step 1: Build the JAR using Maven
+  - name: 'maven:3.9.6-eclipse-temurin-21'
+    entrypoint: 'mvn'
+    args: ['clean', 'package', '-DskipTests']
+
+  # Step 2: Build the Docker image using the JAR just built
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build', '-t', 'gcr.io/usfbs-462807/usfbs-backend', '.'
+    ]
+
+images:
+  - 'gcr.io/usfbs-462807/usfbs-backend'
