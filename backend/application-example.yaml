@@ -19,3 +19,10 @@ cors:
 pinata:
     jwt: ${PINATA_JWT:}
     gateway: ${PINATA_GATEWAY:}
+
+app:
+    backend-url: ${BACKEND_URL:http://localhost:8080}
+
+automation:
+    admin-email: ${ADMIN_EMAIL:} # one of the admin email
+    admin-address: ${ADMIN_ADDRESS:} # one of the admin blockchain address

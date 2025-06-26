@@ -3,6 +3,7 @@ import Navbar from "@components/Navbar";
 import Toast from "@components/Toast";
 import Spinner from "@components/Spinner";
 import { authFetch } from "@utils/authFetch";
+import { useRequestQueue } from "@components/@RequestQueue"; 
 import '@styles/UserManagement.css';
 
 const UserManagement = () => {
@@ -18,6 +19,8 @@ const UserManagement = () => {
   const [toast, setToast] = useState({ open: false, message: '', type: 'success' });
   const [processingUsers, setProcessingUsers] = useState(new Set());
   const [modalLoading, setModalLoading] = useState(false);
+  const [processingJobs, setProcessingJobs] = useState({}); // { [userAddress]: jobId }
+  const { addJob, queue } = useRequestQueue(); // Use the request queue
 
   const abbreviate = (value) => {
     if (!value) return '';
@@ -41,8 +44,12 @@ const UserManagement = () => {
     });
   };
 
+  // Helper to check if a user is being processed (ban/unban)
   const isUserProcessing = (userAddress) => {
-    return processingUsers.has(userAddress);
+    const jobId = processingJobs[userAddress];
+    if (!jobId) return false;
+    const job = queue.find(j => j.id === jobId);
+    return job && (job.status === "queued" || job.status === "running");
   };
 
   const fetchUsers = async () => {
@@ -92,80 +99,84 @@ const UserManagement = () => {
     setShowUnbanModal(true);
   };
 
+  // Ban user handler using queue
   const handleBanConfirm = async () => {
-    if (!banReason.trim() || modalLoading) return;
-    
-    try {
-      setModalLoading(true);
-      addProcessingUser(selectedUser.userAddress);
-      
-      const response = await authFetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/users/ban`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          userAddress: selectedUser.userAddress,
-          reason: banReason.trim()
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        handleToastMessage(`User ${selectedUser.userAddress} has been banned successfully`, 'success');
-        await fetchUsers();
-        setShowBanModal(false);
-        setSelectedUser(null);
-        setBanReason('');
-      } else {
-        throw new Error(result.error || 'Failed to ban user');
+    if (!banReason.trim()) return;
+    setShowBanModal(false); // Close modal immediately when queued
+    const user = selectedUser;
+    setSelectedUser(null);
+    setBanReason('');
+    const jobId = addJob(`Ban user ${user.userAddress}`, async () => {
+      try {
+        const response = await authFetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/users/ban`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            userAddress: user.userAddress,
+            reason: banReason.trim()
+          }),
+        });
+        const result = await response.json();
+        if (result.success) {
+          handleToastMessage(`User ${user.userAddress} has been banned successfully`, 'success');
+          await fetchUsers();
+        } else {
+          throw new Error(result.error || 'Failed to ban user');
+        }
+      } catch (error) {
+        console.error('Error banning user:', error);
+        handleToastMessage('Failed to ban user: ' + error.message, 'error');
+      } finally {
+        setProcessingJobs(jobs => {
+          const copy = { ...jobs };
+          delete copy[user.userAddress];
+          return copy;
+        });
       }
-    } catch (error) {
-      console.error('Error banning user:', error);
-      handleToastMessage('Failed to ban user: ' + error.message, 'error');
-    } finally {
-      setModalLoading(false);
-      removeProcessingUser(selectedUser?.userAddress);
-    }
+    });
+    setProcessingJobs(jobs => ({ ...jobs, [user.userAddress]: jobId }));
   };
 
+  // Unban user handler using queue
   const handleUnbanConfirm = async () => {
-    if (!unbanReason.trim() || modalLoading) return;
-    
-    try {
-      setModalLoading(true);
-      addProcessingUser(selectedUser.userAddress);
-      
-      const response = await authFetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/users/unban`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          userAddress: selectedUser.userAddress,
-          reason: unbanReason.trim()
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        handleToastMessage(`User ${selectedUser.userAddress} has been unbanned successfully`, 'success');
-        await fetchUsers();
-        setShowUnbanModal(false);
-        setSelectedUser(null);
-        setUnbanReason('');
-      } else {
-        throw new Error(result.error || 'Failed to unban user');
+    if (!unbanReason.trim()) return;
+    setShowUnbanModal(false); // Close modal immediately when queued
+    const user = selectedUser;
+    setSelectedUser(null);
+    setUnbanReason('');
+    const jobId = addJob(`Unban user ${user.userAddress}`, async () => {
+      try {
+        const response = await authFetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/users/unban`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            userAddress: user.userAddress,
+            reason: unbanReason.trim()
+          }),
+        });
+        const result = await response.json();
+        if (result.success) {
+          handleToastMessage(`User ${user.userAddress} has been unbanned successfully`, 'success');
+          await fetchUsers();
+        } else {
+          throw new Error(result.error || 'Failed to unban user');
+        }
+      } catch (error) {
+        console.error('Error unbanning user:', error);
+        handleToastMessage('Failed to unban user: ' + error.message, 'error');
+      } finally {
+        setProcessingJobs(jobs => {
+          const copy = { ...jobs };
+          delete copy[user.userAddress];
+          return copy;
+        });
       }
-    } catch (error) {
-      console.error('Error unbanning user:', error);
-      handleToastMessage('Failed to unban user: ' + error.message, 'error');
-    } finally {
-      setModalLoading(false);
-      removeProcessingUser(selectedUser?.userAddress);
-    }
+    });
+    setProcessingJobs(jobs => ({ ...jobs, [user.userAddress]: jobId }));
   };
 
   const handleBanModalClose = () => {

@@ -541,6 +541,55 @@ const SystemLogs = () => {
 
       return noteLines.length > 0 ? noteLines.join('\n') : '-';
     }
+
+    if (action === 'Court Modified') {
+      // Try to extract changed fields as before
+      const oldCourtNameMatch = originalOutput.match(/oldCourtName\s*=\s*([^\n]+)/);
+      const newCourtNameMatch = originalOutput.match(/newCourtName\s*=\s*([^\n]+)/);
+      const oldEarliestTimeMatch = originalOutput.match(/oldEarliestTime\s*=\s*([^\n]+)/);
+      const newEarliestTimeMatch = originalOutput.match(/newEarliestTime\s*=\s*([^\n]+)/);
+      const oldLatestTimeMatch = originalOutput.match(/oldLatestTime\s*=\s*([^\n]+)/);
+      const newLatestTimeMatch = originalOutput.match(/newLatestTime\s*=\s*([^\n]+)/);
+      const oldStatusMatch = originalOutput.match(/oldStatus\s*=\s*([^\n]+)/);
+      const newStatusMatch = originalOutput.match(/newStatus\s*=\s*([^\n]+)/);
+
+      let noteLines = [];
+
+      if (
+        oldCourtNameMatch &&
+        newCourtNameMatch &&
+        oldCourtNameMatch[1].trim() !== newCourtNameMatch[1].trim()
+      ) {
+        noteLines.push(`courtName: ${oldCourtNameMatch[1].trim()} -> ${newCourtNameMatch[1].trim()}`);
+      }
+      if (
+        oldEarliestTimeMatch &&
+        newEarliestTimeMatch &&
+        oldEarliestTimeMatch[1].trim() !== newEarliestTimeMatch[1].trim()
+      ) {
+        noteLines.push(`earliestTime: ${oldEarliestTimeMatch[1].trim()} -> ${newEarliestTimeMatch[1].trim()}`);
+      }
+      if (
+        oldLatestTimeMatch &&
+        newLatestTimeMatch &&
+        oldLatestTimeMatch[1].trim() !== newLatestTimeMatch[1].trim()
+      ) {
+        noteLines.push(`latestTime: ${oldLatestTimeMatch[1].trim()} -> ${newLatestTimeMatch[1].trim()}`);
+      }
+      if (
+        oldStatusMatch &&
+        newStatusMatch &&
+        oldStatusMatch[1].trim() !== newStatusMatch[1].trim()
+      ) {
+        noteLines.push(`status: ${oldStatusMatch[1].trim()} -> ${newStatusMatch[1].trim()}`);
+      }
+
+      // If nothing was extracted, show the full originalOutput
+      if (noteLines.length === 0) {
+        return originalOutput;
+      }
+      return noteLines.join('\n');
+    }
     
     const noteActions = [
       'User Banned', 'User Unbanned', 'Booking Created', 'Booking Updated', 
@@ -879,8 +928,6 @@ const SystemLogs = () => {
                 <div className="checkbox-group">
                   {[
                     'Announcement Added', 'Announcement Deleted', 'Announcement Modified'
-                    // Removed these old specific events:
-                    // 'Announcement IPFS Hash Modified', 'Announcement Time Modified', 'Announcement Title Modified'
                   ].map(action => (
                     <label key={action} className="checkbox-label">
                       <input

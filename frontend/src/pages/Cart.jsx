@@ -5,7 +5,8 @@ import { authFetch } from '@utils/authFetch';
 import '@styles/Cart.css';
 import { useWeb3Auth } from "@web3auth/modal/react";
 import { Web3Provider } from "@ethersproject/providers";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router-dom";
+import { useRequestQueue } from "@components/@RequestQueue"; 
 
 const Cart = () => {
   const [activeTab, setActiveTab] = useState("cart");
@@ -15,11 +16,12 @@ const Cart = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [submitting, setSubmitting] = useState(false);
-  const [userRole, setUserRole] = useState(""); 
-  const [ethAddress, setEthAddress] = useState(""); 
+  const [userRole, setUserRole] = useState("");
+  const [ethAddress, setEthAddress] = useState("");
 
   const { web3Auth } = useWeb3Auth();
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
+  const { addJob } = useRequestQueue(); 
 
   // Fetch user role on mount
   useEffect(() => {
@@ -69,42 +71,48 @@ const Cart = () => {
     localStorage.setItem('admin_cart_slots', JSON.stringify(updated));
   };
 
-  // Confirm booking: call backend for each slot
+  // Confirm booking: queue each booking as a separate job in RequestQueue
   const handleConfirmBooking = async () => {
     setSubmitting(true);
     try {
-      for (const slot of cartSlots) {
-        const startTime = getUnixTimestamp(slot.date, slot.timeSlot);
-        const endTime = startTime + 3600; // 1 hour slot
-
-        const payload = {
-          facilityName: slot.facilityName,
-          courtName: slot.courtName,
-          startTime,
-          endTime,
-          userAddress: ethAddress // always from Web3Auth
-        };
-
-        // Use correct endpoint based on role
-        const endpoint =
-          userRole === "Admin"
-            ? "/api/admin/bookings"
-            : "/api/user/bookings";
-
-        const res = await authFetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || "Booking failed");
-        }
-      }
-      setToast({ msg: "All bookings submitted!", type: "success" });
+      // Remove from localStorage and UI immediately since jobs are queued
       setCartSlots([]);
       localStorage.removeItem('admin_cart_slots');
+
+      // Queue each booking as a separate job
+      cartSlots.forEach((slot, idx) => {
+        addJob(`Booking ${slot.facilityName} - ${slot.courtName} (${slot.date} ${slot.timeSlot})`, async () => {
+          const startTime = getUnixTimestamp(slot.date, slot.timeSlot);
+          const endTime = startTime + 3600; // 1 hour slot
+
+          const payload = {
+            facilityName: slot.facilityName,
+            courtName: slot.courtName,
+            startTime,
+            endTime,
+            userAddress: ethAddress // always from Web3Auth
+          };
+
+          // Use correct endpoint based on role
+          const endpoint =
+            userRole === "Admin"
+              ? "/api/admin/bookings"
+              : "/api/user/bookings";
+
+          const res = await authFetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || "Booking failed");
+          }
+        });
+      });
+
+      setToast({ msg: "All bookings have been queued!", type: "success" });
       navigate("/bookings");
     } catch (err) {
       setToast({ msg: "Booking failed: " + err.message, type: "error" });
@@ -173,7 +181,7 @@ const Cart = () => {
           </div>
         )}
       </div>
-      
+
       <Toast
         message={toast.msg}
         type={toast.type}

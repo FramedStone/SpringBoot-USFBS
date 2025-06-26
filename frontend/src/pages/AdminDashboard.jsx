@@ -12,6 +12,7 @@ import '@styles/AdminDashboard.css';
 import { authFetch } from "@utils/authFetch";
 import MediaUpload from "@components/MediaUpload";
 import * as XLSX from "xlsx";
+import { useRequestQueue } from "@components/@RequestQueue";
 
 // Utility functions for date conversion
 const convertDateToTimestamp = (dateString) => {
@@ -539,7 +540,6 @@ const AddAnnouncementModal = ({ onClose, onSave, initialData }) => {
             <button 
               onClick={onClose} 
               className="close-btn"
-              disabled={isSubmitting}
             >
               <X size={20} />
             </button>
@@ -988,23 +988,20 @@ export default function AdminDashboard() {
 
     setDeletingAnnouncementId(id);
     try {
-      const res = await authFetch(`/api/admin/delete-announcement?ipfsHash=${encodeURIComponent(id)}`, {
-        method: "DELETE",
+      addJob("Delete Announcement", async () => {
+        const res = await authFetch(`/api/admin/delete-announcement?ipfsHash=${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(errorText || "Failed to delete announcement");
+        }
+        const { message } = await res.json();
+        setAnnouncements(anns => anns.filter(ann => ann.id !== id));
+        setToast({ msg: message, type: "success" });
       });
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || "Failed to delete announcement");
-      }
-      
-      const { message } = await res.json();
-      setAnnouncements(announcements.filter(ann => ann.id !== id));
-      setToast({ msg: message, type: "success" });
-      
     } catch (err) {
-      console.error("Delete announcement failed:", err);
       setToast({ msg: err.message, type: "error" });
-    } finally {
       setDeletingAnnouncementId(null);
     }
   };
@@ -1012,61 +1009,54 @@ export default function AdminDashboard() {
   const [showAddAnnouncementModal, setShowAddAnnouncementModal] = useState(false);
   const [editAnnouncement, setEditAnnouncement] = useState(null);
 
-  // Always use authFetch for add announcement
+  const { addJob } = useRequestQueue();
+
+  // Track which booking is being rejected
+  const [rejectingBookingId, setRejectingBookingId] = useState(null);
+
   const handleAddAnnouncement = async (formData) => {
     try {
-      const res = await authFetch("/api/admin/upload-announcement", {
-        method: "POST",
-        body: formData,
-        headers: {},
+      addJob("Add Announcement", async () => {
+        const res = await authFetch("/api/admin/upload-announcement", {
+          method: "POST",
+          body: formData,
+          headers: {},
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || "Upload failed");
+        }
+        const { message } = await res.json();
+        setToast({ msg: message, type: "success" });
+        await loadAnnouncements();
       });
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText || "Upload failed");
-      }
-      const { message } = await res.json();
-      setShowAddAnnouncementModal(false);
-      setToast({ msg: message, type: "success" });
-      await loadAnnouncements();
+      setShowAddAnnouncementModal(false); 
     } catch (err) {
-      console.error("Add announcement failed:", err);
       setToast({ msg: err.message, type: "error" });
     }
   };
 
-  const handleEditAnnouncement = (announcement) => {
-    setEditAnnouncement(announcement);
-  };
-
+  // Edit Announcement using RequestQueue
   const handleSaveEditAnnouncement = async (formData) => {
     try {
-      // Debug log to check FormData contents
-      console.log('Submitting form data:');
-      for (let [key, value] of formData.entries()) {
-        console.log(key, ':', value);
-      }
-
-      // Add old title for comparison in backend
-      if (editAnnouncement && editAnnouncement.title) {
-        formData.append('oldTitle', editAnnouncement.title);
-      }
-
-      const res = await authFetch("/api/admin/update-announcement", {
-        method: "PUT",
-        body: formData,
+      addJob("Edit Announcement", async () => {
+        if (editAnnouncement && editAnnouncement.title) {
+          formData.append('oldTitle', editAnnouncement.title);
+        }
+        const res = await authFetch("/api/admin/update-announcement", {
+          method: "PUT",
+          body: formData,
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || "Update failed");
+        }
+        const { message } = await res.json();
+        setToast({ msg: message, type: "success" });
+        await loadAnnouncements();
       });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText || "Update failed");
-      }
-      
-      const { message } = await res.json();
-      setEditAnnouncement(null);
-      setToast({ msg: message, type: "success" });
-      await loadAnnouncements();
+      setEditAnnouncement(null); 
     } catch (err) {
-      console.error("Edit announcement failed:", err);
       setToast({ msg: err.message, type: "error" });
     }
   };
@@ -1082,20 +1072,25 @@ export default function AdminDashboard() {
   // Handler for confirming reject 
   const handleConfirmReject = async (reason, booking) => {
     if (!booking) return;
+    setRejectingBookingId(booking.ipfsHash);
     try {
-      const res = await authFetch(`/api/admin/bookings/${booking.ipfsHash}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason })
+      addJob("Reject Booking", async () => {
+        const res = await authFetch(`/api/admin/bookings/${booking.ipfsHash}/reject`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason })
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || "Failed to reject booking");
+        }
+        setToast({ msg: "Booking rejected", type: "success" });
+        await loadApprovedBookings();
       });
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText || "Failed to reject booking");
-      }
-      setToast({ msg: "Booking rejected", type: "success" });
-      await loadApprovedBookings();
     } catch (err) {
       setToast({ msg: err.message, type: "error" });
+    } finally {
+      setRejectingBookingId(null);
     }
   };
 
@@ -1147,6 +1142,11 @@ export default function AdminDashboard() {
       return () => clearTimeout(timer);
     }
   }, [toast.msg]);
+
+  // Add this function
+  const handleEditAnnouncement = (announcement) => {
+    setEditAnnouncement(announcement);
+  };
 
   return (
     <>
@@ -1410,8 +1410,9 @@ export default function AdminDashboard() {
                           marginLeft: "4px"
                         }}
                         onClick={() => openRejectModal(booking)}
+                        disabled={rejectingBookingId === booking.ipfsHash}
                       >
-                        Reject
+                        {rejectingBookingId === booking.ipfsHash ? "Rejecting..." : "Reject"}
                       </button>
                     </span>
                   </div>

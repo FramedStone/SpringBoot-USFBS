@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@components/Navbar";
 import { X, Plus, Edit, Trash2, MapPin } from "lucide-react";
 import { authFetch } from "@utils/authFetch";
@@ -6,6 +6,7 @@ import Toast from "@components/Toast";
 import "@styles/SportAndCourtManagement.css";
 import Spinner from "@components/Spinner";
 import MediaUpload from "@components/MediaUpload";
+import { useRequestQueue } from "@components/@RequestQueue";
 
 const DEFAULT_EARLIEST = "08:00";
 const DEFAULT_LATEST = "23:00";
@@ -300,9 +301,6 @@ const SportAndCourtManagement = () => {
       setLoading(false);
     }
   };
-
-  // Enhanced request tracking to prevent duplicate submissions
-  const activeRequests = new Map();
 
   const handleEditSport = async (sportData) => {
     setLoading(true);
@@ -1221,18 +1219,24 @@ const SportAndCourtManagement = () => {
           />
         )}
 
-        {showDeleteSportModal && (
-          <DeleteConfirmModal
-            title="Delete Sport Facility"
-            message={`Are you sure you want to delete ${selectedSportForEdit?.name}?`}
+        {showDeleteSportModal && selectedSportForEdit && (
+          <DeleteSportFacilityModal
+            sportFacility={selectedSportForEdit}
             onClose={() => {
               if (!deleteLoading) {
                 setShowDeleteSportModal(false);
                 setSelectedSportForEdit(null);
               }
             }}
-            onConfirm={handleDeleteSport}
-            isLoading={deleteLoading}
+            onDeleted={async () => {
+              setShowDeleteSportModal(false);
+              setSelectedSportForEdit(null);
+              setSelectedSport("");
+              setSelectedSportCourts([]);
+              setCourtTimeRanges({});
+              setDynamicTimeSlots([]);
+              await loadSportFacilities();
+            }}
           />
         )}
 
@@ -1283,6 +1287,7 @@ const SportAndCourtManagement = () => {
 
 // Add Sport Modal Component
 const AddSportModal = ({ onClose, onSave }) => {
+  const { addJob } = useRequestQueue();
   const [formData, setFormData] = useState({
     name: "",
     courts: [],
@@ -1347,37 +1352,73 @@ const AddSportModal = ({ onClose, onSave }) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    try {
-      if (!formData.location || formData.location.trim() === "") {
-        setToast({ msg: "Sport Facility location is required", type: "error" });
-        return;
-      }
-      if (!validateGoogleMapsUrl(formData.location)) {
-        setToast({
-          msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)",
-          type: "error",
-        });
-        return;
-      }
-
-      let imageIPFS = "";
-      try {
-      } catch (err) {
-        setToast({ msg: "Failed to upload image to IPFS: " + err.message, type: "error" });
-        return;
-      }
-
-      const courtsWithTimes = formData.courts.map((court) => ({
-        name: court.name,
-        earliest: court.earliest || "08:00",
-        latest: court.latest || "23:00",
-      }));
-
-      await onSave({
-        ...formData,
-        courts: courtsWithTimes,
-        imageIPFS,
+    if (!formData.location || formData.location.trim() === "") {
+      setToast({ msg: "Sport Facility location is required", type: "error" });
+      return;
+    }
+    if (!validateGoogleMapsUrl(formData.location)) {
+      setToast({
+        msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)",
+        type: "error",
       });
+      return;
+    }
+
+    // Wrap the add logic for the queue
+    const addSportJob = async () => {
+      // Prepare FormData for multipart/form-data
+      const formDataToSend = new FormData();
+      formDataToSend.append("facilityName", formData.name);
+      formDataToSend.append("facilityLocation", formData.location.trim());
+      formDataToSend.append("facilityStatus", getStatusValue("OPEN"));
+      formDataToSend.append(
+        "facilityCourts",
+        JSON.stringify(
+          formData.courts.map((court) => ({
+            name: court.name,
+            earliestTime: timeToSeconds(court.earliest || "08:00"),
+            latestTime: timeToSeconds(court.latest || "23:00"),
+            status: getStatusValue("OPEN"),
+          }))
+        )
+      );
+      if (formData.imageFile) {
+        formDataToSend.append("image", formData.imageFile);
+      }
+
+      onClose();
+      const res = await authFetch("/api/admin/sport-facilities", {
+        method: "POST",
+        body: formDataToSend,
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        let errorMessage = errorData.error || "Failed to add sport facility";
+        if (errorMessage.includes("Sport Facility location not provided")) {
+          errorMessage = "Please provide a valid Google Maps location link";
+        }
+        throw new Error(errorMessage);
+      }
+
+      return await res.json();
+    };
+
+    try {
+      addJob(
+        `Add Facility: ${formData.name}`,
+        async () => {
+          const result = await addSportJob();
+          setToast({
+            msg: result.message || "Sport facility added successfully",
+            type: "success",
+          });
+          onSave();
+          // window.location.reload();
+        }
+      );
+    } catch (err) {
+      setToast({ msg: err.message, type: "error" });
     } finally {
       setIsSubmitting(false);
     }
@@ -1558,6 +1599,8 @@ const AddSportModal = ({ onClose, onSave }) => {
 
 // Edit Sport Modal Component
 const EditSportModal = ({ sport, onClose, onSave }) => {
+  const { addJob } = useRequestQueue(); 
+
   const [formData, setFormData] = useState({
     name: sport?.name || "",
     courts:
@@ -1638,44 +1681,46 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    try {
-      // Validation
-      if (!formData.location || formData.location.trim() === "") {
+    // Validation
+    if (!formData.location || formData.location.trim() === "") {
+      setToast({
+        msg: "Sport Facility location cannot be empty",
+        type: "error",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+    if (!validateGoogleMapsUrl(formData.location)) {
+      setToast({
+        msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)",
+        type: "error",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+    const courtNames = formData.courts.map((court) => court.name.trim());
+    const uniqueNames = new Set(courtNames);
+    if (courtNames.length !== uniqueNames.size) {
+      setToast({ msg: "Court names must be unique", type: "error" });
+      setIsSubmitting(false);
+      return;
+    }
+    for (const court of formData.courts) {
+      const earliestTime = new Date(`1970-01-01T${court.earliest}:00`);
+      const latestTime = new Date(`1970-01-01T${court.latest}:00`);
+      if (earliestTime >= latestTime) {
         setToast({
-          msg: "Sport Facility location cannot be empty",
+          msg: `Court ${court.name}: Latest time must be after earliest time`,
           type: "error",
         });
         setIsSubmitting(false);
         return;
       }
-      if (!validateGoogleMapsUrl(formData.location)) {
-        setToast({
-          msg: "Please provide a valid Google Maps link (e.g., https://maps.google.com/... or https://goo.gl/maps/...)",
-          type: "error",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-      const courtNames = formData.courts.map((court) => court.name.trim());
-      const uniqueNames = new Set(courtNames);
-      if (courtNames.length !== uniqueNames.size) {
-        setToast({ msg: "Court names must be unique", type: "error" });
-        setIsSubmitting(false);
-        return;
-      }
-      for (const court of formData.courts) {
-        const earliestTime = new Date(`1970-01-01T${court.earliest}:00`);
-        const latestTime = new Date(`1970-01-01T${court.latest}:00`);
-        if (earliestTime >= latestTime) {
-          setToast({
-            msg: `Court ${court.name}: Latest time must be after earliest time`,
-            type: "error",
-          });
-          setIsSubmitting(false);
-          return;
-        }
-      }
+    }
 
+    // Wrap the edit logic for the queue
+    const editSportJob = async () => {
+      onClose();
       let courtChanged = false;
 
       // Detect court changes
@@ -1781,16 +1826,10 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
 
       if (!nameChanged && !locationChanged && !statusChanged && !imageChanged) {
         if (courtChanged) {
-          setToast({ msg: "Sport facility and courts updated successfully", type: "success" });
-          setTimeout(() => {
-            onClose();
-            window.location.reload();
-          }, 500);
+          return { message: "Sport facility and courts updated successfully" };
         } else {
-          setToast({ msg: "No changes to save", type: "info" });
-          setIsSubmitting(false);
+          throw new Error("No changes to save");
         }
-        return;
       }
 
       let newImageIPFS = undefined;
@@ -1803,9 +1842,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
         });
         const imgData = await imgRes.json();
         if (!imgRes.ok || !imgData.imageIPFS) {
-          setToast({ msg: imgData.error || "Failed to upload image", type: "error" });
-          setIsSubmitting(false);
-          return;
+          throw new Error(imgData.error || "Failed to upload image");
         }
         newImageIPFS = imgData.imageIPFS;
       }
@@ -1815,7 +1852,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
         ...(nameChanged && { newName: formData.name }),
         ...(locationChanged && { newLocation: formData.location }),
         ...(statusChanged && { newStatus: getStatusValue(formData.status) }),
-        ...(newImageIPFS && { newImageIPFS }), 
+        ...(newImageIPFS && { newImageIPFS }),
       };
 
       const res = await authFetch("/api/admin/sport-facilities", {
@@ -1829,17 +1866,22 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
         throw new Error(errorData.error || "Failed to update sport facility");
       }
 
-      setToast({
-        msg: "Sport facility and courts updated successfully",
-        type: "success",
-      });
+      return { message: "Sport facility and courts updated successfully" };
+    };
 
-      setTimeout(() => {
-        onClose();
-        window.location.reload();
-      }, 500);
+    try {
+      addJob(
+        `Edit Facility: ${formData.name}`,
+        async () => {
+          const result = await editSportJob();
+          setToast({
+            msg: result.message,
+            type: "success",
+          });
+          window.location.reload();
+        }
+      );
     } catch (error) {
-      console.error("Error in form submission:", error);
       setToast({
         msg: error.message || "Failed to update sport facility",
         type: "error",
@@ -2054,6 +2096,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
 
 // Add Court Modal Component with Real Functionality
 const AddCourtModal = ({ sportName, onClose, onSave }) => {
+  const { addJob } = useRequestQueue(); 
   const [formData, setFormData] = useState({
     courtName: "",
     earliest: "08:00",
@@ -2066,24 +2109,24 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    try {
-      // Frontend validation
-      if (!formData.courtName.trim()) {
-        setToast({ msg: "Court name is required", type: "error" });
-        return;
-      }
+    // Frontend validation
+    if (!formData.courtName.trim()) {
+      setToast({ msg: "Court name is required", type: "error" });
+      return;
+    }
 
-      const earliestTime = new Date(`1970-01-01T${formData.earliest}:00`);
-      const latestTime = new Date(`1970-01-01T${formData.latest}:00`);
+    const earliestTime = new Date(`1970-01-01T${formData.earliest}:00`);
+    const latestTime = new Date(`1970-01-01T${formData.latest}:00`);
 
-      if (earliestTime >= latestTime) {
-        setToast({
-          msg: "Latest time must be after earliest time",
-          type: "error",
-        });
-        return;
-      }
+    if (earliestTime >= latestTime) {
+      setToast({
+        msg: "Latest time must be after earliest time",
+        type: "error",
+      });
+      return;
+    }
 
+    const addCourtJob = async () => {
       const requestData = {
         courts: [
           {
@@ -2095,6 +2138,7 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
         ],
       };
 
+      onClose();
       const res = await authFetch(
         `/api/admin/${encodeURIComponent(sportName)}/courts`,
         {
@@ -2103,27 +2147,30 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(requestData),
-        },
+        }
       );
 
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || "Failed to add court");
       }
+        return await res.json();
+    };
 
-      const result = await res.json();
-      setToast({
-        msg: result.message || "Court added successfully",
-        type: "success",
-      });
-
-      // Close modal and refresh both sections
-      setTimeout(() => {
-        onSave(); // This will trigger court section refresh
-        onClose();
-      }, 1500);
+    try {
+      // Add to queue
+      addJob(
+        `Add Court: ${formData.courtName}`,
+        async () => {
+          const result = await addCourtJob();
+          setToast({
+            msg: result.message || "Court added successfully",
+            type: "success",
+          });
+          onSave();
+        }
+      );
     } catch (err) {
-      console.error("Error adding court:", err);
       setToast({ msg: err.message, type: "error" });
     } finally {
       setIsSubmitting(false);
@@ -2217,6 +2264,7 @@ const AddCourtModal = ({ sportName, onClose, onSave }) => {
 
 // Delete Court Modal Component
 const DeleteCourtModal = ({ sportName, courts, onClose, onSave }) => {
+  const { addJob } = useRequestQueue(); 
   const [selectedCourt, setSelectedCourt] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState({ msg: "", type: "success" });
@@ -2226,32 +2274,34 @@ const DeleteCourtModal = ({ sportName, courts, onClose, onSave }) => {
       setToast({ msg: "Please select a court to delete", type: "error" });
       return;
     }
-
     setIsDeleting(true);
-    try {
+
+    const deleteCourtJob = async () => {
+      onClose();
       const res = await authFetch(
-        `/api/admin/${sportName}/courts?courtName=${selectedCourt}`,
+        `/api/admin/${encodeURIComponent(sportName)}/courts?courtName=${encodeURIComponent(selectedCourt)}`,
         { method: "DELETE" }
       );
-
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || "Failed to delete court");
       }
+      return await res.json();
+    };
 
-      const result = await res.json();
-      setToast({
-        msg: result.message || "Court deleted successfully",
-        type: "success",
-      });
-
-      // Close modal and refresh both sections
-      setTimeout(() => {
-        onSave(); // This will trigger court section refresh
-        onClose();
-      }, 1500);
+    try {
+      addJob(
+        `Delete Court: ${selectedCourt}`,
+        async () => {
+          const result = await deleteCourtJob();
+          setToast({
+            msg: result.message || "Court deleted successfully",
+            type: "success",
+          });
+          onSave();
+        }
+      );
     } catch (err) {
-      console.error("Error deleting court:", err);
       setToast({ msg: err.message, type: "error" });
     } finally {
       setIsDeleting(false);
@@ -2339,7 +2389,7 @@ const UpdateAvailabilityModal = ({
     startDate: "",
     endDate: "",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState({ msg: "", type: "success" });
 
   const handleSubmit = async (e) => {
@@ -2564,6 +2614,62 @@ const DeleteConfirmModal = ({
         </div>
       </div>
     </div>
+  );
+};
+
+// Delete Sport Facility Modal with RequestQueue integration
+const DeleteSportFacilityModal = ({
+  sportFacility,
+  onClose,
+  onDeleted,
+}) => {
+  const { addJob } = useRequestQueue();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toast, setToast] = useState({ msg: "", type: "success" });
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+
+    const deleteFacilityJob = async () => {
+      onClose();
+      const res = await authFetch(
+        `/api/admin/sport-facilities/${encodeURIComponent(sportFacility.name)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to delete sport facility");
+      }
+      return await res.json();
+    };
+
+    try {
+      addJob(
+        `Delete Facility: ${sportFacility.name}`,
+        async () => {
+          const result = await deleteFacilityJob();
+          setToast({
+            msg: result.message || "Sport facility deleted successfully",
+            type: "success",
+          });
+          onDeleted();
+        }
+      );
+    } catch (err) {
+      setToast({ msg: err.message, type: "error" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <DeleteConfirmModal
+      title="Delete Sport Facility"
+      message={`Are you sure you want to delete ${sportFacility?.name}?`}
+      onClose={onClose}
+      onConfirm={handleDelete}
+      isLoading={isDeleting}
+    />
   );
 };
 

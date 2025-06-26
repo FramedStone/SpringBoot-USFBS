@@ -4,6 +4,7 @@ import Toast from "@components/Toast";
 import Spinner from "@components/Spinner";
 import { authFetch } from "@utils/authFetch";
 import { useWeb3Auth } from "@web3auth/modal/react";
+import { useRequestQueue } from "@components/@RequestQueue"; // Add this import
 import '@styles/UserBookings.css';
 
 // Modal component for confirmation
@@ -35,8 +36,10 @@ const UserBookings = () => {
   const [page, setPage] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingCancel, setPendingCancel] = useState(null);
+  const [cancelJobs, setCancelJobs] = useState({}); // { [ipfsHash]: jobId }
 
   const { web3Auth } = useWeb3Auth();
+  const { addJob, queue } = useRequestQueue(); // Use the request queue
 
   // Fetch user role and eth address
   useEffect(() => {
@@ -104,31 +107,49 @@ const UserBookings = () => {
   const totalPages = Math.ceil(bookings.length / PAGE_SIZE);
   const pagedBookings = bookings.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  // Confirm cancel handler
+  // Helper to check if a booking is being canceled
+  const isCanceling = (ipfsHash) => {
+    const jobId = cancelJobs[ipfsHash];
+    if (!jobId) return false;
+    const job = queue.find(j => j.id === jobId);
+    return job && (job.status === "queued" || job.status === "running");
+  };
+
+  // Confirm cancel handler using queue
   const confirmCancel = async () => {
     if (!pendingCancel) return;
     const { b, cancelEndpoint } = pendingCancel;
-    try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
-      const res = await authFetch(`${backendUrl}${cancelEndpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" }
-      });
-      if (!res.ok) throw new Error("Failed to cancel booking");
-      setToast({ msg: "Booking cancelled successfully", type: "success" });
-      setBookings(prev =>
-        prev.map(book =>
-          book.ipfsHash === b.ipfsHash
-            ? { ...book, status: "3" }
-            : book
-        )
-      );
-    } catch (err) {
-      setToast({ msg: "Failed to cancel booking", type: "error" });
-    } finally {
-      setModalOpen(false);
-      setPendingCancel(null);
-    }
+    setModalOpen(false);
+    setPendingCancel(null);
+
+    // Add cancel job to queue
+    const jobId = addJob(`Cancel booking ${b.ipfsHash}`, async () => {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
+        const res = await authFetch(`${backendUrl}${cancelEndpoint}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+        if (!res.ok) throw new Error("Failed to cancel booking");
+        setToast({ msg: "Booking cancelled successfully", type: "success" });
+        setBookings(prev =>
+          prev.map(book =>
+            book.ipfsHash === b.ipfsHash
+              ? { ...book, status: "3" }
+              : book
+          )
+        );
+      } catch (err) {
+        setToast({ msg: "Failed to cancel booking", type: "error" });
+      } finally {
+        setCancelJobs(jobs => {
+          const copy = { ...jobs };
+          delete copy[b.ipfsHash];
+          return copy;
+        });
+      }
+    });
+    setCancelJobs(jobs => ({ ...jobs, [b.ipfsHash]: jobId }));
   };
 
   return (
@@ -220,8 +241,9 @@ const UserBookings = () => {
                               <button
                                 style={{ marginLeft: 8 }}
                                 onClick={openCancelModal}
+                                disabled={isCanceling(b.ipfsHash)}
                               >
-                                Cancel
+                                {isCanceling(b.ipfsHash) ? "Canceling..." : "Cancel"}
                               </button>
                             )}
                           </>

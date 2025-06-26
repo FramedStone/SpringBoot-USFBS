@@ -13,6 +13,7 @@ import Cart from "@pages/Cart";
 import ContactUs from "@pages/ContactUs";
 import Toast from "@components/Toast";
 import ProtectedRoute from "@components/ProtectedRoute";
+import { RequestQueueProvider } from "@components/@RequestQueue";
 import "./App.css";
 
 function AppRoutes() {
@@ -144,9 +145,11 @@ function AppRoutes() {
 
 function App() {
   return (
-    <Router>
-      <AppRoutes />
-    </Router>
+    <RequestQueueProvider>
+      <Router>
+        <AppRoutes />
+      </Router>
+    </RequestQueueProvider>
   );
 }
 

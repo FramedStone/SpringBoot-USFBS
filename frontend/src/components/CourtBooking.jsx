@@ -380,7 +380,7 @@ const CourtBooking = ({ facilityName, onBack }) => {
     localStorage.setItem('admin_cart_slots', JSON.stringify(slots));
   };
 
-  // Update renderCourtTimeSlots to allow user selection with restriction
+  // Update renderCourtTimeSlots to mark past slots as "Unavailable" based on device local time
   const renderCourtTimeSlots = (courtName, status) => {
     const courtTimeRange = courtTimeRanges[courtName];
 
@@ -396,9 +396,19 @@ const CourtBooking = ({ facilityName, onBack }) => {
     const earliest = courtTimeRange.earliestTime;
     const latest = courtTimeRange.latestTime;
 
+    // Get current device local time as seconds since midnight
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentSeconds = currentHour * 3600 + currentMinute * 60 + now.getSeconds();
+
+    // Also get today's date string for comparison
+    const todayStr = new Date().toISOString().split('T')[0];
+
     return dynamicTimeSlots.map((time) => {
       const slotSeconds = timeToSeconds(time);
 
+      // If slot is outside court's operating hours
       if (slotSeconds < earliest || slotSeconds > latest) {
         return (
           <td
@@ -415,6 +425,7 @@ const CourtBooking = ({ facilityName, onBack }) => {
         );
       }
 
+      // If slot is booked
       if (isSlotBooked(courtName, slotSeconds)) {
         return (
           <td
@@ -427,6 +438,23 @@ const CourtBooking = ({ facilityName, onBack }) => {
             }}
           >
             Booked
+          </td>
+        );
+      }
+
+      // Mark as unavailable if slot is before current local time and selected date is today
+      if (selectedDate === todayStr && slotSeconds <= currentSeconds) {
+        return (
+          <td
+            key={time}
+            className="court-time-slot unavailable"
+            style={{
+              backgroundColor: "#f3f4f6",
+              color: "#9ca3af",
+              fontStyle: "italic",
+            }}
+          >
+            Unavailable
           </td>
         );
       }
