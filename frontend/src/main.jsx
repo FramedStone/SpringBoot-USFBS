@@ -9,7 +9,7 @@ import web3AuthContextConfig from "./components/web3authContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { Buffer } from "buffer";
-if (!window.Buffer) window.Buffer = Buffer;
+window.Buffer = window.Buffer || Buffer;
 
 const queryClient = new QueryClient();
 
