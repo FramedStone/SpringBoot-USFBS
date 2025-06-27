@@ -152,6 +152,45 @@ const UserBookings = () => {
     setCancelJobs(jobs => ({ ...jobs, [b.ipfsHash]: jobId }));
   };
 
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      const halfVisible = Math.floor(maxVisiblePages / 2);
+      let startPage = Math.max(1, page + 1 - halfVisible);
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+
+      if (startPage > 1) {
+        pageNumbers.push(1);
+        if (startPage > 2) {
+          pageNumbers.push('...');
+        }
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        pageNumbers.push(i);
+      }
+
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          pageNumbers.push('...');
+        }
+        pageNumbers.push(totalPages);
+      }
+    }
+
+    return pageNumbers;
+  };
+
   return (
     <div className="user-bookings-container">
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} navType="home" />
@@ -164,72 +203,53 @@ const UserBookings = () => {
             <p>No bookings found.</p>
           </div>
         ) : (
-          <div>
-            <table className="bookings-table">
-              <thead>
-                <tr>
-                  <th>Facility</th>
-                  <th>Court</th>
-                  <th>Date</th>
-                  <th>Start Time</th>
-                  <th>End Time</th>
-                  <th>Status</th>
-                  <th>IPFS Hash</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pagedBookings.map((b, idx) => {
-                  const statusString = (() => {
-                    // Manual status conversion
-                    if (typeof b.status === "string") {
-                      switch (b.status) {
-                        case "0": return "Approved";
-                        case "1": return "Rejected";
-                        case "2": return "Completed";
-                        case "3": return "Cancelled";
-                        default: return "-";
+          <div className="bookings-table-container">
+            <div className="bookings-table-responsive">
+              <table className="bookings-table styled-table">
+                <thead>
+                  <tr>
+                    <th>IPFS Hash</th>
+                    <th>Facility</th>
+                    <th>Court</th>
+                    <th>Date</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedBookings.map((b, idx) => {
+                    const statusString = (() => {
+                      if (typeof b.status === "string") {
+                        switch (b.status) {
+                          case "0": return "Approved";
+                          case "1": return "Rejected";
+                          case "2": return "Completed";
+                          case "3": return "Cancelled";
+                          default: return "-";
+                        }
                       }
-                    }
-                    if (typeof b.status === "string") {
-                      return b.status.charAt(0).toUpperCase() + b.status.slice(1).toLowerCase();
-                    }
-                    return "-";
-                  })();
+                      if (typeof b.status === "string") {
+                        return b.status.charAt(0).toUpperCase() + b.status.slice(1).toLowerCase();
+                      }
+                      return "-";
+                    })();
 
-                  // Determine cancel endpoint based on role
-                  const cancelEndpoint =
-                    userRole === "Admin"
-                      ? `/api/admin/bookings/${b.ipfsHash}/cancel`
-                      : `/api/user/bookings/${b.ipfsHash}/cancel`;
+                    const cancelEndpoint =
+                      userRole === "Admin"
+                        ? `/api/admin/bookings/${b.ipfsHash}/cancel`
+                        : `/api/user/bookings/${b.ipfsHash}/cancel`;
 
-                  const openCancelModal = () => {
-                    setPendingCancel({ b, cancelEndpoint });
-                    setModalOpen(true);
-                  };
+                    const openCancelModal = () => {
+                      setPendingCancel({ b, cancelEndpoint });
+                      setModalOpen(true);
+                    };
 
-                  return (
-                    <tr key={b.ipfsHash || idx}>
-                      <td>{b.facilityName}</td>
-                      <td>{b.courtName}</td>
-                      <td>
-                        {b.startTime
-                          ? new Date(Number(b.startTime) * 1000).toLocaleDateString()
-                          : "-"}
-                      </td>
-                      <td>
-                        {b.startTime
-                          ? new Date(Number(b.startTime) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                          : "-"}
-                      </td>
-                      <td>
-                        {b.endTime
-                          ? new Date(Number(b.endTime) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                          : "-"}
-                      </td>
-                      <td>{statusString}</td>
-                      <td>
-                        {b.ipfsHash ? (
-                          <>
+                    return (
+                      <tr key={b.ipfsHash || idx}>
+                        <td>
+                          {b.ipfsHash ? (
                             <a
                               href={`https://gateway.pinata.cloud/ipfs/${b.ipfsHash}`}
                               target="_blank"
@@ -237,40 +257,105 @@ const UserBookings = () => {
                             >
                               {b.ipfsHash.slice(0, 6)}...{b.ipfsHash.slice(-4)}
                             </a>
-                            {statusString === "Approved" && (
-                              <button
-                                style={{ marginLeft: 8 }}
-                                onClick={openCancelModal}
-                                disabled={isCanceling(b.ipfsHash)}
-                              >
-                                {isCanceling(b.ipfsHash) ? "Canceling..." : "Cancel"}
-                              </button>
-                            )}
-                          </>
-                        ) : "-"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <div className="pagination">
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-              >
-                Prev
-              </button>
-              <span>
-                Page {page + 1} of {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-              >
-                Next
-              </button>
+                          ) : "-"}
+                        </td>
+                        <td>{b.facilityName}</td>
+                        <td>{b.courtName}</td>
+                        <td>
+                          {b.startTime
+                            ? new Date(Number(b.startTime) * 1000).toLocaleDateString()
+                            : "-"}
+                        </td>
+                        <td>
+                          {b.startTime
+                            ? new Date(Number(b.startTime) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : "-"}
+                        </td>
+                        <td>
+                          {b.endTime
+                            ? new Date(Number(b.endTime) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : "-"}
+                        </td>
+                        <td>
+                          <span
+                            className={
+                              statusString === "Approved"
+                                ? "status-badge status-approved"
+                                : statusString === "Cancelled"
+                                ? "status-badge status-cancelled"
+                                : statusString === "Rejected"
+                                ? "status-badge status-rejected"
+                                : statusString === "Completed"
+                                ? "status-badge status-completed"
+                                : ""
+                            }
+                          >
+                            {statusString}
+                          </span>
+                        </td>
+                        <td>
+                          {statusString === "Approved" && (
+                            <button
+                              onClick={openCancelModal}
+                              disabled={isCanceling(b.ipfsHash)}
+                              className="cancel-btn-table"
+                            >
+                              {isCanceling(b.ipfsHash) ? "Canceling..." : "Cancel"}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="pagination-container">
+                <div className="pagination-info">
+                  Showing {page * PAGE_SIZE + 1}
+                  -
+                  {Math.min((page + 1) * PAGE_SIZE, bookings.length)}
+                  {" "}of {bookings.length} results
+                </div>
+                <div className="pagination-controls">
+                  <button
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="pagination-btn pagination-prev"
+                    title="Previous page"
+                  >
+                    Prev
+                  </button>
+                  <div className="pagination-numbers">
+                    {getPageNumbers().map((pageNumber, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() =>
+                          typeof pageNumber === 'number' && setPage(pageNumber - 1)
+                        }
+                        className={`pagination-number ${
+                          pageNumber === page + 1 ? 'active' : ''
+                        } ${typeof pageNumber !== 'number' ? 'ellipsis' : ''}`}
+                        disabled={typeof pageNumber !== 'number'}
+                      >
+                        {pageNumber}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    disabled={page >= totalPages - 1}
+                    className="pagination-btn pagination-next"
+                    title="Next page"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

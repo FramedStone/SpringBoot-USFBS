@@ -1016,7 +1016,8 @@ export default function AdminDashboard() {
 
   const handleAddAnnouncement = async (formData) => {
     try {
-      addJob("Add Announcement", async () => {
+      const title = formData.get('title') || 'Announcement';
+      addJob(`Add Announcement: ${title}`, async () => {
         const res = await authFetch("/api/admin/upload-announcement", {
           method: "POST",
           body: formData,
@@ -1039,7 +1040,8 @@ export default function AdminDashboard() {
   // Edit Announcement using RequestQueue
   const handleSaveEditAnnouncement = async (formData) => {
     try {
-      addJob("Edit Announcement", async () => {
+      const title = formData.get('title') || (editAnnouncement?.title ? editAnnouncement.title : 'Announcement');
+      addJob(`Edit Announcement: ${title}`, async () => {
         if (editAnnouncement && editAnnouncement.title) {
           formData.append('oldTitle', editAnnouncement.title);
         }
@@ -1146,6 +1148,45 @@ export default function AdminDashboard() {
   // Add this function
   const handleEditAnnouncement = (announcement) => {
     setEditAnnouncement(announcement);
+  };
+
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      const halfVisible = Math.floor(maxVisiblePages / 2);
+      let startPage = Math.max(1, currentBookingsPage - halfVisible);
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+
+      if (startPage > 1) {
+        pageNumbers.push(1);
+        if (startPage > 2) {
+          pageNumbers.push('...');
+        }
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        pageNumbers.push(i);
+      }
+
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          pageNumbers.push('...');
+        }
+        pageNumbers.push(totalPages);
+      }
+    }
+
+    return pageNumbers;
   };
 
   return (
@@ -1391,7 +1432,7 @@ export default function AdminDashboard() {
                         "-"
                       )}
                     </span>
-                    <span>{abbreviateAddress(booking.owner || booking.userAddress)}</span>
+                    <span>{booking.userEmail || "-"}</span>
                     <span>{booking.facilityName}</span>
                     <span>{booking.courtName}</span>
                     <span>{formatBookingTimeGmt8(booking.startTime, booking.endTime)}</span>
@@ -1421,23 +1462,45 @@ export default function AdminDashboard() {
             </div>
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div style={{ display: "flex", justifyContent: "center", margin: "1rem 0" }}>
-                <button
-                  onClick={() => setCurrentBookingsPage((p) => Math.max(1, p - 1))}
-                  disabled={currentBookingsPage === 1}
-                  style={{ marginRight: 8 }}
-                >
-                  Prev
-                </button>
-                <span style={{ margin: "0 8px" }}>
-                  Page {currentBookingsPage} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setCurrentBookingsPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentBookingsPage === totalPages}
-                >
-                  Next
-                </button>
+              <div className="pagination-container">
+                <div className="pagination-info">
+                  Showing {(currentBookingsPage - 1) * BOOKINGS_PER_PAGE + 1}
+                  -
+                  {Math.min(currentBookingsPage * BOOKINGS_PER_PAGE, bookings.length)}
+                  {" "}of {bookings.length} results
+                </div>
+                <div className="pagination-controls">
+                  <button
+                    onClick={() => setCurrentBookingsPage((p) => Math.max(1, p - 1))}
+                    disabled={currentBookingsPage === 1}
+                    className="pagination-btn pagination-prev"
+                    title="Previous page"
+                  >
+                    Prev
+                  </button>
+                  <div className="pagination-numbers">
+                    {getPageNumbers().map((pageNumber, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => typeof pageNumber === 'number' && setCurrentBookingsPage(pageNumber)}
+                        className={`pagination-number ${
+                          pageNumber === currentBookingsPage ? 'active' : ''
+                        } ${typeof pageNumber !== 'number' ? 'ellipsis' : ''}`}
+                        disabled={typeof pageNumber !== 'number'}
+                      >
+                        {pageNumber}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setCurrentBookingsPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentBookingsPage === totalPages}
+                    className="pagination-btn pagination-next"
+                    title="Next page"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </div>

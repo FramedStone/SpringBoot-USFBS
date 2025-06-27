@@ -81,35 +81,44 @@ const Cart = () => {
 
       // Queue each booking as a separate job
       cartSlots.forEach((slot, idx) => {
-        addJob(`Booking ${slot.facilityName} - ${slot.courtName} (${slot.date} ${slot.timeSlot})`, async () => {
-          const startTime = getUnixTimestamp(slot.date, slot.timeSlot);
-          const endTime = startTime + 3600; // 1 hour slot
+        const startTime = getUnixTimestamp(slot.date, slot.timeSlot);
+        const endTime = startTime + 3600; // 1 hour slot
+        const formatTime = (unix) => {
+          const d = new Date(unix * 1000);
+          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        };
+        const timeLabel = `${formatTime(startTime)} - ${formatTime(endTime)}`;
+        addJob(
+          `Booking ${slot.facilityName} - ${slot.courtName} (${slot.date} ${timeLabel})`,
+          async () => {
+            const startTime = getUnixTimestamp(slot.date, slot.timeSlot);
+            const endTime = startTime + 3600; // 1 hour slot
 
-          const payload = {
-            facilityName: slot.facilityName,
-            courtName: slot.courtName,
-            startTime,
-            endTime,
-            userAddress: ethAddress // always from Web3Auth
-          };
+            const payload = {
+              facilityName: slot.facilityName,
+              courtName: slot.courtName,
+              startTime,
+              endTime,
+              userAddress: ethAddress // always from Web3Auth
+            };
 
-          // Use correct endpoint based on role
-          const endpoint =
-            userRole === "Admin"
-              ? "/api/admin/bookings"
-              : "/api/user/bookings";
+            const endpoint =
+              userRole === "Admin"
+                ? "/api/admin/bookings"
+                : "/api/user/bookings";
 
-          const res = await authFetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
+            const res = await authFetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
 
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || "Booking failed");
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.error || "Booking failed");
+            }
           }
-        });
+        );
       });
 
       setToast({ msg: "All bookings have been queued!", type: "success" });
@@ -126,17 +135,22 @@ const Cart = () => {
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} navType="home" />
       <div className="cart-content">
         <div className="page-header">
-          <h1>Booking Cart</h1>
-          <p>Review your selected bookings before checkout</p>
         </div>
         {cartSlots.length === 0 ? (
           <div className="cart-placeholder">
             <h3>Cart Page</h3>
-            <p>No bookings selected. Go back and select time slots.</p>
+            <p>No bookings selected.</p>
           </div>
         ) : (
           <div>
             <table className="cart-table">
+              <colgroup>
+                <col style={{ width: "25%" }} /> {/* Facility */}
+                <col style={{ width: "20%" }} /> {/* Court */}
+                <col style={{ width: "20%" }} /> {/* Date */}
+                <col style={{ width: "25%" }} /> {/* Time Slot */}
+                <col style={{ width: "10%" }} /> {/* Remove */}
+              </colgroup>
               <thead>
                 <tr>
                   <th>Facility</th>
@@ -157,13 +171,13 @@ const Cart = () => {
                   };
                   return (
                     <tr key={slot.key}>
-                      <td>{slot.facilityName}</td>
-                      <td>{slot.courtName}</td>
-                      <td>{slot.date}</td>
-                      <td>
+                      <td data-label="Facility">{slot.facilityName}</td>
+                      <td data-label="Court">{slot.courtName}</td>
+                      <td data-label="Date">{slot.date}</td>
+                      <td data-label="Time Slot">
                         {formatTime(startTime)} - {formatTime(endTime)}
                       </td>
-                      <td>
+                      <td data-label="Remove">
                         <button onClick={() => removeSlot(slot.key)}>Remove</button>
                       </td>
                     </tr>

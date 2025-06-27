@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Calendar, Clock, ArrowLeft } from 'lucide-react';
+import { MapPin, Calendar, Clock, ArrowLeft, ShoppingCart } from 'lucide-react';
 import { authFetch } from '@utils/authFetch';
 import Toast from '@components/Toast';
 import Spinner from '@components/Spinner';
@@ -26,7 +26,7 @@ const CourtBooking = ({ facilityName, onBack }) => {
     const saved = localStorage.getItem('admin_cart_slots');
     return saved ? JSON.parse(saved) : [];
   });
-  const [bookedTimeSlotsMap, setBookedTimeSlotsMap] = useState({}); // { courtName: [ { startTime, endTime, ... }, ... ] }
+  const [bookedTimeSlotsMap, setBookedTimeSlotsMap] = useState({}); 
   const [userBookingCount, setUserBookingCount] = useState(0);
   const navigate = useNavigate();
 
@@ -777,13 +777,29 @@ const CourtBooking = ({ facilityName, onBack }) => {
         </div>
 
         {userRole === "Admin" && selectedSlots.length > 0 && (
-          <div style={{ textAlign: "right", marginTop: "1rem" }}>
-            <button
-              className="court-booking-cart-btn"
-              onClick={() => navigate('/cart')}
-            >
-              Go to Cart ({selectedSlots.length} selected)
-            </button>
+          <div
+            style={{
+              position: "fixed",
+              bottom: "32px",
+              right: "32px",
+              zIndex: 1000,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <span className="cart-badge-outside">
+                {selectedSlots.length} selected
+              </span>
+              <button
+                className="court-booking-cart-fab"
+                onClick={() => navigate('/cart')}
+                title={`Go to Cart (${selectedSlots.length} selected)`}
+              >
+                <ShoppingCart size={32} />
+              </button>
+            </div>
           </div>
         )}
       </div>

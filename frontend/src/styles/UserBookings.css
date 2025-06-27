@@ -26,3 +26,141 @@
   color: #718096;
   font-style: italic;
 }
+
+.bookings-table-container {
+  margin: 24px 0;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  padding: 16px;
+}
+
+.bookings-table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  
+  display: block;
+}
+
+.styled-table {
+  width: 100%;
+  min-width: 900px;
+  table-layout: fixed; 
+  border-collapse: collapse;
+  font-size: 15px;
+  background: #fff;
+}
+
+.styled-table thead tr {
+  background-color: #f3f4f6;
+  color: #22223b;
+  text-align: left;
+}
+
+.styled-table th,
+.styled-table td {
+  padding: 12px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: middle;
+  width: 1%; 
+  word-break: break-word;
+}
+
+.styled-table tbody tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+.styled-table tbody tr:hover {
+  background-color: #e0e7ff;
+  transition: background 0.2s;
+}
+
+.styled-table td a {
+  color: #2563eb;
+  text-decoration: underline;
+  font-family: monospace;
+}
+
+.styled-table button {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: background 0.2s;
+}
+
+.styled-table button:disabled {
+  background: #d1d5db;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.bookings-cancel-actions {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cancel-action-row {
+  display: flex;
+  align-items: center;
+  background: #f3f4f6;
+  border-radius: 6px;
+  padding: 10px 16px;
+  font-size: 15px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+
+.cancel-action-row button {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: background 0.2s;
+}
+
+.cancel-action-row button:disabled {
+  background: #d1d5db;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.cancel-btn-table {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-left: 0;
+  transition: background 0.2s;
+}
+
+.cancel-btn-table:disabled {
+  background: #d1d5db;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+/* Responsive for mobile */
+@media (max-width: 700px) {
+  .bookings-table-container {
+    padding: 4px;
+  }
+  .styled-table th,
+  .styled-table td {
+    padding: 8px 8px; /* Even out paddings for mobile as well */
+    font-size: 13px;
+  }
+}

@@ -520,7 +520,7 @@ const BookingManagement = () => {
                           "-"
                         )}
                       </td>
-                      <td>{abbreviateAddress(booking.owner || booking.userAddress)}</td>
+                      <td>{booking.userEmail || "-"}</td>
                       <td>{booking.facilityName}</td>
                       <td>{booking.courtName}</td>
                       <td className="time-cell">

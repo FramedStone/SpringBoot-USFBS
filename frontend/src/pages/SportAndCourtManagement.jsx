@@ -1386,7 +1386,6 @@ const AddSportModal = ({ onClose, onSave }) => {
         formDataToSend.append("image", formData.imageFile);
       }
 
-      onClose();
       const res = await authFetch("/api/admin/sport-facilities", {
         method: "POST",
         body: formDataToSend,
@@ -1405,6 +1404,7 @@ const AddSportModal = ({ onClose, onSave }) => {
     };
 
     try {
+      onClose();
       addJob(
         `Add Facility: ${formData.name}`,
         async () => {
@@ -1414,7 +1414,7 @@ const AddSportModal = ({ onClose, onSave }) => {
             type: "success",
           });
           onSave();
-          // window.location.reload();
+          window.location.reload();
         }
       );
     } catch (err) {

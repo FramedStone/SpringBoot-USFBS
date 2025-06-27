@@ -1006,7 +1006,9 @@ public class AdminService {
                     startTimeField.setAccessible(true);
                     endTimeField.setAccessible(true);
 
-                    bookingMap.put("owner", ownerField.get(obj));
+                    String owner = (String) ownerField.get(obj);
+                    bookingMap.put("owner", owner);
+                    bookingMap.put("userEmail", authService.getUserEmailByAddress(owner)); 
                     bookingMap.put("ipfsHash", ipfsHashField.get(obj));
                     bookingMap.put("facilityName", fnameField.get(obj));
                     bookingMap.put("courtName", cnameField.get(obj));
