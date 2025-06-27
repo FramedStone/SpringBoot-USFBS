@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [react()],
   define: {
     'process.env': {},
+    global: 'globalThis', 
   },
   resolve: {
     alias: {
@@ -14,7 +15,7 @@ export default defineConfig({
       '@components': fileURLToPath(new URL('./src/components', import.meta.url)),
       '@styles': fileURLToPath(new URL('./src/styles', import.meta.url)),
       '@pages': fileURLToPath(new URL('./src/pages', import.meta.url)),
-      '@utils': fileURLToPath(new URL('./src/utils', import.meta.url))
+      '@utils': fileURLToPath(new URL('./src/utils', import.meta.url)),
     }
   },
   optimizeDeps: {
@@ -24,29 +25,19 @@ export default defineConfig({
       plugins: [
         NodeGlobalsPolyfillPlugin({ buffer: true })
       ]
-    },
-    exclude: [
-      'wagmi',
-      'wagmi/chains',
-      'wagmi/connectors'
-    ]
+    }
   },
   build: {
     rollupOptions: {
-      external: [
-        'wagmi',
-        'wagmi/chains',
-        'wagmi/connectors'
+      plugins: [
+        // Polyfill Buffer for production build
+        {
+          name: 'buffer-polyfill',
+          resolveId(id) {
+            if (id === 'buffer') return require.resolve('buffer/');
+          }
+        }
       ]
     }
-  },
-  server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-        secure: false,
-      },
-    },
-  },
-})
+  }
+});
