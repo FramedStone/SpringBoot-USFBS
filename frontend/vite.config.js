@@ -5,7 +5,20 @@ import { fileURLToPath, URL } from 'url'
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    'process.env': {},
+  },
+  resolve: {
+    alias: {
+      buffer: 'buffer',
+      '@components': fileURLToPath(new URL('./src/components', import.meta.url)),
+      '@styles': fileURLToPath(new URL('./src/styles', import.meta.url)),
+      '@pages': fileURLToPath(new URL('./src/pages', import.meta.url)),
+      '@utils': fileURLToPath(new URL('./src/utils', import.meta.url))
+    }
+  },
   optimizeDeps: {
+    include: ['buffer'],
     esbuildOptions: {
       define: { global: 'globalThis' },
       plugins: [
@@ -16,15 +29,6 @@ export default defineConfig({
       'wagmi',
       'wagmi/chains',
       'wagmi/connectors'
-    ]
-  },
-  resolve: {
-    alias: [
-      { find: 'buffer', replacement: 'buffer/' },
-      { find: '@components', replacement: fileURLToPath(new URL('./src/components', import.meta.url)) },
-      { find: '@styles', replacement: fileURLToPath(new URL('./src/styles', import.meta.url)) },
-      { find: '@pages', replacement: fileURLToPath(new URL('./src/pages', import.meta.url)) },
-      { find: '@utils', replacement: fileURLToPath(new URL('./src/utils', import.meta.url)) }
     ]
   },
   build: {
