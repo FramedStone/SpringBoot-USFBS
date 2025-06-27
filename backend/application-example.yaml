@@ -1,17 +1,17 @@
 quorum:
     url: ${RPC_URL:http://localhost:22000}
-    moderator: ${PRIVATE_KEY}
-    admin: ${PRIVATE_KEY}
+    moderator: ${PRIVATE_KEY_MODERATOR}
+    admin: ${PRIVATE_KEY_ADMIN}
     chainId: ${NETWORK_CHAIN_ID} 
     contractAddress: 
-        booking: ${CONTRACT_ADDRESS}
-        sportFacility: ${CONTRACT_ADDRESS}
-        management: ${CONTRACT_ADDRESS}
+        booking: ${CONTRACT_ADDRESS_BOOKING}
+        sportFacility: ${CONTRACT_ADDRESS_SPORTFACILITY}
+        management: ${CONTRACT_ADDRESS_MANAGEMENT}
 
 jwt:
     secret: ${JWT_SCERET}
-    accessExpiry: 
-    refreshExpiry: 
+    accessExpiry: ${JWT_ACCESS_EXP}
+    refreshExpiry: ${JWT_REFRESH_EXP}
 
 cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS} # blockchain and frontend 
