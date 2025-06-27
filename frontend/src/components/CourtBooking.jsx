@@ -776,7 +776,7 @@ const CourtBooking = ({ facilityName, onBack }) => {
           </div>
         </div>
 
-        {userRole === "Admin" && selectedSlots.length > 0 && (
+        {(selectedSlots.length > 0) && (
           <div
             style={{
               position: "fixed",

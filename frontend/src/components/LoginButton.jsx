@@ -63,13 +63,10 @@ export default function LoginButton({
       setEthPrivateKey(privateKey);
       console.log("Private Key Retrieved: 0x", privateKey); // comment out during production
 
-      // SpringBoot verify JWT tokens
       const payload = { email: info.email, userAddress: address };
-      const res = await fetch(`/api/auth/login`, {
+      const res = await authFetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // <-- include cookies
-        body: JSON.stringify(payload), 
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {

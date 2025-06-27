@@ -449,7 +449,7 @@ const SportAndCourtManagement = () => {
           setToast({ msg: "Sport facility and courts updated successfully", type: "success" });
           setTimeout(() => {
             onClose();
-            window.location.reload();
+            // window.location.reload();
           }, 500);
         } else {
           setToast({ msg: "No changes to save", type: "info" });
@@ -480,7 +480,7 @@ const SportAndCourtManagement = () => {
         ...(nameChanged && { newName: formData.name }),
         ...(locationChanged && { newLocation: formData.location }),
         ...(statusChanged && { newStatus: getStatusValue(formData.status) }),
-        ...(newImageIPFS && { newImageIPFS }), 
+        ...(newImageIPFS && { newImageIPFS }),
       };
 
       const res = await authFetch("/api/admin/sport-facilities", {
@@ -501,7 +501,7 @@ const SportAndCourtManagement = () => {
 
       setTimeout(() => {
         onClose();
-        window.location.reload();
+        // window.location.reload();
       }, 500);
     } catch (error) {
       console.error("Error in form submission:", error);
@@ -1414,7 +1414,7 @@ const AddSportModal = ({ onClose, onSave }) => {
             type: "success",
           });
           onSave();
-          window.location.reload();
+          // window.location.reload();
         }
       );
     } catch (err) {
@@ -1878,7 +1878,7 @@ const EditSportModal = ({ sport, onClose, onSave }) => {
             msg: result.message,
             type: "success",
           });
-          window.location.reload();
+          // window.location.reload();
         }
       );
     } catch (error) {
@@ -2331,6 +2331,7 @@ const DeleteCourtModal = ({ sportName, courts, onClose, onSave }) => {
               disabled={isDeleting}
             >
               <option value="">Select a court</option>
+             
               {courts.map((court) => (
                 <option key={court.name} value={court.name}>
                   Court {court.name}
@@ -2383,37 +2384,38 @@ const UpdateAvailabilityModal = ({
   selectedFacility,
   availableCourts,
 }) => {
+  const { addJob } = useRequestQueue(); 
   const [formData, setFormData] = useState({
     court: "",
     status: "MAINTENANCE",
     startDate: "",
     endDate: "",
   });
-   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState({ msg: "", type: "success" });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    try {
-      // Frontend validation
-      if (!formData.court) {
-        setToast({ msg: "Please select a court", type: "error" });
-        return;
-      }
+    // Frontend validation
+    if (!formData.court) {
+      setToast({ msg: "Please select a court", type: "error" });
+      setIsSubmitting(false);
+      return;
+    }
 
-      // Only status is updated, other params are default
-      const requestBody = {
-        oldCourtName: formData.court,
-        newCourtName: "",
-        earliestTime: 0,
-        latestTime: 0,
-        status: getStatusValue(formData.status),
-      };
+    // Prepare request body
+    const requestBody = {
+      oldCourtName: formData.court,
+      newCourtName: "",
+      earliestTime: 0,
+      latestTime: 0,
+      status: getStatusValue(formData.status),
+    };
 
-     
-
+    // Wrap the update logic for the queue
+    const updateAvailabilityJob = async () => {
       const res = await authFetch(
         `/api/admin/${encodeURIComponent(selectedFacility)}/courts`,
         {
@@ -2432,19 +2434,24 @@ const UpdateAvailabilityModal = ({
         );
       }
 
-      const result = await res.json();
-      setToast({
-        msg: result.message || "Court availability updated successfully",
-        type: "success",
-           });
+      return await res.json();
+    };
 
-      // Close modal and refresh data
-      setTimeout(() => {
-        onSave();
-        onClose();
-      }, 1500);
+    try {
+      addJob(
+        `Update Court Availability: ${formData.court}`,
+        async () => {
+          const result = await updateAvailabilityJob();
+          setToast({
+            msg: result.message || "Court availability updated successfully",
+            type: "success",
+          });
+          // Close modal and refresh data
+          onSave();
+        }
+      );
+    onClose();
     } catch (err) {
-      console.error("Error updating court availability:", err);
       setToast({ msg: err.message, type: "error" });
     } finally {
       setIsSubmitting(false);
@@ -2551,9 +2558,7 @@ const UpdateAvailabilityModal = ({
               disabled={isSubmitting || !formData.court}
             >
               {isSubmitting ? (
-                <>
-                  Updating...
-                </>
+                <>Updating...</>
               ) : (
                 "Update Availability"
               )}
