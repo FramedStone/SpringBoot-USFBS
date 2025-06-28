@@ -885,16 +885,17 @@ public class AdminService {
         }
     }
 
-    public String createBooking(String ipfsHash, String facilityName, String courtName, BigInteger startTime, BigInteger endTime, String status) {
+    public String createBooking(String userAddress, String ipfsHash, String facilityName, String courtName, BigInteger startTime, BigInteger endTime, String status) {
         try {
-            // Validate input
+            if (userAddress == null || userAddress.trim().isEmpty()) throw new IllegalArgumentException("userAddress is required");
             if (ipfsHash == null || ipfsHash.trim().isEmpty()) throw new IllegalArgumentException("ipfsHash is required");
             if (facilityName == null || facilityName.trim().isEmpty()) throw new IllegalArgumentException("facilityName is required");
             if (courtName == null || courtName.trim().isEmpty()) throw new IllegalArgumentException("courtName is required");
             if (startTime == null || endTime == null || endTime.compareTo(startTime) <= 0) throw new IllegalArgumentException("Invalid time range");
 
             Booking.timeSlot timeSlot = new Booking.timeSlot(startTime, endTime);
-            TransactionReceipt receipt = bookingContract.createBooking(ipfsHash, facilityName, courtName, timeSlot).send();
+            // Pass userAddress as owner
+            TransactionReceipt receipt = bookingContract.createBooking(userAddress, ipfsHash, facilityName, courtName, timeSlot).send();
             List<Booking.BookingCreatedEventResponse> events = Booking.getBookingCreatedEvents(receipt);
             if (!events.isEmpty()) {
                 Booking.BookingCreatedEventResponse event = events.get(0);
@@ -961,10 +962,9 @@ public class AdminService {
         }
     }
 
-    public List<Object> getAllBookings() {
+    public List<Object> getAllBookings(String userAddress) {
         try {
-            // Calls Booking contract's getAllBookings() for current user
-            return bookingContract.getAllBookings().send();
+            return bookingContract.getAllBookings(userAddress).send();
         } catch (Exception e) {
             logger.error("Error getting user bookings: {}", e.getMessage());
             throw new RuntimeException("Failed to get user bookings: " + e.getMessage());
@@ -1461,7 +1461,7 @@ public class AdminService {
     }
 
     /**
-     * Gets a booking tuple by ipfsHash (admin only).
+     * Gets a booking tuple by ipfsHash 
      */
     public Tuple7<String, String, String, String, BigInteger, BigInteger, BigInteger> getBookingTupleByIpfsHash(String ipfsHash) {
         try {

@@ -324,15 +324,16 @@ public class UserService {
     /**
      * Create a new booking
      */
-    public String createBooking(String ipfsHash, String facilityName, String courtName, BigInteger startTime, BigInteger endTime, String status) {
+    public String createBooking(String userAddress, String ipfsHash, String facilityName, String courtName, BigInteger startTime, BigInteger endTime, String status) {
         try {
+            if (userAddress == null || userAddress.trim().isEmpty()) throw new IllegalArgumentException("userAddress is required");
             if (ipfsHash == null || ipfsHash.trim().isEmpty()) throw new IllegalArgumentException("ipfsHash is required");
             if (facilityName == null || facilityName.trim().isEmpty()) throw new IllegalArgumentException("facilityName is required");
             if (courtName == null || courtName.trim().isEmpty()) throw new IllegalArgumentException("courtName is required");
             if (startTime == null || endTime == null || endTime.compareTo(startTime) <= 0) throw new IllegalArgumentException("Invalid time range");
 
             Booking.timeSlot timeSlot = new Booking.timeSlot(startTime, endTime);
-            TransactionReceipt receipt = bookingContract.createBooking(ipfsHash, facilityName, courtName, timeSlot).send();
+            TransactionReceipt receipt = bookingContract.createBooking(userAddress, ipfsHash, facilityName, courtName, timeSlot).send();
             List<Booking.BookingCreatedEventResponse> events = Booking.getBookingCreatedEvents(receipt);
             if (!events.isEmpty()) {
                 Booking.BookingCreatedEventResponse event = events.get(0);
@@ -430,7 +431,7 @@ public class UserService {
      */
     public List<Map<String, Object>> getAllBookings(String userAddress) {
         try {
-            List<Object> rawBookings = bookingContract.getAllBookings().send();
+            List<Object> rawBookings = bookingContract.getAllBookings(userAddress).send();
             List<Map<String, Object>> bookings = new ArrayList<>();
             for (Object obj : rawBookings) {
                 Map<String, Object> bookingMap = new HashMap<>();
@@ -562,19 +563,20 @@ public class UserService {
             }
 
             // Only log after newIpfsHash is available and updated, with startTime and endTime as formatted datetime
-            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            java.time.format.DateTimeFormatter dateFormatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            java.time.format.DateTimeFormatter timeFormatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
             String dateStr = java.time.Instant.ofEpochSecond(startTime)
                 .atZone(java.time.ZoneId.systemDefault())
                 .toLocalDate()
-                .toString();
+                .format(dateFormatter);
             String startTimeStr = java.time.Instant.ofEpochSecond(startTime)
                 .atZone(java.time.ZoneId.systemDefault())
                 .toLocalTime()
-                .format(formatter);
+                .format(timeFormatter);
             String endTimeStr = java.time.Instant.ofEpochSecond(endTime)
                 .atZone(java.time.ZoneId.systemDefault())
                 .toLocalTime()
-                .format(formatter);
+                .format(timeFormatter);
             String timeRange = String.format("%s %s to %s", dateStr, startTimeStr, endTimeStr);
 
             String logOutput = String.format(
@@ -619,9 +621,11 @@ public class UserService {
             bookingDetails.put("status", status);
 
             // 3. Format file name as booking-{yyyyMMdd}.json
-            java.time.LocalDate bookingDate = java.time.Instant.ofEpochSecond(startTime)
-                .atZone(java.time.ZoneId.systemDefault())
-                .toLocalDate();
+            java.time.LocalDate bookingDate = startTime != 0L
+                ? java.time.Instant.ofEpochSecond(startTime)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDate()
+                : java.time.LocalDate.now();
             String fileName = String.format("booking-%s.json", bookingDate.toString().replace("-", ""));
 
             // 4. Upload new JSON to IPFS
@@ -634,19 +638,20 @@ public class UserService {
             latestIpfsHashMap.put(oldIpfsHash, newIpfsHash);
 
             // 6. Log both old and new IPFS hashes in the event log, with startTime and endTime as formatted datetime
-            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            java.time.format.DateTimeFormatter dateFormatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            java.time.format.DateTimeFormatter timeFormatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
             String dateStr = java.time.Instant.ofEpochSecond(startTime)
                 .atZone(java.time.ZoneId.systemDefault())
                 .toLocalDate()
-                .toString();
+                .format(dateFormatter);
             String startTimeStr = java.time.Instant.ofEpochSecond(startTime)
                 .atZone(java.time.ZoneId.systemDefault())
                 .toLocalTime()
-                .format(formatter);
+                .format(timeFormatter);
             String endTimeStr = java.time.Instant.ofEpochSecond(endTime)
                 .atZone(java.time.ZoneId.systemDefault())
                 .toLocalTime()
-                .format(formatter);
+                .format(timeFormatter);
             String timeRange = String.format("%s %s to %s", dateStr, startTimeStr, endTimeStr);
 
             String logOutput = String.format(

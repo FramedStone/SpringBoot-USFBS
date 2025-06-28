@@ -679,7 +679,7 @@ public class AdminController {
                 ? ((Integer) request.get("endTime")).longValue()
                 : (Long) request.get("endTime");
             String status = (String) request.getOrDefault("status", "pending");
-            String userAddress = (String) request.get("userAddress");
+            String userAddress = (String) request.get("userAddress"); // <-- required
 
             if (facilityName == null || courtName == null || startTime == null || endTime == null || userAddress == null) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Missing required fields"));
@@ -704,6 +704,7 @@ public class AdminController {
 
             // Create booking on-chain (initial IPFS hash)
             String txHash = adminService.createBooking(
+                userAddress, 
                 ipfsHash,
                 facilityName,
                 courtName,
@@ -798,10 +799,15 @@ public class AdminController {
      * GET all bookings for the current user (calls Booking.getAllBookings)
      */
     @GetMapping("/bookings")
-    public ResponseEntity<?> getAllBookings() {
+    public ResponseEntity<?> getAllBookings(@RequestParam("userAddress") String userAddress) {
         try {
-            // This should call the Booking contract's getAllBookings() (not getAllBookings_())
-            List<Object> rawBookings = adminService.getAllBookings();
+            if (userAddress == null || userAddress.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "User address is required"
+                ));
+            }
+            List<Object> rawBookings = adminService.getAllBookings(userAddress);
             List<Map<String, Object>> bookings = new ArrayList<>();
 
             for (Object obj : rawBookings) {

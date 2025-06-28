@@ -174,18 +174,17 @@ public class AuthController {
             String refreshToken = extractToken(req, "refreshToken");
             
             // Extract user address from token before revoking
-            if (accessToken != null) {
-                try {
-                    Map<String, Claim> claims = authService.verifyToken(accessToken);
-                    String userAddress = claims.get("address").asString();
+            // if (accessToken != null) {
+            //     try {
+            //         Map<String, Claim> claims = authService.verifyToken(accessToken);
+            //         String userAddress = claims.get("address").asString();
                     
-                    // Clear user mapping on logout
-                    authService.clearUserMapping(userAddress);
-                } catch (Exception e) {
-                    System.err.println("Failed to extract user address from token during logout: " + e.getMessage());
-                }
-            }
-
+            //         // Clear user mapping on logout
+            //         authService.clearUserMapping(userAddress);
+            //     } catch (Exception e) {
+            //         System.err.println("Failed to extract user address from token during logout: " + e.getMessage());
+            //     }
+            // }
             authService.revokeAccessToken(accessToken);
             authService.revokeRefreshToken(refreshToken);
 

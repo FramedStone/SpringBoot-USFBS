@@ -231,11 +231,16 @@ const BookingManagement = () => {
       if (!res.ok) throw new Error(await res.text() || "Failed to fetch bookings");
       const { data } = await res.json();
 
-      // Filter bookings by date range (inclusive)
+      // Filter bookings by date range (inclusive) and exclude APPROVED
       const start = new Date(startDate + "T00:00:00").getTime() / 1000;
       const end = new Date(endDate + "T23:59:59").getTime() / 1000;
       const filtered = data.filter(
-        b => Number(b.startTime) >= start && Number(b.endTime) <= end
+        b =>
+          Number(b.startTime) >= start &&
+          Number(b.endTime) <= end &&
+          b.status !== "APPROVED" &&
+          b.status !== 0 &&
+          b.status !== "0"
       );
 
       // Prepare data for XLSX
@@ -532,16 +537,22 @@ const BookingManagement = () => {
                         </span>
                       </td>
                       <td>
-                        <button
-                          className="action-btn reject-btn"
-                          disabled={
-                            String(booking.status).toLowerCase() === "rejected" ||
-                            String(booking.status) === "1"
-                          }
-                          onClick={() => openRejectModal(booking)}
-                        >
-                          Reject
-                        </button>
+                        {/* Hide Reject button if status is Cancelled, Completed, or Rejected */}
+                        {!(
+                          String(booking.status).toLowerCase() === "cancelled" ||
+                          String(booking.status) === "3" ||
+                          String(booking.status).toLowerCase() === "completed" ||
+                          String(booking.status) === "2" ||
+                          String(booking.status).toLowerCase() === "rejected" ||
+                          String(booking.status) === "1"
+                        ) && (
+                          <button
+                            className="action-btn reject-btn"
+                            onClick={() => openRejectModal(booking)}
+                          >
+                            Reject
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))

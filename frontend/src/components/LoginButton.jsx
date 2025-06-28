@@ -83,7 +83,7 @@ export default function LoginButton({
       } else if (data.role === "Moderator") {
         navigate("/moderator/events");
       } else {
-        navigate("/user/bookings");
+        navigate("/home");
       }
     } catch (err) {
       setToast({ msg: "Login error: " + err.message, type: "error" });

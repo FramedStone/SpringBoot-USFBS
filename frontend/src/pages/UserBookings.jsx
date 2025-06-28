@@ -11,13 +11,13 @@ import '@styles/UserBookings.css';
 const ConfirmModal = ({ open, onConfirm, onCancel }) => {
   if (!open) return null;
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
+    <div className="cancel-modal-overlay">
+      <div className="cancel-modal-content">
         <h4>Cancel Booking</h4>
         <p>Are you sure you want to cancel this booking?</p>
-        <div className="modal-actions">
-          <button onClick={onCancel} className="modal-btn cancel">No</button>
-          <button onClick={onConfirm} className="modal-btn confirm">Yes, Cancel</button>
+        <div className="cancel-modal-actions">
+          <button onClick={onCancel} className="cancel-modal-btn cancel">No</button>
+          <button onClick={onConfirm} className="cancel-modal-btn confirm">Yes, Cancel</button>
         </div>
       </div>
     </div>
@@ -81,7 +81,7 @@ const UserBookings = () => {
         let options = { headers: { "Content-Type": "application/json" } };
 
         if (userRole === "Admin") {
-          url = `${backendUrl}/api/admin/bookings`;
+          url = `${backendUrl}/api/admin/bookings?userAddress=${ethAddress}`;
         } else {
           url = `${backendUrl}/api/user/bookings`;
           options.headers["user-address"] = ethAddress;
@@ -98,7 +98,7 @@ const UserBookings = () => {
         setLoading(false);
       }
     };
-    if ((userRole === "Admin") || (userRole === "User" && ethAddress)) {
+    if ((userRole === "Admin" || userRole === "User") && ethAddress) {
       fetchBookings();
     }
   }, [userRole, ethAddress]);
@@ -128,7 +128,10 @@ const UserBookings = () => {
         const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
         const res = await authFetch(`${backendUrl}${cancelEndpoint}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" }
+          headers: { 
+            "Content-Type": "application/json",
+            "user-address": ethAddress
+          }
         });
         if (!res.ok) throw new Error("Failed to cancel booking");
         setToast({ msg: "Booking cancelled successfully", type: "success" });

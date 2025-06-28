@@ -188,7 +188,7 @@ public class AuthService {
         }
         
         // Return unknown if no real email found - no placeholder emails
-        return "Unknown";
+        return "-";
     }
 
     /**

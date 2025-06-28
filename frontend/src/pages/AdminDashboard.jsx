@@ -1105,11 +1105,16 @@ export default function AdminDashboard() {
       if (!res.ok) throw new Error(await res.text() || "Failed to fetch bookings");
       const { data } = await res.json();
 
-      // Filter bookings by date range (inclusive)
+      // Filter bookings by date range (inclusive) and exclude APPROVED
       const start = new Date(startDate + "T00:00:00").getTime() / 1000;
       const end = new Date(endDate + "T23:59:59").getTime() / 1000;
       const filtered = data.filter(
-        b => Number(b.startTime) >= start && Number(b.endTime) <= end
+        b =>
+          Number(b.startTime) >= start &&
+          Number(b.endTime) <= end &&
+          b.status !== "APPROVED" &&
+          b.status !== 0 &&
+          b.status !== "0"
       );
 
       // Prepare data for XLSX

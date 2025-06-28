@@ -216,6 +216,11 @@ tbody tr:hover {
   color: #721c24;
 }
 
+.status-cancelled {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
 
 .action-btn {
   padding: 6px 12px;

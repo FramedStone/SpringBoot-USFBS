@@ -119,7 +119,6 @@ public class UserController {
     @PostMapping("/bookings")
     public ResponseEntity<?> createBooking(@RequestBody Map<String, Object> request) {
         try {
-            // Extract booking details from request
             String facilityName = (String) request.get("facilityName");
             String courtName = (String) request.get("courtName");
             Long startTime = request.get("startTime") instanceof Integer
@@ -129,7 +128,7 @@ public class UserController {
                 ? ((Integer) request.get("endTime")).longValue()
                 : (Long) request.get("endTime");
             String status = (String) request.getOrDefault("status", "pending");
-            String userAddress = (String) request.get("userAddress"); 
+            String userAddress = (String) request.get("userAddress"); // <-- required
 
             if (facilityName == null || courtName == null || startTime == null || endTime == null || userAddress == null) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Missing required fields"));
@@ -156,6 +155,7 @@ public class UserController {
 
             // Call service to create booking on-chain
             String txHash = userService.createBooking(
+                userAddress, // <-- pass owner
                 ipfsHash,
                 facilityName,
                 courtName,
@@ -258,6 +258,7 @@ public class UserController {
                     "error", "User address is required"
                 ));
             }
+            // Pass userAddress to service
             List<Map<String, Object>> bookings = userService.getAllBookings(userAddress);
             return ResponseEntity.ok(Map.of(
                 "success", true,
