@@ -18,9 +18,15 @@ export default function LoginButton({
   navigate,
   disconnect,
 }) {
+  const isWeb3AuthReady = web3Auth && web3Auth.status === "ready";
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setToast({ msg: "", type: "error" });
+    if (!isWeb3AuthReady) {
+      setToast({ msg: "Web3Auth is not ready yet. Please wait...", type: "error" });
+      return;
+    }
     if (!SCHOOL_EMAIL_REGEX.test(email)) {
       setToast({ msg: "Please use your MMU email address.", type: "error" });
       return;
@@ -108,12 +114,14 @@ export default function LoginButton({
       <button
         type="submit"
         className="btn"
-        disabled={connectLoading || isConnected}
+        disabled={connectLoading || isConnected || !isWeb3AuthReady}
       >
         {connectLoading
           ? "Connecting…"
           : isConnected
           ? "Connected"
+          : !isWeb3AuthReady
+          ? "Initializing…"
           : "Sign In with MMU Email"}
       </button>
     </form>
