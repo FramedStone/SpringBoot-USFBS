@@ -15,8 +15,9 @@ window.Buffer = window.Buffer || Buffer;
 if (typeof window !== "undefined") {
   window.process = window.process || { env: {} };
   if (!window.process.nextTick) {
-    window.process.nextTick = function (cb, ...args) {
-      return Promise.resolve().then(() => cb(...args));
+    window.process.nextTick = function (fn, ...args) {
+      if (typeof fn !== "function") return;
+      setTimeout(() => fn(...args), 0);
     };
   }
 }
