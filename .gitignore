@@ -39,3 +39,5 @@ application.yaml
 **/src/main/**/contracts/*.java
 
 .GitHub/copilot-instructions.md
+
+.env
