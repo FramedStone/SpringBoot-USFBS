@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import inject from '@rollup/plugin-inject';
 import { fileURLToPath, URL } from 'url';
+import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -19,6 +20,7 @@ export default defineConfig({
   resolve: {
     alias: {
       buffer: 'buffer',
+      process: path.resolve(__dirname, 'node_modules/process/browser.js'),
       '@components': fileURLToPath(new URL('./src/components', import.meta.url)),
       '@styles': fileURLToPath(new URL('./src/styles', import.meta.url)),
       '@pages': fileURLToPath(new URL('./src/pages', import.meta.url)),
