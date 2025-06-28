@@ -11,7 +11,6 @@ import {
 import '@styles/AdminDashboard.css';
 import { authFetch } from "@utils/authFetch";
 import MediaUpload from "@components/MediaUpload";
-import * as XLSX from "xlsx";
 import { useRequestQueue } from "@components/@RequestQueue";
 
 // Utility functions for date conversion
@@ -1116,6 +1115,8 @@ export default function AdminDashboard() {
           b.status !== 0 &&
           b.status !== "0"
       );
+
+      // const XLSX = await import("xlsx/dist/xlsx.full.min.js");
 
       // Prepare data for XLSX
       const sheetData = [

@@ -3,7 +3,6 @@ import Navbar from "@components/Navbar";
 import Spinner from "@components/Spinner";
 import { Download } from "lucide-react";
 import { authFetch } from "@utils/authFetch";
-import * as XLSX from "xlsx";
 import "@styles/BookingManagement.css";
 
 // Utility to abbreviate Ethereum or user addresses for display
@@ -242,6 +241,8 @@ const BookingManagement = () => {
           b.status !== 0 &&
           b.status !== "0"
       );
+
+      // const XLSX = await import("xlsx/dist/xlsx.full.min.js");
 
       // Prepare data for XLSX
       const sheetData = [
