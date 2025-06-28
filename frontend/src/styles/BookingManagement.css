@@ -221,6 +221,11 @@ tbody tr:hover {
   color: #6b7280;
 }
 
+.status-completed {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
 
 .action-btn {
   padding: 6px 12px;

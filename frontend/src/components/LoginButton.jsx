@@ -71,7 +71,8 @@ export default function LoginButton({
 
       if (!res.ok) {
         const errorText = await res.text();
-        throw new Error(`Login failed: ${res.status} – ${errorText}`);
+        setToast({ msg: errorText || "Login failed", type: "error" });
+        return;
       }
       const data = await res.json();
       setLocalUser(info);

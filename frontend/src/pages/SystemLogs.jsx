@@ -164,7 +164,7 @@ const SystemLogs = () => {
         setLogsData(transformedData);
         setError(null);
         setLastUpdate(new Date());
-        setCurrentPage(1);
+        // setCurrentPage(1);
         
         console.log(`Fetched ${transformedData.length} event logs with enhanced user context`);
       } catch (err) {

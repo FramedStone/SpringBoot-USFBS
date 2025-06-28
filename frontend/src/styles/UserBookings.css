@@ -235,7 +235,126 @@
   color: #6b7280;
 }
 
-/* Responsive for mobile */
+.status-badge.status-completed {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.filters-container {
+  background: #f3f4f6;
+  border-radius: 10px;
+  padding: 18px 20px 10px 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+}
+
+.filters-top-row {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search-input {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 15px;
+  background: #fff;
+  transition: border 0.18s;
+}
+
+.search-input:focus {
+  border-color: #2563eb;
+  outline: none;
+  background: #f0f7ff;
+}
+
+.date-input,
+.filters-container select {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 15px;
+  background: #fff;
+  transition: border 0.18s;
+  min-width: 120px;
+}
+
+.date-input:focus,
+.filters-container select:focus {
+  border-color: #2563eb;
+  outline: none;
+  background: #f0f7ff;
+}
+
+.date-separator {
+  font-size: 18px;
+  color: #a0aec0;
+  margin: 0 4px;
+  user-select: none;
+}
+
+.styled-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  background: #e0e7ff;
+  transition: background 0.18s;
+  position: relative;
+}
+
+.styled-table th.sortable.active {
+  background: #c7d2fe;
+  color: #2563eb;
+}
+
+.styled-table th.sortable:hover {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.sort-indicator {
+  margin-left: 6px;
+  display: inline-block;
+  vertical-align: middle;
+  color: #2563eb;
+  transition: color 0.18s;
+}
+
+.pagination-btn,
+.pagination-number {
+  background: #f3f4f6;
+  color: #2563eb;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  padding: 5px 14px;
+  margin: 0 2px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, border 0.18s;
+}
+
+.pagination-btn:hover,
+.pagination-number:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #2563eb;
+}
+
+.pagination-number.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+  font-weight: 600;
+}
+
+.pagination-number.ellipsis {
+  background: transparent;
+  color: #a0aec0;
+  border: none;
+  cursor: default;
+}
+
 @media (max-width: 700px) {
   .bookings-table-container {
     padding: 4px;
@@ -244,6 +363,19 @@
   .styled-table td {
     padding: 8px 8px; /* Even out paddings for mobile as well */
     font-size: 13px;
+  }
+  .filters-container {
+    padding: 10px 6px 8px 6px;
+  }
+  .filters-top-row {
+    gap: 10px;
+  }
+  .search-input,
+  .date-input,
+  .filters-container select {
+    font-size: 13px;
+    padding: 6px 8px;
+    min-width: 90px;
   }
 }
 
