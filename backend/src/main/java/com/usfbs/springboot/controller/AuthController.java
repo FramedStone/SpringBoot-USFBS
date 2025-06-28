@@ -66,7 +66,7 @@ public class AuthController {
         // Set secure cookies
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", accessToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(false)
                 .path("/")
                 .maxAge(authService.getAccessExpiry())
                 .sameSite("Lax")
@@ -74,7 +74,7 @@ public class AuthController {
 
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(false)
                 .path("/")
                 .maxAge(authService.getRefreshExpiry())
                 .sameSite("Lax")
@@ -191,7 +191,7 @@ public class AuthController {
             // Clear cookies
             ResponseCookie clearAccessCookie = ResponseCookie.from("accessToken", "")
                     .httpOnly(true)
-                    .secure(true)
+                    .secure(false)
                     .path("/")
                     .maxAge(0)
                     .sameSite("Lax")
@@ -199,7 +199,7 @@ public class AuthController {
 
             ResponseCookie clearRefreshCookie = ResponseCookie.from("refreshToken", "")
                     .httpOnly(true)
-                    .secure(true)
+                    .secure(false)
                     .path("/")
                     .maxAge(0)
                     .sameSite("Lax")
