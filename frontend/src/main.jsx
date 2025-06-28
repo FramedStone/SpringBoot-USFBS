@@ -15,10 +15,10 @@ window.Buffer = window.Buffer || Buffer;
 if (typeof window !== "undefined") {
   window.process = window.process || { env: {} };
   if (!window.process.nextTick) {
-    // Synchronous polyfill for nextTick (Node.js style)
+    // Asynchronous polyfill for nextTick (Node.js style, supports .bind)
     window.process.nextTick = function (fn, ...args) {
       if (typeof fn !== "function") return;
-      fn(...args);
+      return setTimeout(fn, 0, ...args);
     };
   }
 }
