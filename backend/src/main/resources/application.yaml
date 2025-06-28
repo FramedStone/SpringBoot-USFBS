@@ -26,3 +26,6 @@ app:
 automation:
   admin-email: ${ADMIN_EMAIL}
   admin-address: ${ADMIN_ADDRESS}
+
+server:
+  port: ${PORT}
