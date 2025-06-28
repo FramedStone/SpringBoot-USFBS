@@ -1,0 +1,28 @@
+quorum:
+  url: ${RPC_URL}
+  moderator: ${PRIVATE_KEY_MODERATOR}
+  admin: ${PRIVATE_KEY_ADMIN}
+  chainId: ${NETWORK_CHAIN_ID}
+  contractAddress:
+    booking: ${CONTRACT_ADDRESS_BOOKING}
+    sportFacility: ${CONTRACT_ADDRESS_SPORTFACILITY}
+    management: ${CONTRACT_ADDRESS_MANAGEMENT}
+
+jwt:
+  secret: ${JWT_SECRET}
+  accessExpiry: ${JWT_ACCESS_EXP}
+  refreshExpiry: ${JWT_REFRESH_EXP}
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
+pinata:
+  jwt: ${PINATA_JWT}
+  gateway: ${PINATA_GATEWAY}
+
+app:
+  backend-url: ${BACKEND_URL}
+
+automation:
+  admin-email: ${ADMIN_EMAIL}
+  admin-address: ${ADMIN_ADDRESS}

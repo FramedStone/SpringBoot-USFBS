@@ -33,7 +33,8 @@ build/
 .vscode/
 
 application.properties
-application.yaml
+# application.yaml
+/backend/application.yaml
 
 ### Contract wrappers ###
 **/src/main/**/contracts/*.java
