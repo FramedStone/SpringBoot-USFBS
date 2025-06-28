@@ -1,14 +1,3 @@
-// Polyfill process.nextTick for browser (needed by some web3/auth libs)
-if (typeof window !== "undefined") {
-  window.process = window.process || { env: {} };
-  if (!window.process.nextTick) {
-    window.process.nextTick = function (fn, ...args) {
-      if (typeof fn !== "function") return;
-      return setTimeout(fn, 0, ...args);
-    };
-  }
-}
-
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
@@ -21,6 +10,18 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { Buffer } from "buffer";
 window.Buffer = window.Buffer || Buffer;
+
+// Polyfill process.nextTick for browser (needed by some web3/auth libs)
+if (typeof window !== "undefined") {
+  window.process = window.process || { env: {} };
+  if (!window.process.nextTick) {
+    window.process.nextTick = function (fn, ...args) {
+      if (typeof fn !== "function") return;
+      return setTimeout(fn, 0, ...args);
+    };
+  }
+}
+
 
 const queryClient = new QueryClient();
 
