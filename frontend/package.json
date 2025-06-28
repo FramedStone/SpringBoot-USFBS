@@ -41,5 +41,9 @@
   },
   "resolutions": {
     "rollup": "2.74.1"
+  }, 
+  "browser": {
+    "crypto": false,
+    "stream": false
   }
 }
