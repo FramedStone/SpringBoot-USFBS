@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { Buffer } from "buffer";
 window.Buffer = window.Buffer || Buffer;
+window.process = window.process || { env: {} }; 
 
 const queryClient = new QueryClient();
 

@@ -13,6 +13,7 @@ export default defineConfig({
   base: './', // Ensure assets use relative paths for static hosting
   define: {
     'process.env': {},
+    'process': { env: {} }, 
     global: 'globalThis',
   },
   resolve: {
