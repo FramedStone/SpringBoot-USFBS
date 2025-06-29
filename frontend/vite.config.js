@@ -19,6 +19,13 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      // crypto: "crpto-browserify",
+      assert: "assert",
+      http: "stream-http",
+      https: "https-browserify",
+      url: "url",
+      zlib: "browserify-zlib",
+      stream: "stream-browserify",      
       buffer: 'buffer',
       process: path.resolve(__dirname, 'node_modules/process/browser.js'),
       '@components': fileURLToPath(new URL('./src/components', import.meta.url)),

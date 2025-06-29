@@ -9,8 +9,12 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
 import java.time.Instant;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 @Service
 public class AutomationService {
@@ -90,7 +94,7 @@ public class AutomationService {
         }
     }
 
-    @Scheduled(cron = "0 0 * * * *", zone = "Asia/Kuala_Lumpur")
+    @Scheduled(cron = "0 * * * * *", zone = "Asia/Kuala_Lumpur")
     public void autoCompleteBookings() {
         try {
             refreshJwtIfNeeded();
@@ -112,14 +116,53 @@ public class AutomationService {
             }
 
             List<Map<String, Object>> bookings = (List<Map<String, Object>>) response.getBody().get("data");
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy ha").withZone(ZoneId.of("Asia/Kuala_Lumpur"));
+
+            List<Map<String, Object>> bookingsWithStatus = new ArrayList<>();
+            for (Map<String, Object> booking : bookings) {
+                Object statusObj = booking.get("status");
+                int status = statusObj instanceof Number ? ((Number) statusObj).intValue() : Integer.parseInt(statusObj.toString());
+                Map<String, Object> bookingCopy = new HashMap<>(booking);
+
+                // Convert status
+                if (status == 0) {
+                    bookingCopy.put("status", "APPROVED");
+                }
+
+                // Convert startTime and endTime to "dd/MM/yyyy ha" format in Malaysia time
+                if (bookingCopy.containsKey("startTime")) {
+                    try {
+                        long startEpoch = Long.parseLong(bookingCopy.get("startTime").toString());
+                        ZonedDateTime startZdt = Instant.ofEpochSecond(startEpoch).atZone(ZoneId.of("Asia/Kuala_Lumpur"));
+                        bookingCopy.put("startTime", startZdt.format(formatter).toLowerCase());
+                    } catch (Exception ex) {
+                        // TODO: handle invalid startTime format
+                    }
+                }
+                if (bookingCopy.containsKey("endTime")) {
+                    try {
+                        long endEpoch = Long.parseLong(bookingCopy.get("endTime").toString());
+                        ZonedDateTime endZdt = Instant.ofEpochSecond(endEpoch).atZone(ZoneId.of("Asia/Kuala_Lumpur"));
+                        bookingCopy.put("endTime", endZdt.format(formatter).toLowerCase());
+                    } catch (Exception ex) {
+                        // TODO: handle invalid endTime format
+                    }
+                }
+
+                bookingsWithStatus.add(bookingCopy);
+            }
+
+            System.out.println(">>> AutomationService: Fetched bookings: " + bookingsWithStatus);
+
             long now = Instant.now().getEpochSecond();
 
             for (Map<String, Object> booking : bookings) {
                 Object statusObj = booking.get("status");
                 int status = statusObj instanceof Number ? ((Number) statusObj).intValue() : Integer.parseInt(statusObj.toString());
-                long endTime = Long.parseLong(booking.get("endTime").toString());
+                long endTimeEpoch = Long.parseLong(booking.get("endTime").toString());
 
-                if (status == 1 && endTime <= now) {
+                if (status == 0 && endTimeEpoch <= now) {
                     String ipfsHash = booking.get("ipfsHash").toString();
                     try {
                         String completeUrl = backendUrl + "/api/admin/bookings/" + ipfsHash + "/complete";
@@ -140,6 +183,27 @@ public class AutomationService {
                     } catch (Exception ex) {
                         System.err.println("Error completing booking " + ipfsHash + ": " + ex.getMessage());
                     }
+                } else if (status == 0 && endTimeEpoch > now) {
+                    long secondsLeft = endTimeEpoch - now;
+                    long days = secondsLeft / (24 * 3600);
+                    long hours = (secondsLeft % (24 * 3600)) / 3600;
+                    long minutes = (secondsLeft % 3600) / 60;
+                    StringBuilder timeLeft = new StringBuilder();
+                    if (days > 0) {
+                        timeLeft.append(days).append(days == 1 ? " day" : " days");
+                    }
+                    if (hours > 0) {
+                        if (timeLeft.length() > 0) timeLeft.append(" ");
+                        timeLeft.append(hours).append(hours == 1 ? " hour" : " hours");
+                    }
+                    if (minutes > 0) {
+                        if (timeLeft.length() > 0) timeLeft.append(" ");
+                        timeLeft.append(minutes).append(minutes == 1 ? " minute" : " minutes");
+                    }
+                    if (timeLeft.length() == 0) {
+                        timeLeft.append("less than 1 minute");
+                    }
+                    System.out.println(">>> AutomationService: Booking " + booking.get("ipfsHash") + " cannot be auto-completed yet. Time left: " + timeLeft);
                 }
             }
         } catch (Exception e) {
