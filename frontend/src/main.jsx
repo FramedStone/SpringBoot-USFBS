@@ -5,7 +5,7 @@ import "./index.css";
 import App from "./App.jsx";
 
 import { Web3AuthProvider } from "@web3auth/modal/react";
-import web3AuthContextConfig from "./components/web3authContext";
+import web3AuthContextConfig from "@components/web3authContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { Buffer } from "buffer";
