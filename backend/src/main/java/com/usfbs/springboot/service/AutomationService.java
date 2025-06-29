@@ -1,6 +1,7 @@
 package com.usfbs.springboot.service;
 
 import com.usfbs.springboot.dto.AnnouncementItem;
+import com.usfbs.springboot.service.EventLogService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
 import java.time.Instant;
 import java.util.List;
+import java.util.Formatter;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
@@ -36,12 +38,17 @@ public class AutomationService {
     private AdminService adminService;
 
     @Autowired
+    private EventLogService eventLogService; 
+
+    @Autowired
     public AutomationService(
         RestTemplate restTemplate,
-        @Value("${app.backend-url:http://localhost:8080}") String backendUrl
+        @Value("${app.backend-url:http://localhost:8080}") String backendUrl,
+        EventLogService eventLogService 
     ) {
         this.restTemplate = restTemplate;
         this.backendUrl = backendUrl;
+        this.eventLogService = eventLogService; 
     }
 
     // Helper: Login and get JWT
@@ -94,7 +101,7 @@ public class AutomationService {
         }
     }
 
-    @Scheduled(cron = "0 * * * * *", zone = "Asia/Kuala_Lumpur")
+    @Scheduled(cron = "0 0 * * * *", zone = "Asia/Kuala_Lumpur")
     public void autoCompleteBookings() {
         try {
             refreshJwtIfNeeded();
@@ -117,47 +124,47 @@ public class AutomationService {
 
             List<Map<String, Object>> bookings = (List<Map<String, Object>>) response.getBody().get("data");
 
+            // Define formatter for Malaysia time
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy ha").withZone(ZoneId.of("Asia/Kuala_Lumpur"));
 
-            List<Map<String, Object>> bookingsWithStatus = new ArrayList<>();
+            // Only process and display bookings with status == 0 (APPROVED)
+            List<Map<String, Object>> approvedBookings = new ArrayList<>();
             for (Map<String, Object> booking : bookings) {
                 Object statusObj = booking.get("status");
                 int status = statusObj instanceof Number ? ((Number) statusObj).intValue() : Integer.parseInt(statusObj.toString());
-                Map<String, Object> bookingCopy = new HashMap<>(booking);
-
-                // Convert status
                 if (status == 0) {
+                    Map<String, Object> bookingCopy = new HashMap<>(booking);
                     bookingCopy.put("status", "APPROVED");
-                }
 
-                // Convert startTime and endTime to "dd/MM/yyyy ha" format in Malaysia time
-                if (bookingCopy.containsKey("startTime")) {
-                    try {
-                        long startEpoch = Long.parseLong(bookingCopy.get("startTime").toString());
-                        ZonedDateTime startZdt = Instant.ofEpochSecond(startEpoch).atZone(ZoneId.of("Asia/Kuala_Lumpur"));
-                        bookingCopy.put("startTime", startZdt.format(formatter).toLowerCase());
-                    } catch (Exception ex) {
-                        // TODO: handle invalid startTime format
+                    // Convert startTime and endTime to "dd/MM/yyyy ha" format in Malaysia time
+                    if (bookingCopy.containsKey("startTime")) {
+                        try {
+                            long startEpoch = Long.parseLong(bookingCopy.get("startTime").toString());
+                            ZonedDateTime startZdt = Instant.ofEpochSecond(startEpoch).atZone(ZoneId.of("Asia/Kuala_Lumpur"));
+                            bookingCopy.put("startTime", startZdt.format(formatter).toLowerCase());
+                        } catch (Exception ex) {
+                            // TODO: handle invalid startTime format
+                        }
                     }
-                }
-                if (bookingCopy.containsKey("endTime")) {
-                    try {
-                        long endEpoch = Long.parseLong(bookingCopy.get("endTime").toString());
-                        ZonedDateTime endZdt = Instant.ofEpochSecond(endEpoch).atZone(ZoneId.of("Asia/Kuala_Lumpur"));
-                        bookingCopy.put("endTime", endZdt.format(formatter).toLowerCase());
-                    } catch (Exception ex) {
-                        // TODO: handle invalid endTime format
+                    if (bookingCopy.containsKey("endTime")) {
+                        try {
+                            long endEpoch = Long.parseLong(bookingCopy.get("endTime").toString());
+                            ZonedDateTime endZdt = Instant.ofEpochSecond(endEpoch).atZone(ZoneId.of("Asia/Kuala_Lumpur"));
+                            bookingCopy.put("endTime", endZdt.format(formatter).toLowerCase());
+                        } catch (Exception ex) {
+                            // TODO: handle invalid endTime format
+                        }
                     }
-                }
 
-                bookingsWithStatus.add(bookingCopy);
+                    approvedBookings.add(bookingCopy);
+                }
             }
 
-            System.out.println(">>> AutomationService: Fetched bookings: " + bookingsWithStatus);
+            System.out.println(">>> AutomationService: Fetched bookings: " + approvedBookings);
 
             long now = Instant.now().getEpochSecond();
 
-            for (Map<String, Object> booking : bookings) {
+            for (Map<String, Object> booking : approvedBookings) {
                 Object statusObj = booking.get("status");
                 int status = statusObj instanceof Number ? ((Number) statusObj).intValue() : Integer.parseInt(statusObj.toString());
                 long endTimeEpoch = Long.parseLong(booking.get("endTime").toString());
@@ -177,6 +184,32 @@ public class AutomationService {
                         );
                         if (completeResp.getStatusCode() == HttpStatus.OK) {
                             System.out.println("Auto-completed booking: " + ipfsHash);
+
+                            // Log to event log for SystemLogs page
+                            String facilityName = booking.get("facilityName") != null ? booking.get("facilityName").toString() : "-";
+                            String courtName = booking.get("courtName") != null ? booking.get("courtName").toString() : "-";
+                            long startEpoch = booking.get("startTime") != null ? Long.parseLong(booking.get("startTime").toString()) : 0;
+                            long endEpoch = booking.get("endTime") != null ? Long.parseLong(booking.get("endTime").toString()) : 0;
+                            ZonedDateTime startZdt = Instant.ofEpochSecond(startEpoch).atZone(ZoneId.of("Asia/Kuala_Lumpur"));
+                            ZonedDateTime endZdt = Instant.ofEpochSecond(endEpoch).atZone(ZoneId.of("Asia/Kuala_Lumpur"));
+                            String startStr = startZdt.format(formatter).toLowerCase();
+                            String endStr = endZdt.format(formatter).toLowerCase();
+
+                            StringBuilder note = new StringBuilder();
+                            note.append(ipfsHash).append("\n")
+                                .append(facilityName).append("\n")
+                                .append(courtName).append("\n")
+                                .append(startStr).append(" to ").append(endStr);
+
+                            // Use EventLogService to add the log
+                            eventLogService.addEventLog(
+                                ipfsHash,
+                                "Booking Completed",
+                                "System",
+                                String.valueOf(Instant.now().toEpochMilli()),
+                                note.toString(),
+                                "BOOKING"
+                            );
                         } else {
                             System.err.println("Failed to complete booking: " + ipfsHash);
                         }
@@ -210,5 +243,4 @@ public class AutomationService {
             System.err.println("autoCompleteBookings error: " + e.getMessage());
         }
     }
-    // TODO: Add notification or logging enhancements 
 }

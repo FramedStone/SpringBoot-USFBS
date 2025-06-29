@@ -709,6 +709,11 @@ const SystemLogs = () => {
 
   const filteredAndSortedLogs = useMemo(() => {
     const filtered = logsData.filter(log => {
+      // Filter out logs with role "Unknown" or invalid timestamp
+      if (log.role === "Unknown") return false;
+      const logDate = new Date(log.timestamp);
+      if (isNaN(logDate.getTime())) return false;
+
       const matchesSearch = searchTerm === '' ||
         log.oldIpfsHash.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.newIpfsHash.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -721,7 +726,6 @@ const SystemLogs = () => {
 
       const matchesAction = selectedActions[log.action];
 
-      const logDate = new Date(log.timestamp);
       const start = startDate ? new Date(startDate) : null;
       const end = endDate ? new Date(endDate) : null;
       const matchesDate = (!start || logDate >= start) && (!end || logDate <= end);
